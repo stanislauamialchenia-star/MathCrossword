@@ -33,26 +33,15 @@ jobs:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_SIGNING_KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail
-          GRADLE_USER_HOME="$RUNNER_TEMP/gradle-home"
-          echo "GRADLE_USER_HOME=$GRADLE_USER_HOME" >> "$GITHUB_ENV"
-          install -d -m 700 "$GRADLE_USER_HOME"
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/mathcrossword-signing.keystore"
           chmod 600 "$RUNNER_TEMP/mathcrossword-signing.keystore"
           keytool -list \
             -keystore "$RUNNER_TEMP/mathcrossword-signing.keystore" \
             -storepass "$STORE_PASSWORD" \
             -alias "$KEY_ALIAS" > /dev/null
-          {
-            printf 'android.injected.signing.store.file=%s\n' "$RUNNER_TEMP/mathcrossword-signing.keystore"
-            printf 'android.injected.signing.store.password=%s\n' "$STORE_PASSWORD"
-            printf 'android.injected.signing.key.alias=%s\n' "$KEY_ALIAS"
-            printf 'android.injected.signing.key.password=%s\n' "$KEY_PASSWORD"
-          } > "$GRADLE_USER_HOME/gradle.properties"
-          chmod 600 "$GRADLE_USER_HOME/gradle.properties"
 
       - name: Read app version
         id: version
@@ -70,6 +59,25 @@ jobs:
         run: |
           chmod +x ./gradlew
           ./gradlew assembleDebug --no-daemon
+
+      - name: Sign debug APK with persistent key
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -n "$apksigner"
+          "$apksigner" sign \
+            --ks "$RUNNER_TEMP/mathcrossword-signing.keystore" \
+            --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:STORE_PASSWORD \
+            --key-pass env:KEY_PASSWORD \
+            --out "$RUNNER_TEMP/app-debug-signed.apk" \
+            app/build/outputs/apk/debug/app-debug.apk
+          mv "$RUNNER_TEMP/app-debug-signed.apk" app/build/outputs/apk/debug/app-debug.apk
 
       - name: Verify persistent APK signature
         env:
@@ -118,4 +126,4 @@ jobs:
         run: |
           rm -f "$RUNNER_TEMP/mathcrossword-signing.keystore"
           rm -f "$RUNNER_TEMP/mathcrossword-signing-cert.der"
-          rm -f "$GRADLE_USER_HOME/gradle.properties"
+          rm -f "$RUNNER_TEMP/app-debug-signed.apk"
