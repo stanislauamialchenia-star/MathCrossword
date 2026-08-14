@@ -1,0 +1,8 @@
+v10 smoke benchmark (very small sample; not a performance claim)
+
+CHAIN Logic 4: 3/3 generated, 3/3 unique, 3/3 target matched, 100% constructive, ~1.57 s average.
+CHAIN Logic 5: 3/3 generated, 3/3 unique, 3/3 target matched, 100% constructive, ~1.61 s average.
+NETWORK Logic 4: 3/3 generated, 3/3 unique, 3/3 target matched, 100% constructive, ~4.40 s average.
+NETWORK Logic 5: 1/1 generated, unique, target matched, constructive, ~5.54 s.
+
+Important: later all-strategy runs showed high runtime variance for some NETWORK/HYPOTHESIS seeds. The next optimization target is therefore not more retries; it is reducing expensive dead-end construction/evaluation paths.

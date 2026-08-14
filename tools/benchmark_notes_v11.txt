@@ -1,0 +1,12 @@
+MathCrossword v11 smoke benchmark (container JVM, not Android hardware)
+
+CHAIN L4, 3 samples: 3/3 generated, 3/3 unique, 2/3 strict target matched; avg ~3.5s in one mixed run. Individual clean sample ~1.5s.
+CHAIN L5, 3 samples: 3/3 generated, 3/3 unique, 3/3 target matched; avg ~2.4s.
+NETWORK L4, 3 samples: 3/3 generated, 3/3 unique, 3/3 target matched; avg ~1.1s.
+NETWORK L5, 3 samples: 3/3 generated, 3/3 unique, 3/3 target matched; avg ~1.1s; one sample used fallback constructor.
+
+A v11 stage-timing sample for NETWORK L4 showed HIDDEN_UNIQUENESS dominating generation time (~1.4s of ~1.44s total), while graph construction and arithmetic mapping were tiny. This is exactly the kind of bottleneck the new diagnostics are intended to reveal.
+
+Diagonal constraints were present in accepted CHAIN/NETWORK samples (e.g. avg 1 diagonal in a two-sample NETWORK L4 batch; CHAIN batches showed several diagonals per puzzle depending on family).
+
+Times are diagnostic only and will differ on a phone/JVM.

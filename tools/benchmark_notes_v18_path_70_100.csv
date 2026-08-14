@@ -1,0 +1,8 @@
+level,logic,rated,family,hidden,basic_forced,basic_remaining,reasoning_steps,max_forced_cascade,max_forced_fraction,truth_reveal_fraction,accepted,wall_ms
+70,3,4,generic,7,0,7,1,6,0.857,1.000,true,470
+75,4,4,mixed-two-front,11,0,11,3,5,0.455,1.000,true,1809
+80,4,4,mixed-two-front,10,2,8,2,3,0.300,1.000,true,858
+85,4,4,generic,11,1,10,2,5,0.455,1.000,true,5218
+90,4,4,mixed-two-front,12,1,11,4,3,0.250,1.000,true,1124
+95,4,4,mixed-two-front,12,2,10,3,5,0.417,1.000,true,7740
+100,4,4,mixed-two-front,12,0,12,3,5,0.417,1.000,true,531

@@ -1,0 +1,20 @@
+.gradle/
+.idea/
+local.properties
+**/build/
+*.iml
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+tools/.harness-classes/
+tools/.path-harness-classes/
+
+# Local research traces (do not publish by default)
+*.jsonl
+data/raw/
+
+tools/.level-test/
+tools/.decoy-test/
+
+tools/.curve-classes/
