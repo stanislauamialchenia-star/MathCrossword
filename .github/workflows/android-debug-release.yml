@@ -70,6 +70,8 @@ jobs:
           set -euo pipefail
           apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -n "$apksigner"
+          zip -q -d app/build/outputs/apk/debug/app-debug.apk \
+            'META-INF/*.SF' 'META-INF/*.RSA' 'META-INF/*.DSA' 'META-INF/*.EC' || true
           "$apksigner" sign \
             --ks "$RUNNER_TEMP/mathcrossword-signing.keystore" \
             --ks-key-alias "$KEY_ALIAS" \
@@ -95,9 +97,10 @@ jobs:
             -alias "$KEY_ALIAS" \
             -file "$RUNNER_TEMP/mathcrossword-signing-cert.der" > /dev/null
           expected_digest="$(sha256sum "$RUNNER_TEMP/mathcrossword-signing-cert.der" | cut -d ' ' -f 1)"
-          actual_digest="$("$apksigner" verify --print-certs app/build/outputs/apk/debug/app-debug.apk \
-            | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1)"
-          test "$actual_digest" = "$expected_digest"
+          mapfile -t actual_digests < <("$apksigner" verify --print-certs app/build/outputs/apk/debug/app-debug.apk \
+            | sed -n 's/^Signer #[0-9][0-9]* certificate SHA-256 digest: //p')
+          test "${#actual_digests[@]}" -eq 1
+          test "${actual_digests[0]}" = "$expected_digest"
 
       - name: Prepare release APK
         id: apk
