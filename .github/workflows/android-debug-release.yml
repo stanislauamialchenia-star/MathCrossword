@@ -17,8 +17,6 @@ jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      GRADLE_USER_HOME: ${{ runner.temp }}/gradle-home
 
     steps:
       - name: Check out source
@@ -39,6 +37,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          GRADLE_USER_HOME="$RUNNER_TEMP/gradle-home"
+          echo "GRADLE_USER_HOME=$GRADLE_USER_HOME" >> "$GITHUB_ENV"
           install -d -m 700 "$GRADLE_USER_HOME"
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/mathcrossword-signing.keystore"
           chmod 600 "$RUNNER_TEMP/mathcrossword-signing.keystore"
