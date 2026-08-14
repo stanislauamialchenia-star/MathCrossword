@@ -91,16 +91,16 @@ jobs:
           apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -n "$apksigner"
           "$apksigner" verify app/build/outputs/apk/debug/app-debug.apk
-          keytool -exportcert \
+          expected_digest="$(keytool -list -v \
             -keystore "$RUNNER_TEMP/mathcrossword-signing.keystore" \
             -storepass "$STORE_PASSWORD" \
             -alias "$KEY_ALIAS" \
-            -file "$RUNNER_TEMP/mathcrossword-signing-cert.der" > /dev/null
-          expected_digest="$(sha256sum "$RUNNER_TEMP/mathcrossword-signing-cert.der" | cut -d ' ' -f 1)"
-          mapfile -t actual_digests < <("$apksigner" verify --print-certs app/build/outputs/apk/debug/app-debug.apk \
-            | sed -n 's/^Signer #[0-9][0-9]* certificate SHA-256 digest: //p')
-          test "${#actual_digests[@]}" -eq 1
-          test "${actual_digests[0]}" = "$expected_digest"
+            | sed -n 's/^.*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          actual_digest="$(keytool -printcert -jarfile app/build/outputs/apk/debug/app-debug.apk \
+            | sed -n 's/^.*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          test -n "$expected_digest"
+          test -n "$actual_digest"
+          test "$actual_digest" = "$expected_digest"
 
       - name: Prepare release APK
         id: apk
@@ -128,5 +128,4 @@ jobs:
         shell: bash
         run: |
           rm -f "$RUNNER_TEMP/mathcrossword-signing.keystore"
-          rm -f "$RUNNER_TEMP/mathcrossword-signing-cert.der"
           rm -f "$RUNNER_TEMP/app-debug-signed.apk"
