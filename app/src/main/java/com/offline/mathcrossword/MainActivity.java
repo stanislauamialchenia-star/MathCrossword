@@ -5,7 +5,9 @@ import static com.offline.mathcrossword.PuzzleModel.*;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -100,6 +102,7 @@ public class MainActivity extends Activity {
         int hintStage = 0;
         boolean focusMode = false;
         float candidateDrawerHeight = -1f;
+        float lastExpandedDrawerHeight = -1f;
         boolean draggingCandidateDrawer = false;
         float drawerDragStartY = 0f;
         float drawerDragStartHeight = 0f;
@@ -132,6 +135,9 @@ public class MainActivity extends Activity {
         final RectF homeFreeRect = new RectF();
         final RectF homeLibraryRect = new RectF();
         final RectF homeAnalysisRect = new RectF();
+        final RectF homeUpdateRect = new RectF();
+        String updateStatus = "обновление не проверено";
+        boolean updateChecking = false;
         final RectF topHomeRect = new RectF();
         final RectF resetRect = new RectF();
         final RectF menuRect = new RectF();
@@ -435,18 +441,23 @@ public class MainActivity extends Activity {
             homeFreeRect.set(side, homeLevelsRect.bottom + gap, w - side, homeLevelsRect.bottom + gap + buttonH);
             homeLibraryRect.set(side, homeFreeRect.bottom + gap, w - side, homeFreeRect.bottom + gap + buttonH);
             homeAnalysisRect.set(side, homeLibraryRect.bottom + gap, w - side, homeLibraryRect.bottom + gap + buttonH);
+            homeUpdateRect.set(side, homeAnalysisRect.bottom + gap, w - side, homeAnalysisRect.bottom + gap + buttonH);
 
             drawBigButton(c, homeContinueRect, generating ? "Генерирую уровень " + progressLevel + "…" : "Продолжить — уровень " + progressLevel, true);
             drawBigButton(c, homeLevelsRect, "Выбрать уровень", false);
             drawBigButton(c, homeFreeRect, "Свободная игра", false);
             drawBigButton(c, homeLibraryRect, "Библиотека решений", false);
             drawBigButton(c, homeAnalysisRect, "Анализ прохождений", false);
+            drawBigButton(c, homeUpdateRect, updateChecking ? "Проверяю обновление…" : "Проверить обновление", false);
 
             paint.setColor(Color.rgb(108, 119, 110));
-            paint.setTextSize(dp(12.5f));
+            paint.setTextSize(dp(12.2f));
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            float infoY = Math.min(h - bottomInset - dp(42), homeUpdateRect.bottom + dp(27));
+            c.drawText("Версия " + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ") · " + updateStatus, w / 2f, infoY, paint);
+            paint.setTextSize(dp(11.6f));
             c.drawText("История решения хранится только на этом устройстве", w / 2f,
-                    Math.min(h - bottomInset - dp(24), homeAnalysisRect.bottom + dp(34)), paint);
+                    Math.min(h - bottomInset - dp(18), infoY + dp(20)), paint);
         }
 
         void drawLevels(Canvas c) {
@@ -950,13 +961,17 @@ public class MainActivity extends Activity {
             float drawerMin = dp(28) + bottomInset;
             float drawerCompact = Math.min(h * 0.34f, dp(250) + bottomInset);
             float drawerMax = Math.min(h * 0.58f, dp(430) + bottomInset);
-            if (candidateDrawerHeight < 0f) candidateDrawerHeight = drawerCompact;
+            if (candidateDrawerHeight < 0f) {
+                candidateDrawerHeight = drawerCompact;
+                lastExpandedDrawerHeight = drawerCompact;
+            }
             candidateDrawerHeight = Math.max(drawerMin, Math.min(drawerMax, candidateDrawerHeight));
-            if (focusMode) candidateDrawerHeight = drawerMin;
+            if (candidateDrawerHeight > drawerMin + dp(10)) lastExpandedDrawerHeight = candidateDrawerHeight;
+            float effectiveDrawerHeight = focusMode ? drawerMin : candidateDrawerHeight;
 
             float headerH = focusMode ? 0f : dp(46);
             float topH = topInset + headerH;
-            float drawerTop = h - candidateDrawerHeight;
+            float drawerTop = h - effectiveDrawerHeight;
 
             if (!focusMode) drawTopBar(canvas, w, topInset, headerH);
             else drawFocusHandle(canvas, w, topInset);
@@ -987,7 +1002,7 @@ public class MainActivity extends Activity {
             // summary marker or covered by later board drawing.
             drawAllCandidateNotesOverlay(canvas);
 
-            drawCandidateDrawer(canvas, drawerTop, candidateDrawerHeight, w, h, drawerMin, drawerMax);
+            drawCandidateDrawer(canvas, drawerTop, effectiveDrawerHeight, w, h, drawerMin, drawerMax);
             if (solved) drawSolvedBanner(canvas, w, h);
         }
 
@@ -1029,7 +1044,7 @@ public class MainActivity extends Activity {
         }
 
         void drawCandidateDrawer(Canvas c, float top, float height, float w, float h, float minH, float maxH) {
-            drawerHandleRect.set(0, top, w, Math.min(h - bottomInset, top + dp(28)));
+            drawerHandleRect.set(0, Math.max(0, top - dp(8)), w, Math.min(h - bottomInset, top + dp(44)));
             paint.setStyle(Paint.Style.FILL);
             paint.setColor(Color.argb(246, 248, 252, 246));
             c.drawRect(0, top, w, h, paint);
@@ -1053,9 +1068,9 @@ public class MainActivity extends Activity {
 
         void showGameMenu() {
             if (puzzle == null) return;
-            String info = String.format(Locale.US, "Логика %d (%.1f) · вычисления %d (%.1f)\n%s · скрыто клеток: %d",
+            String info = String.format(Locale.US, "Логика %d (%.1f) · вычисления %d (%.1f)\n%s · скрыто клеток: %d\nВерсия %s (%d)",
                     puzzle.displayLogicLevel, puzzle.logicScore, puzzle.displayCalcLevel, puzzle.calcScore,
-                    puzzle.solutionStrategy.label, puzzle.hidden.size());
+                    puzzle.solutionStrategy.label, puzzle.hidden.size(), BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE);
             String focusLabel = focusMode ? "Показать панели" : "Режим фокуса";
             boolean drawerHidden = candidateDrawerHeight <= dp(40) + bottomInset;
             String drawerLabel = drawerHidden ? "Показать кандидаты" : "Скрыть кандидаты";
@@ -1064,12 +1079,19 @@ public class MainActivity extends Activity {
                     .setMessage(info)
                     .setItems(new String[]{focusLabel, drawerLabel, "Перезапустить", "Закрыть"}, (dialog, which) -> {
                         if (which == 0) {
+                            if (!focusMode && candidateDrawerHeight > dp(40) + bottomInset) lastExpandedDrawerHeight = candidateDrawerHeight;
                             focusMode = !focusMode;
-                            if (!focusMode && candidateDrawerHeight <= dp(40) + bottomInset) candidateDrawerHeight = dp(220) + bottomInset;
+                            if (!focusMode && candidateDrawerHeight <= dp(40) + bottomInset) {
+                                candidateDrawerHeight = lastExpandedDrawerHeight > dp(40) + bottomInset
+                                        ? lastExpandedDrawerHeight : dp(220) + bottomInset;
+                            }
                             tracker.event("focus_mode", -1, -1, focusMode ? 1 : -1, null);
                             invalidate();
                         } else if (which == 1) {
-                            candidateDrawerHeight = drawerHidden ? dp(220) + bottomInset : dp(28) + bottomInset;
+                            if (!drawerHidden) lastExpandedDrawerHeight = candidateDrawerHeight;
+                            candidateDrawerHeight = drawerHidden
+                                    ? (lastExpandedDrawerHeight > dp(40) + bottomInset ? lastExpandedDrawerHeight : dp(220) + bottomInset)
+                                    : dp(28) + bottomInset;
                             tracker.event("candidate_drawer", -1, -1, drawerHidden ? 1 : 0, "menu");
                             invalidate();
                         } else if (which == 2) {
@@ -1395,9 +1417,16 @@ public class MainActivity extends Activity {
                     float compactH = Math.min(getHeight() * 0.34f, dp(250) + bottomInset);
                     float maxH = Math.min(getHeight() * 0.58f, dp(430) + bottomInset);
                     if (moved < dp(8)) {
-                        if (candidateDrawerHeight <= minH + dp(8)) candidateDrawerHeight = compactH;
-                        else if (candidateDrawerHeight < (compactH + maxH) * 0.5f) candidateDrawerHeight = maxH;
-                        else candidateDrawerHeight = minH;
+                        if (candidateDrawerHeight <= minH + dp(8)) {
+                            candidateDrawerHeight = lastExpandedDrawerHeight > minH + dp(10)
+                                    ? Math.min(maxH, lastExpandedDrawerHeight) : compactH;
+                        } else {
+                            lastExpandedDrawerHeight = candidateDrawerHeight;
+                            candidateDrawerHeight = minH;
+                        }
+                    } else {
+                        if (candidateDrawerHeight <= minH + dp(24)) candidateDrawerHeight = minH;
+                        else lastExpandedDrawerHeight = candidateDrawerHeight;
                     }
                     tracker.event("candidate_drawer", -1, -1, Math.round(candidateDrawerHeight), "drag");
                     invalidate();
@@ -1413,6 +1442,7 @@ public class MainActivity extends Activity {
                 else if (homeFreeRect.contains(x, y)) { screen = Screen.FREE_SETUP; invalidate(); }
                 else if (homeLibraryRect.contains(x, y)) { screen = Screen.LIBRARY; invalidate(); }
                 else if (homeAnalysisRect.contains(x, y)) { screen = Screen.ANALYSIS; invalidate(); }
+                else if (homeUpdateRect.contains(x, y)) { checkForUpdate(); }
                 return true;
             }
 
@@ -1623,6 +1653,47 @@ public class MainActivity extends Activity {
                 builder.setPositiveButton("Глубже →", (dialog, which) -> showGuidedHint());
             }
             builder.show();
+        }
+
+        void checkForUpdate() {
+            if (updateChecking) return;
+            updateChecking = true;
+            updateStatus = "проверяю…";
+            invalidate();
+            UpdateChecker.check(BuildConfig.VERSION_NAME, new UpdateChecker.Callback() {
+                @Override public void onResult(String latestVersion, String downloadUrl, boolean newer) {
+                    post(() -> {
+                        updateChecking = false;
+                        updateStatus = newer ? "доступна " + latestVersion : "актуальная";
+                        invalidate();
+                        AlertDialog.Builder dialog = new AlertDialog.Builder(getContext())
+                                .setTitle(newer ? "Есть обновление" : "Обновление не требуется")
+                                .setMessage("Установлена: " + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")\n"
+                                        + "Последняя: " + latestVersion);
+                        if (newer && downloadUrl != null) {
+                            dialog.setPositiveButton("Скачать", (d, which) -> {
+                                try {
+                                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl));
+                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                    getContext().startActivity(intent);
+                                } catch (RuntimeException ex) {
+                                    Toast.makeText(getContext(), "Не удалось открыть загрузку", Toast.LENGTH_SHORT).show();
+                                }
+                            });
+                        }
+                        dialog.setNegativeButton("Закрыть", null).show();
+                    });
+                }
+
+                @Override public void onError(String message) {
+                    post(() -> {
+                        updateChecking = false;
+                        updateStatus = "ошибка проверки";
+                        invalidate();
+                        Toast.makeText(getContext(), "Не удалось проверить обновление: " + message, Toast.LENGTH_LONG).show();
+                    });
+                }
+            });
         }
 
         void resetHintDepth() {
