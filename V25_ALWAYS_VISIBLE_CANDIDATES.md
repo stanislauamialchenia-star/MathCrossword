@@ -10,3 +10,5 @@ Readability changes:
 - the selected cell uses slightly stronger contrast;
 - all saved candidates remain visible on the board while the bottom drawer can still be
   collapsed or hidden for focus mode.
+
+The GitHub release is built from this v25 source on `main`.
