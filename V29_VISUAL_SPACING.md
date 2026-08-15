@@ -5,3 +5,5 @@
 - The next-level button is narrower, shorter, and slightly quieter while remaining the primary completion action.
 - Completion label and divider contrast are reduced slightly.
 - No puzzle-generation or solving logic changes.
+
+Release build triggered after the UI spacing patch was applied to `main`.
