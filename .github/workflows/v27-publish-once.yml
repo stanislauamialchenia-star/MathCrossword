@@ -1,0 +1,161 @@
+name: Publish v27 minimal home once
+
+on:
+  push:
+    branches:
+      - v27-ui-publish
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply v27 home UI changes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('app/src/main/java/com/offline/mathcrossword/MainActivity.java')
+          s = p.read_text()
+
+          old = '''        final RectF homeLibraryRect = new RectF();
+        final RectF homeAnalysisRect = new RectF();
+        final RectF homeUpdateRect = new RectF();
+        String updateStatus = "обновление не проверено";
+'''
+          new = '''        final RectF homeLibraryRect = new RectF();
+        final RectF homeAnalysisRect = new RectF();
+        final RectF homeInfoRect = new RectF();
+        final RectF homeUpdateRect = new RectF();
+        String updateStatus = "обновление не проверено";
+'''
+          if old not in s:
+              raise SystemExit('home rect declaration block not found')
+          s = s.replace(old, new, 1)
+
+          old = '''            homeLibraryRect.set(side, homeFreeRect.bottom + gap, w - side, homeFreeRect.bottom + gap + buttonH);
+            homeAnalysisRect.set(side, homeLibraryRect.bottom + gap, w - side, homeLibraryRect.bottom + gap + buttonH);
+            homeUpdateRect.set(side, homeAnalysisRect.bottom + gap, w - side, homeAnalysisRect.bottom + gap + buttonH);
+
+            drawBigButton(c, homeContinueRect, generating ? "Генерирую уровень " + progressLevel + "…" : "Продолжить — уровень " + progressLevel, true);
+            drawBigButton(c, homeLevelsRect, "Выбрать уровень", false);
+            drawBigButton(c, homeFreeRect, "Свободная игра", false);
+            drawBigButton(c, homeLibraryRect, "Библиотека решений", false);
+            drawBigButton(c, homeAnalysisRect, "Анализ прохождений", false);
+            drawBigButton(c, homeUpdateRect, updateChecking ? "Проверяю обновление…" : "Проверить обновление", false);
+
+            paint.setColor(Color.rgb(108, 119, 110));
+            paint.setTextSize(dp(12.2f));
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            float infoY = Math.min(h - bottomInset - dp(42), homeUpdateRect.bottom + dp(27));
+            c.drawText("Версия " + installedVersionName() + " (" + installedVersionCode() + ") · " + updateStatus, w / 2f, infoY, paint);
+            paint.setTextSize(dp(11.6f));
+            c.drawText("История решения хранится только на этом устройстве", w / 2f,
+                    Math.min(h - bottomInset - dp(18), infoY + dp(20)), paint);
+'''
+          new = '''            homeLibraryRect.set(side, homeFreeRect.bottom + gap, w - side, homeFreeRect.bottom + gap + buttonH);
+            homeAnalysisRect.set(side, homeLibraryRect.bottom + gap, w - side, homeLibraryRect.bottom + gap + buttonH);
+
+            drawBigButton(c, homeContinueRect, generating ? "Генерирую уровень " + progressLevel + "…" : "Продолжить — уровень " + progressLevel, true);
+            drawBigButton(c, homeLevelsRect, "Выбрать уровень", false);
+            drawBigButton(c, homeFreeRect, "Свободная игра", false);
+            drawBigButton(c, homeLibraryRect, "Библиотека решений", false);
+            drawBigButton(c, homeAnalysisRect, "Анализ прохождений", false);
+
+            // Quiet utility footer: version/info on the left, update as one small icon on the right.
+            float footerY = h - bottomInset - dp(31);
+            homeInfoRect.set(dp(18), footerY - dp(22), Math.min(w * 0.58f, dp(235)), footerY + dp(22));
+            homeUpdateRect.set(w - dp(68), footerY - dp(22), w - dp(18), footerY + dp(22));
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextAlign(Paint.Align.LEFT);
+            paint.setTextSize(dp(12.2f));
+            paint.setColor(Color.rgb(105, 116, 107));
+            c.drawText("ⓘ  v" + installedVersionName(), homeInfoRect.left + dp(4), footerY + dp(4), paint);
+
+            if (!"обновление не проверено".equals(updateStatus)) {
+                paint.setTextAlign(Paint.Align.CENTER);
+                paint.setTextSize(dp(10.8f));
+                paint.setColor(updateStatus.startsWith("доступна") ? accent : Color.rgb(112, 123, 114));
+                c.drawText(updateStatus, w / 2f, footerY + dp(4), paint);
+            }
+
+            stroke.setStyle(Paint.Style.STROKE);
+            stroke.setStrokeWidth(dp(1.15f));
+            stroke.setColor(updateStatus.startsWith("доступна") ? accent : Color.rgb(176, 190, 178));
+            c.drawRoundRect(homeUpdateRect, dp(13), dp(13), stroke);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(20));
+            paint.setColor(updateStatus.startsWith("доступна") ? accent : Color.rgb(79, 89, 81));
+            Paint.FontMetrics updateFm = paint.getFontMetrics();
+            c.drawText(updateChecking ? "…" : "↻", homeUpdateRect.centerX(),
+                    homeUpdateRect.centerY() - (updateFm.ascent + updateFm.descent) / 2f, paint);
+'''
+          if old not in s:
+              raise SystemExit('drawHome update block not found')
+          s = s.replace(old, new, 1)
+
+          old = '''                else if (homeLibraryRect.contains(x, y)) { screen = Screen.LIBRARY; invalidate(); }
+                else if (homeAnalysisRect.contains(x, y)) { screen = Screen.ANALYSIS; invalidate(); }
+                else if (homeUpdateRect.contains(x, y)) { checkForUpdate(); }
+'''
+          new = '''                else if (homeLibraryRect.contains(x, y)) { screen = Screen.LIBRARY; invalidate(); }
+                else if (homeAnalysisRect.contains(x, y)) { screen = Screen.ANALYSIS; invalidate(); }
+                else if (homeInfoRect.contains(x, y)) { showAppInfo(); }
+                else if (homeUpdateRect.contains(x, y)) { checkForUpdate(); }
+'''
+          if old not in s:
+              raise SystemExit('home touch block not found')
+          s = s.replace(old, new, 1)
+
+          marker = '''        void checkForUpdate() {
+'''
+          insert = '''        void showAppInfo() {
+            new AlertDialog.Builder(getContext())
+                    .setTitle("MathCrossword")
+                    .setMessage("Версия " + installedVersionName() + " (" + installedVersionCode() + ")\\n\\n"
+                            + "Офлайн-игра без рекламы.\\n"
+                            + "История решения и анализ хранятся только на этом устройстве.\\n"
+                            + "Интернет используется только когда ты сам запускаешь проверку обновления.")
+                    .setPositiveButton("Закрыть", null)
+                    .show();
+        }
+
+'''
+          if marker not in s:
+              raise SystemExit('checkForUpdate marker not found')
+          s = s.replace(marker, insert + marker, 1)
+          p.write_text(s)
+
+          g = Path('app/build.gradle')
+          gradle = g.read_text()
+          if 'versionCode 26' not in gradle or "versionName '1.26'" not in gradle:
+              raise SystemExit('expected v26 version block not found')
+          gradle = gradle.replace('versionCode 26', 'versionCode 27', 1)
+          gradle = gradle.replace("versionName '1.26'", "versionName '1.27'", 1)
+          g.write_text(gradle)
+
+          Path('V27_MINIMAL_HOME.md').write_text('''# v27 — quieter home screen\n\n- Removed the full-width update button from primary navigation.\n- Moved installed version/app info into a quiet footer.\n- Update check is now a small refresh icon in the bottom-right corner.\n- Tapping the version/info area opens a short app-information dialog.\n- Update state stays visually quiet until the user actually checks.\n- No gameplay or generator changes in this version.\n''')
+          PY
+
+          rm -f tmp
+
+      - name: Commit v27 to main
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "MathCrossword v27: quieter home footer"
+          git push origin HEAD:main
