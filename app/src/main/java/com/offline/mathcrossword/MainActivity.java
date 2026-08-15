@@ -454,7 +454,7 @@ public class MainActivity extends Activity {
             paint.setTextSize(dp(12.2f));
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
             float infoY = Math.min(h - bottomInset - dp(42), homeUpdateRect.bottom + dp(27));
-            c.drawText("Версия " + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ") · " + updateStatus, w / 2f, infoY, paint);
+            c.drawText("Версия " + installedVersionName() + " (" + installedVersionCode() + ") · " + updateStatus, w / 2f, infoY, paint);
             paint.setTextSize(dp(11.6f));
             c.drawText("История решения хранится только на этом устройстве", w / 2f,
                     Math.min(h - bottomInset - dp(18), infoY + dp(20)), paint);
@@ -1070,7 +1070,7 @@ public class MainActivity extends Activity {
             if (puzzle == null) return;
             String info = String.format(Locale.US, "Логика %d (%.1f) · вычисления %d (%.1f)\n%s · скрыто клеток: %d\nВерсия %s (%d)",
                     puzzle.displayLogicLevel, puzzle.logicScore, puzzle.displayCalcLevel, puzzle.calcScore,
-                    puzzle.solutionStrategy.label, puzzle.hidden.size(), BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE);
+                    puzzle.solutionStrategy.label, puzzle.hidden.size(), installedVersionName(), installedVersionCode());
             String focusLabel = focusMode ? "Показать панели" : "Режим фокуса";
             boolean drawerHidden = candidateDrawerHeight <= dp(40) + bottomInset;
             String drawerLabel = drawerHidden ? "Показать кандидаты" : "Скрыть кандидаты";
@@ -1655,12 +1655,33 @@ public class MainActivity extends Activity {
             builder.show();
         }
 
+        String installedVersionName() {
+            try {
+                android.content.pm.PackageInfo info = getContext().getPackageManager()
+                        .getPackageInfo(getContext().getPackageName(), 0);
+                return info.versionName == null ? "1.26" : info.versionName;
+            } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
+                return "1.26";
+            }
+        }
+
+        long installedVersionCode() {
+            try {
+                android.content.pm.PackageInfo info = getContext().getPackageManager()
+                        .getPackageInfo(getContext().getPackageName(), 0);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return info.getLongVersionCode();
+                return info.versionCode;
+            } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
+                return 26L;
+            }
+        }
+
         void checkForUpdate() {
             if (updateChecking) return;
             updateChecking = true;
             updateStatus = "проверяю…";
             invalidate();
-            UpdateChecker.check(BuildConfig.VERSION_NAME, new UpdateChecker.Callback() {
+            UpdateChecker.check(installedVersionName(), new UpdateChecker.Callback() {
                 @Override public void onResult(String latestVersion, String downloadUrl, boolean newer) {
                     post(() -> {
                         updateChecking = false;
@@ -1668,7 +1689,7 @@ public class MainActivity extends Activity {
                         invalidate();
                         AlertDialog.Builder dialog = new AlertDialog.Builder(getContext())
                                 .setTitle(newer ? "Есть обновление" : "Обновление не требуется")
-                                .setMessage("Установлена: " + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")\n"
+                                .setMessage("Установлена: " + installedVersionName() + " (" + installedVersionCode() + ")\n"
                                         + "Последняя: " + latestVersion);
                         if (newer && downloadUrl != null) {
                             dialog.setPositiveButton("Скачать", (d, which) -> {
