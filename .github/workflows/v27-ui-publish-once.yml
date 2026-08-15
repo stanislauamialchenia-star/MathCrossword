@@ -1,0 +1,72 @@
+name: Publish v27 visual cleanup once
+on:
+  push:
+    branches: [v27-ui-publish]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Patch main to v27
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout -B main origin/main
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('app/src/main/java/com/offline/mathcrossword/MainActivity.java')
+          s = p.read_text()
+
+          old_home = '''            paint.setTypeface(android.graphics.Typeface.DEFAULT);\n            paint.setTextSize(dp(14));\n            paint.setColor(Color.rgb(85, 95, 87));\n            c.drawText("офлайн • без рекламы • локальный анализ", w / 2f, y + dp(65), paint);\n\n            float side = dp(26);\n            float buttonH = dp(52);\n            float gap = dp(9);\n            float firstTop = Math.max(y + dp(92), h * 0.30f);\n            homeContinueRect.set(side, firstTop, w - side, firstTop + buttonH);\n            homeLevelsRect.set(side, homeContinueRect.bottom + gap, w - side, homeContinueRect.bottom + gap + buttonH);\n            homeFreeRect.set(side, homeLevelsRect.bottom + gap, w - side, homeLevelsRect.bottom + gap + buttonH);\n            homeLibraryRect.set(side, homeFreeRect.bottom + gap, w - side, homeFreeRect.bottom + gap + buttonH);\n            homeAnalysisRect.set(side, homeLibraryRect.bottom + gap, w - side, homeLibraryRect.bottom + gap + buttonH);\n            homeUpdateRect.set(side, homeAnalysisRect.bottom + gap, w - side, homeAnalysisRect.bottom + gap + buttonH);\n\n            drawBigButton(c, homeContinueRect, generating ? "Генерирую уровень " + progressLevel + "…" : "Продолжить — уровень " + progressLevel, true);\n            drawBigButton(c, homeLevelsRect, "Выбрать уровень", false);\n            drawBigButton(c, homeFreeRect, "Свободная игра", false);\n            drawBigButton(c, homeLibraryRect, "Библиотека решений", false);\n            drawBigButton(c, homeAnalysisRect, "Анализ прохождений", false);\n            drawBigButton(c, homeUpdateRect, updateChecking ? "Проверяю обновление…" : "Проверить обновление", false);\n\n            paint.setColor(Color.rgb(108, 119, 110));\n            paint.setTextSize(dp(12.2f));\n            paint.setTypeface(android.graphics.Typeface.DEFAULT);\n            float infoY = Math.min(h - bottomInset - dp(42), homeUpdateRect.bottom + dp(27));\n            c.drawText("Версия " + installedVersionName() + " (" + installedVersionCode() + ") · " + updateStatus, w / 2f, infoY, paint);\n            paint.setTextSize(dp(11.6f));\n            c.drawText("История решения хранится только на этом устройстве", w / 2f,\n                    Math.min(h - bottomInset - dp(18), infoY + dp(20)), paint);\n'''
+          new_home = '''            // Keep the home screen quiet: product/update metadata lives in a small footer,\n            // not as another primary action competing with play.\n            float side = dp(26);\n            float buttonH = dp(52);\n            float gap = dp(9);\n            float firstTop = Math.max(y + dp(76), h * 0.29f);\n            homeContinueRect.set(side, firstTop, w - side, firstTop + buttonH);\n            homeLevelsRect.set(side, homeContinueRect.bottom + gap, w - side, homeContinueRect.bottom + gap + buttonH);\n            homeFreeRect.set(side, homeLevelsRect.bottom + gap, w - side, homeLevelsRect.bottom + gap + buttonH);\n            homeLibraryRect.set(side, homeFreeRect.bottom + gap, w - side, homeFreeRect.bottom + gap + buttonH);\n            homeAnalysisRect.set(side, homeLibraryRect.bottom + gap, w - side, homeLibraryRect.bottom + gap + buttonH);\n\n            drawBigButton(c, homeContinueRect, generating ? "Генерирую уровень " + progressLevel + "…" : "Продолжить — уровень " + progressLevel, true);\n            drawBigButton(c, homeLevelsRect, "Выбрать уровень", false);\n            drawBigButton(c, homeFreeRect, "Свободная игра", false);\n            drawBigButton(c, homeLibraryRect, "Библиотека решений", false);\n            drawBigButton(c, homeAnalysisRect, "Анализ прохождений", false);\n\n            float footerY = h - bottomInset - dp(34);\n            homeUpdateRect.set(w - dp(62), footerY - dp(20), w - dp(18), footerY + dp(20));\n            paint.setStyle(Paint.Style.FILL);\n            paint.setColor(Color.argb(115, 255, 255, 255));\n            c.drawRoundRect(homeUpdateRect, dp(12), dp(12), paint);\n            paint.setColor(updateChecking ? Color.rgb(120, 130, 121) : ink);\n            paint.setTextAlign(Paint.Align.CENTER);\n            paint.setTypeface(android.graphics.Typeface.DEFAULT);\n            paint.setTextSize(dp(23));\n            Paint.FontMetrics updateFm = paint.getFontMetrics();\n            c.drawText(updateChecking ? "…" : "↻", homeUpdateRect.centerX(),\n                    homeUpdateRect.centerY() - (updateFm.ascent + updateFm.descent) / 2f, paint);\n\n            paint.setColor(Color.rgb(108, 119, 110));\n            paint.setTextSize(dp(11.8f));\n            paint.setTextAlign(Paint.Align.CENTER);\n            String versionLine = "v" + installedVersionName() + " (" + installedVersionCode() + ") · офлайн · без рекламы";\n            if (!"обновление не проверено".equals(updateStatus)) versionLine += " · " + updateStatus;\n            c.drawText(versionLine, w / 2f - dp(14), footerY - dp(7), paint);\n            paint.setTextSize(dp(10.8f));\n            c.drawText("данные и история решения хранятся локально", w / 2f - dp(14), footerY + dp(11), paint);\n'''
+          if old_home not in s:
+              raise SystemExit('home block not found')
+          s = s.replace(old_home, new_home, 1)
+
+          old_draw = '''            float effectiveDrawerHeight = focusMode ? drawerMin : candidateDrawerHeight;\n\n            float headerH = focusMode ? 0f : dp(46);\n'''
+          new_draw = '''            // Completion gets its own reserved bottom sheet. Never overlay the board.\n            float solvedDrawerHeight = dp(142) + bottomInset;\n            float effectiveDrawerHeight = solved ? solvedDrawerHeight : (focusMode ? drawerMin : candidateDrawerHeight);\n\n            float headerH = focusMode ? 0f : dp(46);\n'''
+          if old_draw not in s:
+              raise SystemExit('effective drawer block not found')
+          s = s.replace(old_draw, new_draw, 1)
+
+          old_tail = '''            drawCandidateDrawer(canvas, drawerTop, effectiveDrawerHeight, w, h, drawerMin, drawerMax);\n            if (solved) drawSolvedBanner(canvas, w, h);\n'''
+          new_tail = '''            if (solved) drawSolvedBanner(canvas, w, h);\n            else drawCandidateDrawer(canvas, drawerTop, effectiveDrawerHeight, w, h, drawerMin, drawerMax);\n'''
+          if old_tail not in s:
+              raise SystemExit('game tail block not found')
+          s = s.replace(old_tail, new_tail, 1)
+
+          old_banner = '''        void drawSolvedBanner(Canvas c, float w, float h) {\n            float side = dp(24);\n            float bottom = h - bottomInset - dp(24);\n            float buttonH = dp(58);\n            nextLevelRect.set(side, bottom - buttonH, w - side, bottom);\n\n            RectF label = new RectF(side, nextLevelRect.top - dp(46), w - side, nextLevelRect.top - dp(7));\n            paint.setColor(soft);\n            paint.setStyle(Paint.Style.FILL);\n            c.drawRoundRect(label, dp(12), dp(12), paint);\n            paint.setColor(ink);\n            paint.setTextAlign(Paint.Align.CENTER);\n            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);\n            paint.setTextSize(dp(18));\n            c.drawText("Готово ✓", w / 2f, label.centerY() + dp(6), paint);\n\n            paint.setColor(accent);\n            c.drawRoundRect(nextLevelRect, dp(15), dp(15), paint);\n            paint.setColor(Color.WHITE);\n            paint.setTextSize(dp(18));\n            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);\n            String labelText = generating ? "Генерирую…"\n                    : (mode == GameMode.PATH ? "Следующий уровень  →" : "Новая головоломка  →");\n            c.drawText(labelText, w / 2f, nextLevelRect.centerY() + dp(6), paint);\n        }\n'''
+          new_banner = '''        void drawSolvedBanner(Canvas c, float w, float h) {\n            // Replace the candidate drawer after completion instead of floating controls\n            // over the crossword. The board has already reserved this exact area.\n            float sheetTop = h - bottomInset - dp(142);\n            drawerHandleRect.setEmpty();\n            bankHits.clear();\n            undoRect.setEmpty(); candidateRect.setEmpty(); hintRect.setEmpty();\n\n            paint.setStyle(Paint.Style.FILL);\n            paint.setColor(Color.argb(250, 248, 252, 246));\n            c.drawRect(0, sheetTop, w, h, paint);\n            paint.setColor(Color.argb(28, 0, 0, 0));\n            c.drawRect(0, sheetTop, w, sheetTop + dp(1), paint);\n\n            paint.setColor(ink);\n            paint.setTextAlign(Paint.Align.CENTER);\n            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);\n            paint.setTextSize(dp(18));\n            c.drawText("Готово ✓", w / 2f, sheetTop + dp(35), paint);\n\n            float side = dp(24);\n            nextLevelRect.set(side, sheetTop + dp(55), w - side, h - bottomInset - dp(18));\n            paint.setColor(accent);\n            c.drawRoundRect(nextLevelRect, dp(15), dp(15), paint);\n            paint.setColor(Color.WHITE);\n            paint.setTextSize(dp(18));\n            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);\n            String labelText = generating ? "Генерирую…"\n                    : (mode == GameMode.PATH ? "Следующий уровень  →" : "Новая головоломка  →");\n            Paint.FontMetrics fm = paint.getFontMetrics();\n            c.drawText(labelText, w / 2f, nextLevelRect.centerY() - (fm.ascent + fm.descent) / 2f, paint);\n        }\n'''
+          if old_banner not in s:
+              raise SystemExit('solved banner block not found')
+          s = s.replace(old_banner, new_banner, 1)
+
+          old_drag = '''                if (event.getAction() == MotionEvent.ACTION_DOWN && drawerHandleRect.contains(x, y)) {\n'''
+          new_drag = '''                if (!solved && event.getAction() == MotionEvent.ACTION_DOWN && drawerHandleRect.contains(x, y)) {\n'''
+          if old_drag not in s:
+              raise SystemExit('drawer touch block not found')
+          s = s.replace(old_drag, new_drag, 1)
+
+          # Runtime fallbacks should match the packaged version too.
+          s = s.replace('return info.versionName == null ? "1.26" : info.versionName;', 'return info.versionName == null ? "1.27" : info.versionName;')
+          s = s.replace('return "1.26";', 'return "1.27";')
+          s = s.replace('return 26L;', 'return 27L;')
+          p.write_text(s)
+
+          g = Path('app/build.gradle')
+          t = g.read_text()
+          t = t.replace('versionCode 26', 'versionCode 27')
+          t = t.replace("versionName '1.26'", "versionName '1.27'")
+          g.write_text(t)
+          PY
+          git add app/src/main/java/com/offline/mathcrossword/MainActivity.java app/build.gradle
+          git commit -m "MathCrossword v27: quiet footer and clean completion sheet"
+          git push origin main
