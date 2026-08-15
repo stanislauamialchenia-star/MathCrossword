@@ -1,0 +1,61 @@
+name: Publish v29 spacing cleanup once
+on:
+  push:
+    branches: [v27-ui-publish]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Patch main to v29
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout -B main origin/main
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('app/src/main/java/com/offline/mathcrossword/MainActivity.java')
+          s = p.read_text()
+
+          old = '''            float availW = Math.max(dp(40), w - dp(12));\n            float availH = Math.max(dp(60), drawerTop - topH - dp(8));\n            boardViewportTop = topH;\n'''
+          new = '''            float availW = Math.max(dp(40), w - dp(12));\n            // Finished puzzles get a real breathing gap above the completion sheet.\n            // This is reserved board space, not an overlay, so the last crossword tile\n            // never visually sticks to the bottom controls.\n            float boardBottomGap = solved ? dp(26) : dp(8);\n            float availH = Math.max(dp(60), drawerTop - topH - boardBottomGap);\n            boardViewportTop = topH;\n'''
+          if old not in s:
+              raise SystemExit('board spacing block not found')
+          s = s.replace(old, new, 1)
+
+          old_banner = '''            paint.setStyle(Paint.Style.FILL);\n            paint.setColor(Color.argb(250, 248, 252, 246));\n            c.drawRect(0, sheetTop, w, h, paint);\n            paint.setColor(Color.argb(28, 0, 0, 0));\n            c.drawRect(0, sheetTop, w, sheetTop + dp(1), paint);\n\n            paint.setColor(ink);\n            paint.setTextAlign(Paint.Align.CENTER);\n            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);\n            paint.setTextSize(dp(18));\n            c.drawText("Готово ✓", w / 2f, sheetTop + dp(35), paint);\n\n            float side = dp(24);\n            nextLevelRect.set(side, sheetTop + dp(55), w - side, h - bottomInset - dp(18));\n            paint.setColor(accent);\n            c.drawRoundRect(nextLevelRect, dp(15), dp(15), paint);\n            paint.setColor(Color.WHITE);\n            paint.setTextSize(dp(18));\n'''
+          new_banner = '''            paint.setStyle(Paint.Style.FILL);\n            paint.setColor(Color.argb(246, 248, 252, 246));\n            c.drawRect(0, sheetTop, w, h, paint);\n            paint.setColor(Color.argb(22, 0, 0, 0));\n            c.drawRect(0, sheetTop, w, sheetTop + dp(1), paint);\n\n            paint.setColor(ink);\n            paint.setTextAlign(Paint.Align.CENTER);\n            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);\n            paint.setTextSize(dp(16.5f));\n            c.drawText("Готово ✓", w / 2f, sheetTop + dp(32), paint);\n\n            // Keep completion action obvious but less visually dominant than the board.\n            float side = dp(38);\n            nextLevelRect.set(side, sheetTop + dp(62), w - side, h - bottomInset - dp(24));\n            paint.setColor(accent);\n            c.drawRoundRect(nextLevelRect, dp(13), dp(13), paint);\n            paint.setColor(Color.WHITE);\n            paint.setTextSize(dp(17));\n'''
+          if old_banner not in s:
+              raise SystemExit('completion visual block not found')
+          s = s.replace(old_banner, new_banner, 1)
+
+          # Runtime fallbacks should match the packaged version.
+          s = s.replace('return info.versionName == null ? "1.27" : info.versionName;', 'return info.versionName == null ? "1.29" : info.versionName;')
+          s = s.replace('return "1.27";', 'return "1.29";')
+          s = s.replace('return 27L;', 'return 29L;')
+          s = s.replace('return info.versionName == null ? "1.28" : info.versionName;', 'return info.versionName == null ? "1.29" : info.versionName;')
+          s = s.replace('return "1.28";', 'return "1.29";')
+          s = s.replace('return 28L;', 'return 29L;')
+          p.write_text(s)
+
+          g = Path('app/build.gradle')
+          t = g.read_text()
+          if 'versionCode 28' not in t or "versionName '1.28'" not in t:
+              raise SystemExit('expected v28 gradle version not found')
+          t = t.replace('versionCode 28', 'versionCode 29', 1)
+          t = t.replace("versionName '1.28'", "versionName '1.29'", 1)
+          g.write_text(t)
+
+          Path('V29_VISUAL_SPACING.md').write_text('''# MathCrossword v1.29 — visual spacing cleanup\n\n- Adds a 26dp reserved breathing gap between the lowest crossword tile and the completion sheet.\n- The completion sheet no longer visually crowds the board.\n- The next-level button is narrower, shorter, and slightly quieter while remaining the primary completion action.\n- Completion label and divider contrast are reduced slightly.\n- No puzzle-generation or solving logic changes.\n''')
+          PY
+          git add app/src/main/java/com/offline/mathcrossword/MainActivity.java app/build.gradle V29_VISUAL_SPACING.md
+          git commit -m "MathCrossword v29: add board breathing room"
+          git push origin main
