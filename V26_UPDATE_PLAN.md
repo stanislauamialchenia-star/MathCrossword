@@ -4,4 +4,4 @@ This version adds an explicit in-app update check, visible installed version on 
 
 The game remains offline during play. Network access is used only after the player explicitly taps “Проверить обновление”.
 
-Release build trigger for v1.26.
+Release build trigger for v1.26 after runtime version lookup fix.
