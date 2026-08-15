@@ -982,6 +982,11 @@ public class MainActivity extends Activity {
             entries.sort(Comparator.comparingInt((Map.Entry<Pos, Cell> e) -> e.getKey().y).thenComparingInt(e -> e.getKey().x));
             for (Map.Entry<Pos, Cell> e : entries) drawCell(canvas, e.getKey(), e.getValue(), status.getOrDefault(e.getKey(), 0));
 
+            // Draw handwritten candidate notes in a dedicated top layer after the whole board.
+            // This guarantees that notes from non-selected cells are never replaced by a
+            // summary marker or covered by later board drawing.
+            drawAllCandidateNotesOverlay(canvas);
+
             drawCandidateDrawer(canvas, drawerTop, candidateDrawerHeight, w, h, drawerMin, drawerMax);
             if (solved) drawSolvedBanner(canvas, w, h);
         }
@@ -1181,13 +1186,24 @@ public class MainActivity extends Activity {
                 paint.setTextSize(Math.min(cellSize * 0.46f, dp(25)));
                 Paint.FontMetrics fm = paint.getFontMetrics();
                 c.drawText(text, r.centerX(), r.centerY() - (fm.ascent + fm.descent) / 2f, paint);
-            } else if (cell.kind == Kind.NUMBER && puzzle.hidden.contains(pos)) {
-                LinkedHashSet<Integer> notes = candidateNotes.get(pos);
-                if (notes != null && !notes.isEmpty()) drawCandidateNotes(c, r, notes);
             }
         }
 
-        void drawCandidateNotes(Canvas c, RectF r, Set<Integer> notes) {
+        void drawAllCandidateNotesOverlay(Canvas c) {
+            if (puzzle == null || candidateNotes.isEmpty()) return;
+            for (Map.Entry<Pos, LinkedHashSet<Integer>> e : candidateNotes.entrySet()) {
+                Pos pos = e.getKey();
+                LinkedHashSet<Integer> notes = e.getValue();
+                if (notes == null || notes.isEmpty()) continue;
+                if (!puzzle.hidden.contains(pos) || puzzle.placedTile.containsKey(pos)) continue;
+                float left = originX + pos.x * cellSize;
+                float top = originY + pos.y * cellSize;
+                RectF r = new RectF(left, top, left + cellSize, top + cellSize);
+                drawCandidateNotes(c, r, notes, selectedCell != null && selectedCell.equals(pos));
+            }
+        }
+
+        void drawCandidateNotes(Canvas c, RectF r, Set<Integer> notes, boolean focused) {
             // Candidate notes are never intentionally hidden. The layout adapts to both
             // note count and digit width so three-digit values do not disappear under borders.
             List<Integer> vals = new ArrayList<>(notes);
@@ -1201,30 +1217,31 @@ public class MainActivity extends Activity {
             if (n == 1) cols = 1;
             else if (n <= 4) cols = 2;
             else if (maxDigits >= 3) cols = 2;
+            else if (maxDigits >= 2 && n <= 6) cols = 2;
             else cols = 3;
             int rows = (int) Math.ceil(n / (double) cols);
 
-            float pad = Math.max(dp(1.5f), cellSize * 0.055f);
+            float pad = Math.max(dp(1.3f), cellSize * 0.045f);
             float usableW = Math.max(dp(2), r.width() - pad * 2);
             float usableH = Math.max(dp(2), r.height() - pad * 2);
             float colW = usableW / cols;
             float rowH = usableH / rows;
 
-            float target = Math.min(dp(12), Math.min(cellSize * 0.23f, rowH * 0.62f));
-            target = Math.max(dp(4.5f), target);
-            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            float target = Math.min(dp(focused ? 13f : 11.5f), Math.min(cellSize * (focused ? 0.25f : 0.22f), rowH * 0.66f));
+            target = Math.max(dp(4.7f), target);
+            paint.setTypeface(focused ? android.graphics.Typeface.DEFAULT_BOLD : android.graphics.Typeface.DEFAULT);
             paint.setTextAlign(Paint.Align.CENTER);
             paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.rgb(68, 82, 71));
+            paint.setColor(focused ? Color.rgb(51, 72, 56) : Color.rgb(73, 92, 77));
 
             // Find one font size that fits the widest note into every column.
             float textSize = target;
             paint.setTextSize(textSize);
             float widest = 0f;
             for (Integer v : vals) widest = Math.max(widest, paint.measureText(Integer.toString(v)));
-            float maxAllowed = Math.max(dp(2), colW * 0.84f);
+            float maxAllowed = Math.max(dp(2), colW * 0.88f);
             if (widest > maxAllowed) textSize *= maxAllowed / widest;
-            textSize = Math.max(dp(4.2f), textSize);
+            textSize = Math.max(dp(4.5f), textSize);
             paint.setTextSize(textSize);
             Paint.FontMetrics fm = paint.getFontMetrics();
 
