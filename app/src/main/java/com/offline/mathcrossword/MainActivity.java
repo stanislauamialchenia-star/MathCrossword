@@ -98,6 +98,11 @@ public class MainActivity extends Activity {
         boolean solved = false;
         boolean candidateMode = false;
         int hintStage = 0;
+        boolean focusMode = false;
+        float candidateDrawerHeight = -1f;
+        boolean draggingCandidateDrawer = false;
+        float drawerDragStartY = 0f;
+        float drawerDragStartHeight = 0f;
         final Map<Pos, LinkedHashSet<Integer>> candidateNotes = new HashMap<>();
         final List<GameSnapshot> undoStack = new ArrayList<>();
         int topInset = 0;
@@ -129,6 +134,9 @@ public class MainActivity extends Activity {
         final RectF homeAnalysisRect = new RectF();
         final RectF topHomeRect = new RectF();
         final RectF resetRect = new RectF();
+        final RectF menuRect = new RectF();
+        final RectF focusMenuRect = new RectF();
+        final RectF drawerHandleRect = new RectF();
         final RectF undoRect = new RectF();
         final RectF candidateRect = new RectF();
         final RectF hintRect = new RectF();
@@ -604,6 +612,8 @@ public class MainActivity extends Activity {
             c.drawText("Паузы: продуктивные " + a.productivePauses + " · тупиковые " + a.deadEndPauses, side, y, paint); y += dp(24);
             c.drawText("Сигналы проверки гипотез: " + a.hypothesisEpisodes, side, y, paint); y += dp(24);
             c.drawText("Быстрые каскады действий: " + a.rapidCascades, side, y, paint); y += dp(24);
+            c.drawText("Кандидаты: переходы между клетками " + a.candidateCellSwitches
+                    + " · возвраты " + a.candidateCellRevisits, side, y, paint); y += dp(24);
 
             paint.setColor(ink);
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
@@ -678,6 +688,12 @@ public class MainActivity extends Activity {
                         + (last.hintStage > 0 ? (" · намёк " + last.hintStage) : " · без намёков");
                 c.drawText(traceLine, side, y, paint);
                 y += dp(21);
+                if (last.candidateCellSwitches > 0 || last.candidateCellRevisits > 0) {
+                    c.drawText("кандидаты: переходов " + last.candidateCellSwitches
+                            + " · возвратов " + last.candidateCellRevisits
+                            + " · максимум в клетке " + last.maxCandidatesInOneCell, side, y, paint);
+                    y += dp(21);
+                }
                 if (last.hidden > 0 && last.maxForcedCascade > 0) {
                     c.drawText("модель каскада: до " + last.maxForcedCascade + " из " + last.hidden + " после ключевого вывода", side, y, paint);
                     y += dp(21);
@@ -928,57 +944,61 @@ public class MainActivity extends Activity {
         void drawGame(Canvas canvas) {
             if (puzzle == null) return;
             float w = getWidth(), h = getHeight();
-            float headerH = dp(62);
-            float topH = topInset + headerH;
-            BankMetrics bm = bankMetrics(puzzle.tiles.size());
-            float bankTileW = bm.tileW, bankGap = bm.gap;
-            int bankPerRow = Math.max(3, (int) ((w - dp(24) + bankGap) / (bankTileW + bankGap)));
-            int bankRows = Math.max(1, (int) Math.ceil(puzzle.tiles.size() / (double) bankPerRow));
-            float bankHeight = bankRows * bm.tileH + Math.max(0, bankRows - 1) * bankGap;
-            float bankReserve = bankHeight + dp(96) + bottomInset;
 
-            drawTopBar(canvas, w, topInset, headerH);
+            // The candidate bank is a bottom drawer. It can be resized continuously or
+            // collapsed to a thin handle so the board can occupy almost the whole screen.
+            float drawerMin = dp(28) + bottomInset;
+            float drawerCompact = Math.min(h * 0.34f, dp(250) + bottomInset);
+            float drawerMax = Math.min(h * 0.58f, dp(430) + bottomInset);
+            if (candidateDrawerHeight < 0f) candidateDrawerHeight = drawerCompact;
+            candidateDrawerHeight = Math.max(drawerMin, Math.min(drawerMax, candidateDrawerHeight));
+            if (focusMode) candidateDrawerHeight = drawerMin;
+
+            float headerH = focusMode ? 0f : dp(46);
+            float topH = topInset + headerH;
+            float drawerTop = h - candidateDrawerHeight;
+
+            if (!focusMode) drawTopBar(canvas, w, topInset, headerH);
+            else drawFocusHandle(canvas, w, topInset);
 
             int cols = puzzle.maxX - puzzle.minX + 1;
             int rows = puzzle.maxY - puzzle.minY + 1;
-            float availW = w - dp(18);
-            float availH = Math.max(dp(160), h - topH - bankReserve - dp(12));
-            cellSize = Math.min(availW / cols, availH / rows);
-            cellSize = Math.min(cellSize, dp(62));
-            cellSize = Math.max(cellSize, dp(25));
+            float availW = Math.max(dp(40), w - dp(12));
+            float availH = Math.max(dp(60), drawerTop - topH - dp(8));
+            cellSize = Math.min(Math.min(availW / cols, availH / rows), dp(62));
+            // Deliberately no hard minimum: a board must never be pushed beyond the screen.
+            cellSize = Math.max(dp(1), cellSize);
             float gridW = cols * cellSize;
             float gridH = rows * cellSize;
             originX = (w - gridW) / 2f - puzzle.minX * cellSize;
-            originY = topH + Math.max(dp(6), (availH - gridH) / 2f) - puzzle.minY * cellSize;
+            originY = topH + Math.max(dp(4), (availH - gridH) / 2f) - puzzle.minY * cellSize;
 
             Map<Pos, Integer> status = equationStatus();
             stroke.setStyle(Paint.Style.STROKE);
-            stroke.setStrokeWidth(Math.max(dp(1.4f), cellSize * 0.035f));
+            stroke.setStrokeWidth(Math.max(dp(1.0f), cellSize * 0.035f));
             stroke.setColor(ink);
 
             List<Map.Entry<Pos, Cell>> entries = new ArrayList<>(puzzle.cells.entrySet());
             entries.sort(Comparator.comparingInt((Map.Entry<Pos, Cell> e) -> e.getKey().y).thenComparingInt(e -> e.getKey().x));
             for (Map.Entry<Pos, Cell> e : entries) drawCell(canvas, e.getKey(), e.getValue(), status.getOrDefault(e.getKey(), 0));
 
-            float gridBottom = originY + (puzzle.maxY + 1) * cellSize;
-            float toolsY = gridBottom + dp(10);
-            drawGameTools(canvas, toolsY, w);
-            drawBank(canvas, toolsY + dp(58), w, h);
+            drawCandidateDrawer(canvas, drawerTop, candidateDrawerHeight, w, h, drawerMin, drawerMax);
             if (solved) drawSolvedBanner(canvas, w, h);
         }
 
         void drawTopBar(Canvas c, float w, float insetTop, float headerH) {
             float top = insetTop;
             float centerY = top + headerH / 2f;
-            topHomeRect.set(dp(10), top + dp(7), dp(56), top + headerH - dp(7));
-            resetRect.set(w - dp(56), top + dp(7), w - dp(10), top + headerH - dp(7));
+            topHomeRect.set(dp(8), top + dp(3), dp(48), top + headerH - dp(3));
+            menuRect.set(w - dp(48), top + dp(3), w - dp(8), top + headerH - dp(3));
+            resetRect.setEmpty();
             drawIconButton(c, topHomeRect, "⌂");
-            drawIconButton(c, resetRect, "↻");
+            drawIconButton(c, menuRect, "⋮");
 
             paint.setColor(ink);
             paint.setTextAlign(Paint.Align.CENTER);
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-            paint.setTextSize(dp(18));
+            paint.setTextSize(dp(17));
             Paint.FontMetrics fm = paint.getFontMetrics();
             float ty = centerY - (fm.ascent + fm.descent) / 2f;
             c.drawText(mode == GameMode.PATH ? "Уровень " + level
@@ -986,8 +1006,106 @@ public class MainActivity extends Activity {
                     w / 2f, ty, paint);
 
             paint.setStrokeWidth(dp(1));
-            paint.setColor(Color.argb(20, 0, 0, 0));
+            paint.setColor(Color.argb(18, 0, 0, 0));
             c.drawLine(0, top + headerH - 1, w, top + headerH - 1, paint);
+        }
+
+        void drawFocusHandle(Canvas c, float w, float insetTop) {
+            focusMenuRect.set(w - dp(43), insetTop + dp(4), w - dp(7), insetTop + dp(38));
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.argb(115, 255, 255, 255));
+            c.drawRoundRect(focusMenuRect, dp(10), dp(10), paint);
+            paint.setColor(ink);
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(21));
+            Paint.FontMetrics fm = paint.getFontMetrics();
+            c.drawText("⋮", focusMenuRect.centerX(), focusMenuRect.centerY() - (fm.ascent + fm.descent) / 2f, paint);
+        }
+
+        void drawCandidateDrawer(Canvas c, float top, float height, float w, float h, float minH, float maxH) {
+            drawerHandleRect.set(0, top, w, Math.min(h - bottomInset, top + dp(28)));
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.argb(246, 248, 252, 246));
+            c.drawRect(0, top, w, h, paint);
+            paint.setColor(Color.argb(28, 0, 0, 0));
+            c.drawRect(0, top, w, top + dp(1), paint);
+
+            paint.setColor(Color.rgb(118, 128, 119));
+            RectF grip = new RectF(w / 2f - dp(24), top + dp(8), w / 2f + dp(24), top + dp(12));
+            c.drawRoundRect(grip, dp(3), dp(3), paint);
+
+            bankHits.clear();
+            undoRect.setEmpty(); candidateRect.setEmpty(); hintRect.setEmpty();
+            if (height <= minH + dp(6) || focusMode) return;
+
+            float contentTop = top + dp(25);
+            drawGameTools(c, contentTop, w);
+            float bankTop = contentTop + dp(52);
+            float expansion = Math.max(0f, Math.min(1f, (height - minH) / Math.max(dp(1), maxH - minH)));
+            drawBank(c, bankTop, w, h - bottomInset, expansion);
+        }
+
+        void showGameMenu() {
+            if (puzzle == null) return;
+            String info = String.format(Locale.US, "Логика %d (%.1f) · вычисления %d (%.1f)\n%s · скрыто клеток: %d",
+                    puzzle.displayLogicLevel, puzzle.logicScore, puzzle.displayCalcLevel, puzzle.calcScore,
+                    puzzle.solutionStrategy.label, puzzle.hidden.size());
+            String focusLabel = focusMode ? "Показать панели" : "Режим фокуса";
+            boolean drawerHidden = candidateDrawerHeight <= dp(40) + bottomInset;
+            String drawerLabel = drawerHidden ? "Показать кандидаты" : "Скрыть кандидаты";
+            new AlertDialog.Builder(getContext())
+                    .setTitle(mode == GameMode.PATH ? "Уровень " + level : "Головоломка")
+                    .setMessage(info)
+                    .setItems(new String[]{focusLabel, drawerLabel, "Перезапустить", "Закрыть"}, (dialog, which) -> {
+                        if (which == 0) {
+                            focusMode = !focusMode;
+                            if (!focusMode && candidateDrawerHeight <= dp(40) + bottomInset) candidateDrawerHeight = dp(220) + bottomInset;
+                            tracker.event("focus_mode", -1, -1, focusMode ? 1 : -1, null);
+                            invalidate();
+                        } else if (which == 1) {
+                            candidateDrawerHeight = drawerHidden ? dp(220) + bottomInset : dp(28) + bottomInset;
+                            tracker.event("candidate_drawer", -1, -1, drawerHidden ? 1 : 0, "menu");
+                            invalidate();
+                        } else if (which == 2) {
+                            restartCurrentGame();
+                        }
+                    }).show();
+        }
+
+        void restartCurrentGame() {
+            if (puzzle == null) return;
+            tracker.event("reset", -1, -1, 0, null);
+            if (tracker.hasOpenSession()) tracker.finish(false, "reset");
+            if (mode == GameMode.PATH) loadPathLevel(level);
+            else {
+                resetCurrentPuzzle();
+                startTrackerForCurrentFreePuzzle();
+            }
+        }
+
+        void startTrackerForCurrentFreePuzzle() {
+            tracker.start("FREE", 0, puzzle.seed, puzzle.displayLogicLevel, puzzle.displayCalcLevel, puzzle.logicScore, puzzle.calcScore,
+                    puzzle.solutionStrategy.name(), puzzle.hidden.size(), puzzle.equations.size(),
+                    puzzle.ratedDisplayLogic, puzzle.reasoningSteps, puzzle.reasoningDepth,
+                    puzzle.basicForced, puzzle.basicRemaining, puzzle.maxForcedCascade,
+                    puzzle.maxResolvedAfterOneCell, puzzle.maxResolvedFractionAfterOneCell,
+                    puzzle.vulnerableSingleCells, puzzle.maxResolvedAfterOneEquation, puzzle.maxResolvedFractionAfterOneEquation,
+                    puzzle.generatorVersion, puzzle.generationStage, puzzle.strategyTargetMatched, puzzle.generationStrategy.name(),
+                    puzzle.generatorConstructor, puzzle.generatorFamily, puzzle.deceptiveDecoyCount, puzzle.deceptiveDecoySupportMax,
+                    puzzle.contextualDecoyCount, puzzle.resourceConflictDecoyCount, puzzle.contextualDecoyConstraintSupportMax,
+                    puzzle.contextualDecoyDepthMax, puzzle.contextualDecoyInformationGainMax,
+                    puzzle.branchPivotCount, puzzle.branchGoodPivotCount, puzzle.branchSeriousFalseBranches,
+                    puzzle.branchDepth2RefutableBranches, puzzle.branchDepth2SurvivingBranches,
+                    puzzle.branchMaxWidth, puzzle.branchMaxInformationGain,
+                    puzzle.reasoningFronts, puzzle.reasoningFrontBalance, puzzle.reasoningLargestFrontFraction,
+                    puzzle.reasoningFrontBottleneckDegree,
+                    puzzle.contradictionKernel, puzzle.contradictionKernelAddedDecoy, puzzle.contradictionKernelDepth,
+                    puzzle.contradictionKernelFamily, puzzle.contradictionKernelBranches, puzzle.contradictionKernelPivots,
+                    puzzle.contradictionKernelDepth2Branches, puzzle.contradictionKernelDepth3Branches,
+                    puzzle.contradictionKernelDeepBranches, puzzle.contradictionKernelMaxRemaining,
+                    puzzle.generationStageTimings, puzzle.generationMillis, puzzle.generationAttempts,
+                    puzzle.generationRejects, puzzle.generationRejectSummary);
         }
 
         void drawIconButton(Canvas c, RectF r, String text) {
@@ -1070,27 +1188,51 @@ public class MainActivity extends Activity {
         }
 
         void drawCandidateNotes(Canvas c, RectF r, Set<Integer> notes) {
+            // Candidate notes are never intentionally hidden. The layout adapts to both
+            // note count and digit width so three-digit values do not disappear under borders.
             List<Integer> vals = new ArrayList<>(notes);
             Collections.sort(vals);
-            int shown = Math.min(vals.size(), 6);
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.rgb(86, 96, 88));
+            int n = vals.size();
+            if (n == 0) return;
+            int maxDigits = 1;
+            for (Integer v : vals) maxDigits = Math.max(maxDigits, Integer.toString(Math.abs(v)).length());
+
+            int cols;
+            if (n == 1) cols = 1;
+            else if (n <= 4) cols = 2;
+            else if (maxDigits >= 3) cols = 2;
+            else cols = 3;
+            int rows = (int) Math.ceil(n / (double) cols);
+
+            float pad = Math.max(dp(1.5f), cellSize * 0.055f);
+            float usableW = Math.max(dp(2), r.width() - pad * 2);
+            float usableH = Math.max(dp(2), r.height() - pad * 2);
+            float colW = usableW / cols;
+            float rowH = usableH / rows;
+
+            float target = Math.min(dp(12), Math.min(cellSize * 0.23f, rowH * 0.62f));
+            target = Math.max(dp(4.5f), target);
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
             paint.setTextAlign(Paint.Align.CENTER);
-            paint.setTextSize(Math.max(dp(7), Math.min(dp(10), cellSize * 0.16f)));
-            float colW = r.width() / 3f;
-            float rowH = r.height() / 2f;
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.rgb(68, 82, 71));
+
+            // Find one font size that fits the widest note into every column.
+            float textSize = target;
+            paint.setTextSize(textSize);
+            float widest = 0f;
+            for (Integer v : vals) widest = Math.max(widest, paint.measureText(Integer.toString(v)));
+            float maxAllowed = Math.max(dp(2), colW * 0.84f);
+            if (widest > maxAllowed) textSize *= maxAllowed / widest;
+            textSize = Math.max(dp(4.2f), textSize);
+            paint.setTextSize(textSize);
             Paint.FontMetrics fm = paint.getFontMetrics();
-            for (int i = 0; i < shown; i++) {
-                int row = i / 3, col = i % 3;
-                float cx = r.left + colW * (col + 0.5f);
-                float cy = r.top + rowH * (row + 0.5f) - (fm.ascent + fm.descent) / 2f;
+
+            for (int i = 0; i < n; i++) {
+                int row = i / cols, col = i % cols;
+                float cx = r.left + pad + colW * (col + 0.5f);
+                float cy = r.top + pad + rowH * (row + 0.5f) - (fm.ascent + fm.descent) / 2f;
                 c.drawText(Integer.toString(vals.get(i)), cx, cy, paint);
-            }
-            if (vals.size() > 6) {
-                paint.setTextAlign(Paint.Align.RIGHT);
-                paint.setTextSize(dp(7));
-                c.drawText("+" + (vals.size() - 6), r.right - dp(3), r.bottom - dp(3), paint);
             }
         }
 
@@ -1127,18 +1269,31 @@ public class MainActivity extends Activity {
             return null;
         }
 
-        void drawBank(Canvas c, float startY, float w, float h) {
+        void drawBank(Canvas c, float startY, float w, float bottomLimit, float expansion) {
             bankHits.clear();
             List<Tile> visible = new ArrayList<>();
             for (Tile t : puzzle.tiles) if (!t.used) visible.add(t);
 
-            BankMetrics bm = bankMetrics(visible.size());
-            float tileW = bm.tileW, tileH = bm.tileH, gap = bm.gap;
+            BankMetrics base = bankMetrics(visible.size());
+            float tileW = base.tileW + dp(8) * expansion;
+            float tileH = base.tileH + dp(7) * expansion;
+            float gap = base.gap;
+            float textSize = base.textSize + dp(2) * expansion;
             int perRow = Math.max(3, (int) ((w - dp(24) + gap) / (tileW + gap)));
             int rowCount = Math.max(1, (int) Math.ceil(visible.size() / (double) perRow));
-            float totalH = rowCount * tileH + (rowCount - 1) * gap;
-            startY = Math.min(startY, h - bottomInset - totalH - dp(24));
-            startY = Math.max(startY, dp(106));
+            float totalH = rowCount * tileH + Math.max(0, rowCount - 1) * gap;
+            float available = Math.max(dp(20), bottomLimit - startY - dp(8));
+            if (totalH > available) {
+                float scale = Math.max(0.72f, available / totalH);
+                tileH *= scale;
+                textSize *= Math.max(0.80f, scale);
+            }
+
+            Set<Integer> selectedNotes = Collections.emptySet();
+            if (selectedCell != null) {
+                LinkedHashSet<Integer> set = candidateNotes.get(selectedCell);
+                if (set != null) selectedNotes = set;
+            }
 
             int index = 0;
             for (int row = 0; row < rowCount; row++) {
@@ -1150,18 +1305,24 @@ public class MainActivity extends Activity {
                     Tile t = visible.get(index++);
                     RectF r = new RectF(x, startY + row * (tileH + gap), x + tileW, startY + row * (tileH + gap) + tileH);
                     bankHits.add(new BankHit(r, t.id));
+                    boolean noted = candidateMode && selectedCell != null && selectedNotes.contains(t.value);
                     paint.setStyle(Paint.Style.FILL);
-                    paint.setColor(t.id == selectedTileId ? selected : board);
+                    paint.setColor((t.id == selectedTileId || noted) ? selected : board);
                     c.drawRoundRect(r, dp(5), dp(5), paint);
-                    stroke.setColor(ink); stroke.setStrokeWidth(dp(2));
+                    stroke.setColor(noted ? accent : ink);
+                    stroke.setStrokeWidth(dp(noted ? 2.4f : 1.8f));
                     c.drawRoundRect(r, dp(5), dp(5), stroke);
 
                     paint.setColor(Color.rgb(28, 121, 38));
                     paint.setTextAlign(Paint.Align.CENTER);
                     paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-                    paint.setTextSize(bm.textSize);
+                    paint.setTextSize(textSize);
+                    String label = Integer.toString(t.value);
+                    float maxW = r.width() - dp(8);
+                    float measured = paint.measureText(label);
+                    if (measured > maxW) paint.setTextSize(textSize * maxW / measured);
                     Paint.FontMetrics fm = paint.getFontMetrics();
-                    c.drawText(Integer.toString(t.value), r.centerX(), r.centerY() - (fm.ascent + fm.descent) / 2f, paint);
+                    c.drawText(label, r.centerX(), r.centerY() - (fm.ascent + fm.descent) / 2f, paint);
                     x += tileW + gap;
                 }
             }
@@ -1194,8 +1355,39 @@ public class MainActivity extends Activity {
         }
 
         @Override public boolean onTouchEvent(MotionEvent event) {
-            if (event.getAction() != MotionEvent.ACTION_UP) return true;
             float x = event.getX(), y = event.getY();
+            if (screen == Screen.GAME) {
+                if (event.getAction() == MotionEvent.ACTION_DOWN && drawerHandleRect.contains(x, y)) {
+                    draggingCandidateDrawer = true;
+                    drawerDragStartY = y;
+                    drawerDragStartHeight = candidateDrawerHeight;
+                    return true;
+                }
+                if (event.getAction() == MotionEvent.ACTION_MOVE && draggingCandidateDrawer) {
+                    float minH = dp(28) + bottomInset;
+                    float maxH = Math.min(getHeight() * 0.58f, dp(430) + bottomInset);
+                    candidateDrawerHeight = Math.max(minH, Math.min(maxH, drawerDragStartHeight + (drawerDragStartY - y)));
+                    focusMode = false;
+                    invalidate();
+                    return true;
+                }
+                if (event.getAction() == MotionEvent.ACTION_UP && draggingCandidateDrawer) {
+                    draggingCandidateDrawer = false;
+                    float moved = Math.abs(y - drawerDragStartY);
+                    float minH = dp(28) + bottomInset;
+                    float compactH = Math.min(getHeight() * 0.34f, dp(250) + bottomInset);
+                    float maxH = Math.min(getHeight() * 0.58f, dp(430) + bottomInset);
+                    if (moved < dp(8)) {
+                        if (candidateDrawerHeight <= minH + dp(8)) candidateDrawerHeight = compactH;
+                        else if (candidateDrawerHeight < (compactH + maxH) * 0.5f) candidateDrawerHeight = maxH;
+                        else candidateDrawerHeight = minH;
+                    }
+                    tracker.event("candidate_drawer", -1, -1, Math.round(candidateDrawerHeight), "drag");
+                    invalidate();
+                    return true;
+                }
+            }
+            if (event.getAction() != MotionEvent.ACTION_UP) return true;
 
             if (screen == Screen.HOME) {
                 if (generating) return true;
@@ -1274,41 +1466,12 @@ public class MainActivity extends Activity {
                 else loadFreePuzzle();
                 return true;
             }
-            if (topHomeRect.contains(x, y)) {
+            if (!focusMode && topHomeRect.contains(x, y)) {
                 if (tracker.hasOpenSession() && !solved) tracker.finish(false, "home");
                 screen = Screen.HOME; invalidate(); return true;
             }
-            if (resetRect.contains(x, y)) {
-                tracker.event("reset", -1, -1, 0, null);
-                if (tracker.hasOpenSession()) tracker.finish(false, "reset");
-                if (mode == GameMode.PATH) loadPathLevel(level);
-                else {
-                    resetCurrentPuzzle();
-                    tracker.start("FREE", 0, puzzle.seed, puzzle.displayLogicLevel, puzzle.displayCalcLevel, puzzle.logicScore, puzzle.calcScore,
-                            puzzle.solutionStrategy.name(), puzzle.hidden.size(), puzzle.equations.size(),
-                            puzzle.ratedDisplayLogic, puzzle.reasoningSteps, puzzle.reasoningDepth,
-                            puzzle.basicForced, puzzle.basicRemaining, puzzle.maxForcedCascade,
-                    puzzle.maxResolvedAfterOneCell, puzzle.maxResolvedFractionAfterOneCell,
-                    puzzle.vulnerableSingleCells, puzzle.maxResolvedAfterOneEquation, puzzle.maxResolvedFractionAfterOneEquation,
-                    puzzle.generatorVersion,
-                            puzzle.generationStage, puzzle.strategyTargetMatched, puzzle.generationStrategy.name(),
-                            puzzle.generatorConstructor, puzzle.generatorFamily,
-                    puzzle.deceptiveDecoyCount, puzzle.deceptiveDecoySupportMax,
-                    puzzle.contextualDecoyCount, puzzle.resourceConflictDecoyCount, puzzle.contextualDecoyConstraintSupportMax,
-                    puzzle.contextualDecoyDepthMax, puzzle.contextualDecoyInformationGainMax,
-                    puzzle.branchPivotCount, puzzle.branchGoodPivotCount, puzzle.branchSeriousFalseBranches,
-                    puzzle.branchDepth2RefutableBranches, puzzle.branchDepth2SurvivingBranches,
-                    puzzle.branchMaxWidth, puzzle.branchMaxInformationGain,
-                    puzzle.reasoningFronts, puzzle.reasoningFrontBalance, puzzle.reasoningLargestFrontFraction,
-                    puzzle.reasoningFrontBottleneckDegree,
-                    puzzle.contradictionKernel, puzzle.contradictionKernelAddedDecoy, puzzle.contradictionKernelDepth,
-                    puzzle.contradictionKernelFamily, puzzle.contradictionKernelBranches, puzzle.contradictionKernelPivots,
-                    puzzle.contradictionKernelDepth2Branches, puzzle.contradictionKernelDepth3Branches,
-                    puzzle.contradictionKernelDeepBranches, puzzle.contradictionKernelMaxRemaining,
-                    puzzle.generationStageTimings,
-                            puzzle.generationMillis, puzzle.generationAttempts,
-                            puzzle.generationRejects, puzzle.generationRejectSummary);
-                }
+            if ((!focusMode && menuRect.contains(x, y)) || (focusMode && focusMenuRect.contains(x, y))) {
+                showGameMenu();
                 return true;
             }
             if (undoRect.contains(x, y)) {

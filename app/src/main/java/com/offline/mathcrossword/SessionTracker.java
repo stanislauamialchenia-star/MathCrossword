@@ -160,6 +160,8 @@ final class SessionTracker {
             int deadEnd = row.optInt("deadEndPauses", 0);
             int hypothesisSignals = row.optInt("hypothesisEpisodes", 0);
             int rapidCascades = row.optInt("rapidCascades", 0);
+            out.candidateCellSwitches += row.optInt("candidateCellSwitches", 0);
+            out.candidateCellRevisits += row.optInt("candidateCellRevisits", 0);
             out.productivePauses += productive;
             out.deadEndPauses += deadEnd;
             out.hypothesisEpisodes += hypothesisSignals;
@@ -254,6 +256,9 @@ final class SessionTracker {
             s.branchFalseBranches = row.optInt("branchSeriousFalseBranches", 0);
             s.reasoningFronts = row.optInt("reasoningFronts", 0);
             s.reasoningFrontBalance = row.optDouble("reasoningFrontBalance", 0.0);
+            s.candidateCellSwitches = row.optInt("candidateCellSwitches", 0);
+            s.candidateCellRevisits = row.optInt("candidateCellRevisits", 0);
+            s.maxCandidatesInOneCell = row.optInt("maxCandidatesInOneCell", 0);
             out.recent.add(s);
         }
         return out;
@@ -316,6 +321,8 @@ final class SessionTracker {
         int deadEndPauses;
         int hypothesisEpisodes;
         int rapidCascades;
+        int candidateCellSwitches;
+        int candidateCellRevisits;
         int kernelSessions;
         int deepKernelSessions;
         boolean calibrationReady;
@@ -378,6 +385,9 @@ final class SessionTracker {
         int branchFalseBranches;
         int reasoningFronts;
         double reasoningFrontBalance;
+        int candidateCellSwitches;
+        int candidateCellRevisits;
+        int maxCandidatesInOneCell;
     }
 
     private static final class OpenSession {
@@ -563,6 +573,7 @@ final class SessionTracker {
             previousActionMs = t;
             JSONObject e = new JSONObject();
             try {
+                e.put("seq", events.length() + 1);
                 e.put("tMs", t);
                 e.put("type", type);
                 if (x >= 0) e.put("x", x);
@@ -647,6 +658,17 @@ final class SessionTracker {
                 root.put("longestPauseBetweenActionsMs", longestPauseBetweenActionsMs);
                 root.put("eventCount", events.length());
                 appendDerivedEventStats(root);
+                root.put("moveNotationVersion", MoveNotation.VERSION);
+                root.put("semanticMoves", MoveNotation.semanticMoves(events));
+                root.put("candidateTrail", MoveNotation.candidateTrail(events));
+                root.put("focusTrail", MoveNotation.focusTrail(events));
+                MoveNotation.Summary candidateSummary = MoveNotation.summarizeCandidates(events);
+                root.put("candidateSequenceEvents", candidateSummary.events);
+                root.put("candidateSequenceDistinctCells", candidateSummary.distinctCells);
+                root.put("candidateSequenceDistinctValues", candidateSummary.distinctValues);
+                root.put("candidateCellSwitches", candidateSummary.cellSwitches);
+                root.put("candidateCellRevisits", candidateSummary.cellRevisits);
+                root.put("maxCandidatesInOneCell", candidateSummary.maxCandidatesInOneCell);
                 root.put("events", events);
             } catch (Exception ignored) { }
             return root;

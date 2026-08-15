@@ -36,6 +36,7 @@ final class PlayTraceAnalyzer {
         int recoveryStart = -1;
         int rapidMeaningfulRun = 0;
         long prevMeaningfulT = -1L;
+        long prevAnalysisT = -1L;
 
         for (int i = 0; i < events.length(); i++) {
             JSONObject e = events.optJSONObject(i);
@@ -43,20 +44,17 @@ final class PlayTraceAnalyzer {
             String type = e.optString("type", "");
             long t = e.optLong("tMs", -1L);
 
-            if (i > 0) {
-                JSONObject prev = events.optJSONObject(i - 1);
-                if (prev != null) {
-                    long pt = prev.optLong("tMs", -1L);
-                    long gap = (t >= 0 && pt >= 0) ? t - pt : -1L;
-                    if (gap >= 3000L) {
-                        int nextSignal = classifyAfterPause(events, i);
-                        if (nextSignal > 0) out.productivePauses++;
-                        else if (nextSignal < 0) out.deadEndPauses++;
-                    }
-                }
-            }
-
             boolean meaningful = isMeaningful(type);
+            boolean analysisRelevant = meaningful || "hint".equals(type) || "undo".equals(type)
+                    || "reset".equals(type) || "full_incorrect".equals(type);
+            // UI-only actions (drawer resize, focus mode, candidate-mode toggle, etc.) must not
+            // split a thinking pause. The raw trace keeps them; behavioral analysis ignores them.
+            if (analysisRelevant && prevAnalysisT >= 0 && t >= prevAnalysisT && t - prevAnalysisT >= 3000L) {
+                int nextSignal = classifyAfterPause(events, i);
+                if (nextSignal > 0) out.productivePauses++;
+                else if (nextSignal < 0) out.deadEndPauses++;
+            }
+            if (analysisRelevant && t >= 0) prevAnalysisT = t;
             if (meaningful && prevMeaningfulT >= 0 && t >= prevMeaningfulT && t - prevMeaningfulT <= 900L) {
                 rapidMeaningfulRun++;
                 if (rapidMeaningfulRun == 3) out.rapidCascades++;
