@@ -427,37 +427,45 @@ public class MainActivity extends Activity {
             paint.setTextSize(dp(27));
             c.drawText("кроссворд", w / 2f, y + dp(34), paint);
 
-            paint.setTypeface(android.graphics.Typeface.DEFAULT);
-            paint.setTextSize(dp(14));
-            paint.setColor(Color.rgb(85, 95, 87));
-            c.drawText("офлайн • без рекламы • локальный анализ", w / 2f, y + dp(65), paint);
-
+            // Keep the home screen quiet: product/update metadata lives in a small footer,
+            // not as another primary action competing with play.
             float side = dp(26);
             float buttonH = dp(52);
             float gap = dp(9);
-            float firstTop = Math.max(y + dp(92), h * 0.30f);
+            float firstTop = Math.max(y + dp(76), h * 0.29f);
             homeContinueRect.set(side, firstTop, w - side, firstTop + buttonH);
             homeLevelsRect.set(side, homeContinueRect.bottom + gap, w - side, homeContinueRect.bottom + gap + buttonH);
             homeFreeRect.set(side, homeLevelsRect.bottom + gap, w - side, homeLevelsRect.bottom + gap + buttonH);
             homeLibraryRect.set(side, homeFreeRect.bottom + gap, w - side, homeFreeRect.bottom + gap + buttonH);
             homeAnalysisRect.set(side, homeLibraryRect.bottom + gap, w - side, homeLibraryRect.bottom + gap + buttonH);
-            homeUpdateRect.set(side, homeAnalysisRect.bottom + gap, w - side, homeAnalysisRect.bottom + gap + buttonH);
 
             drawBigButton(c, homeContinueRect, generating ? "Генерирую уровень " + progressLevel + "…" : "Продолжить — уровень " + progressLevel, true);
             drawBigButton(c, homeLevelsRect, "Выбрать уровень", false);
             drawBigButton(c, homeFreeRect, "Свободная игра", false);
             drawBigButton(c, homeLibraryRect, "Библиотека решений", false);
             drawBigButton(c, homeAnalysisRect, "Анализ прохождений", false);
-            drawBigButton(c, homeUpdateRect, updateChecking ? "Проверяю обновление…" : "Проверить обновление", false);
+
+            float footerY = h - bottomInset - dp(34);
+            homeUpdateRect.set(w - dp(62), footerY - dp(20), w - dp(18), footerY + dp(20));
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.argb(115, 255, 255, 255));
+            c.drawRoundRect(homeUpdateRect, dp(12), dp(12), paint);
+            paint.setColor(updateChecking ? Color.rgb(120, 130, 121) : ink);
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(23));
+            Paint.FontMetrics updateFm = paint.getFontMetrics();
+            c.drawText(updateChecking ? "…" : "↻", homeUpdateRect.centerX(),
+                    homeUpdateRect.centerY() - (updateFm.ascent + updateFm.descent) / 2f, paint);
 
             paint.setColor(Color.rgb(108, 119, 110));
-            paint.setTextSize(dp(12.2f));
-            paint.setTypeface(android.graphics.Typeface.DEFAULT);
-            float infoY = Math.min(h - bottomInset - dp(42), homeUpdateRect.bottom + dp(27));
-            c.drawText("Версия " + installedVersionName() + " (" + installedVersionCode() + ") · " + updateStatus, w / 2f, infoY, paint);
-            paint.setTextSize(dp(11.6f));
-            c.drawText("История решения хранится только на этом устройстве", w / 2f,
-                    Math.min(h - bottomInset - dp(18), infoY + dp(20)), paint);
+            paint.setTextSize(dp(11.8f));
+            paint.setTextAlign(Paint.Align.CENTER);
+            String versionLine = "v" + installedVersionName() + " (" + installedVersionCode() + ") · офлайн · без рекламы";
+            if (!"обновление не проверено".equals(updateStatus)) versionLine += " · " + updateStatus;
+            c.drawText(versionLine, w / 2f - dp(14), footerY - dp(7), paint);
+            paint.setTextSize(dp(10.8f));
+            c.drawText("данные и история решения хранятся локально", w / 2f - dp(14), footerY + dp(11), paint);
         }
 
         void drawLevels(Canvas c) {
@@ -967,7 +975,9 @@ public class MainActivity extends Activity {
             }
             candidateDrawerHeight = Math.max(drawerMin, Math.min(drawerMax, candidateDrawerHeight));
             if (candidateDrawerHeight > drawerMin + dp(10)) lastExpandedDrawerHeight = candidateDrawerHeight;
-            float effectiveDrawerHeight = focusMode ? drawerMin : candidateDrawerHeight;
+            // Completion gets its own reserved bottom sheet. Never overlay the board.
+            float solvedDrawerHeight = dp(142) + bottomInset;
+            float effectiveDrawerHeight = solved ? solvedDrawerHeight : (focusMode ? drawerMin : candidateDrawerHeight);
 
             float headerH = focusMode ? 0f : dp(46);
             float topH = topInset + headerH;
@@ -1002,8 +1012,8 @@ public class MainActivity extends Activity {
             // summary marker or covered by later board drawing.
             drawAllCandidateNotesOverlay(canvas);
 
-            drawCandidateDrawer(canvas, drawerTop, effectiveDrawerHeight, w, h, drawerMin, drawerMax);
             if (solved) drawSolvedBanner(canvas, w, h);
+            else drawCandidateDrawer(canvas, drawerTop, effectiveDrawerHeight, w, h, drawerMin, drawerMax);
         }
 
         void drawTopBar(Canvas c, float w, float insetTop, float headerH) {
@@ -1368,21 +1378,27 @@ public class MainActivity extends Activity {
         }
 
         void drawSolvedBanner(Canvas c, float w, float h) {
-            float side = dp(24);
-            float bottom = h - bottomInset - dp(24);
-            float buttonH = dp(58);
-            nextLevelRect.set(side, bottom - buttonH, w - side, bottom);
+            // Replace the candidate drawer after completion instead of floating controls
+            // over the crossword. The board has already reserved this exact area.
+            float sheetTop = h - bottomInset - dp(142);
+            drawerHandleRect.setEmpty();
+            bankHits.clear();
+            undoRect.setEmpty(); candidateRect.setEmpty(); hintRect.setEmpty();
 
-            RectF label = new RectF(side, nextLevelRect.top - dp(46), w - side, nextLevelRect.top - dp(7));
-            paint.setColor(soft);
             paint.setStyle(Paint.Style.FILL);
-            c.drawRoundRect(label, dp(12), dp(12), paint);
+            paint.setColor(Color.argb(250, 248, 252, 246));
+            c.drawRect(0, sheetTop, w, h, paint);
+            paint.setColor(Color.argb(28, 0, 0, 0));
+            c.drawRect(0, sheetTop, w, sheetTop + dp(1), paint);
+
             paint.setColor(ink);
             paint.setTextAlign(Paint.Align.CENTER);
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             paint.setTextSize(dp(18));
-            c.drawText("Готово ✓", w / 2f, label.centerY() + dp(6), paint);
+            c.drawText("Готово ✓", w / 2f, sheetTop + dp(35), paint);
 
+            float side = dp(24);
+            nextLevelRect.set(side, sheetTop + dp(55), w - side, h - bottomInset - dp(18));
             paint.setColor(accent);
             c.drawRoundRect(nextLevelRect, dp(15), dp(15), paint);
             paint.setColor(Color.WHITE);
@@ -1390,13 +1406,14 @@ public class MainActivity extends Activity {
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             String labelText = generating ? "Генерирую…"
                     : (mode == GameMode.PATH ? "Следующий уровень  →" : "Новая головоломка  →");
-            c.drawText(labelText, w / 2f, nextLevelRect.centerY() + dp(6), paint);
+            Paint.FontMetrics fm = paint.getFontMetrics();
+            c.drawText(labelText, w / 2f, nextLevelRect.centerY() - (fm.ascent + fm.descent) / 2f, paint);
         }
 
         @Override public boolean onTouchEvent(MotionEvent event) {
             float x = event.getX(), y = event.getY();
             if (screen == Screen.GAME) {
-                if (event.getAction() == MotionEvent.ACTION_DOWN && drawerHandleRect.contains(x, y)) {
+                if (!solved && event.getAction() == MotionEvent.ACTION_DOWN && drawerHandleRect.contains(x, y)) {
                     draggingCandidateDrawer = true;
                     drawerDragStartY = y;
                     drawerDragStartHeight = candidateDrawerHeight;
@@ -1659,9 +1676,9 @@ public class MainActivity extends Activity {
             try {
                 android.content.pm.PackageInfo info = getContext().getPackageManager()
                         .getPackageInfo(getContext().getPackageName(), 0);
-                return info.versionName == null ? "1.26" : info.versionName;
+                return info.versionName == null ? "1.27" : info.versionName;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return "1.26";
+                return "1.27";
             }
         }
 
@@ -1672,7 +1689,7 @@ public class MainActivity extends Activity {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return info.getLongVersionCode();
                 return info.versionCode;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return 26L;
+                return 27L;
             }
         }
 
