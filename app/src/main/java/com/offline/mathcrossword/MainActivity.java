@@ -4,7 +4,9 @@ import static com.offline.mathcrossword.PuzzleModel.*;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.DownloadManager;
 import android.content.Context;
+import android.database.Cursor;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
@@ -14,6 +16,8 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.Settings;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Toast;
@@ -112,6 +116,23 @@ public class MainActivity extends Activity {
         int bottomInset = 0;
         float cellSize, originX, originY;
 
+        // Board viewport: fit-to-screen is the baseline; pinch/pan is only a temporary visual lens.
+        float boardZoom = 1f, boardPanX = 0f, boardPanY = 0f;
+        float boardViewportTop = 0f, boardViewportBottom = 0f;
+        boolean boardPanGesture = false, boardGestureMoved = false, pinching = false;
+        float boardDownX = 0f, boardDownY = 0f, boardPanStartX = 0f, boardPanStartY = 0f;
+        float pinchStartDistance = 0f, pinchStartZoom = 1f;
+        long lastBoardTapTime = 0L;
+        float lastBoardTapX = 0f, lastBoardTapY = 0f;
+        Pos longPressPos = null, localFocusCell = null;
+        final Set<Pos> localFocusPositions = new HashSet<>();
+        Runnable boardLongPressRunnable = null;
+        boolean boardLongPressTriggered = false;
+
+        // A downloaded APK stays pending while Android asks once for install-from-this-source permission.
+        Uri pendingInstallUri = null;
+        String pendingInstallVersion = null;
+
         int freeLogic = 5;
         int freeCalc = 4;
         int freeSize = 1;
@@ -193,6 +214,7 @@ public class MainActivity extends Activity {
 
         void onHostResume() {
             if (screen == Screen.GAME && tracker.hasOpenSession()) tracker.resume();
+            if (pendingInstallUri != null) maybeInstallPendingUpdate();
         }
 
         void onHostPause() {
@@ -261,6 +283,7 @@ public class MainActivity extends Activity {
             hintStage = 0;
             candidateNotes.clear();
             undoStack.clear();
+            resetBoardViewport();
             screen = Screen.GAME;
             String sessionMode = LevelAccess.sessionMode(level, progressLevel);
             tracker.start(sessionMode, level, puzzle.seed, puzzle.displayLogicLevel, puzzle.displayCalcLevel, puzzle.logicScore, puzzle.calcScore,
@@ -401,6 +424,7 @@ public class MainActivity extends Activity {
             hintStage = 0;
             candidateNotes.clear();
             undoStack.clear();
+            resetBoardViewport();
             invalidate();
         }
 
@@ -990,13 +1014,24 @@ public class MainActivity extends Activity {
             int rows = puzzle.maxY - puzzle.minY + 1;
             float availW = Math.max(dp(40), w - dp(12));
             float availH = Math.max(dp(60), drawerTop - topH - dp(8));
-            cellSize = Math.min(Math.min(availW / cols, availH / rows), dp(62));
-            // Deliberately no hard minimum: a board must never be pushed beyond the screen.
-            cellSize = Math.max(dp(1), cellSize);
+            boardViewportTop = topH;
+            boardViewportBottom = drawerTop;
+
+            float fitCell = Math.min(Math.min(availW / cols, availH / rows), dp(62));
+            fitCell = Math.max(dp(1), fitCell);
+            boardZoom = Math.max(1f, Math.min(2.65f, boardZoom));
+            cellSize = fitCell * boardZoom;
             float gridW = cols * cellSize;
             float gridH = rows * cellSize;
-            originX = (w - gridW) / 2f - puzzle.minX * cellSize;
-            originY = topH + Math.max(dp(4), (availH - gridH) / 2f) - puzzle.minY * cellSize;
+
+            // Clamp pan so an enlarged board can move, but can never be lost off-screen.
+            float maxPanX = Math.max(0f, (gridW - availW) / 2f + dp(18));
+            float maxPanY = Math.max(0f, (gridH - availH) / 2f + dp(18));
+            boardPanX = Math.max(-maxPanX, Math.min(maxPanX, boardPanX));
+            boardPanY = Math.max(-maxPanY, Math.min(maxPanY, boardPanY));
+
+            originX = (w - gridW) / 2f - puzzle.minX * cellSize + boardPanX;
+            originY = topH + (availH - gridH) / 2f - puzzle.minY * cellSize + boardPanY;
 
             Map<Pos, Integer> status = equationStatus();
             stroke.setStyle(Paint.Style.STROKE);
@@ -1011,6 +1046,7 @@ public class MainActivity extends Activity {
             // This guarantees that notes from non-selected cells are never replaced by a
             // summary marker or covered by later board drawing.
             drawAllCandidateNotesOverlay(canvas);
+            drawLocalFocusOverlay(canvas);
 
             if (solved) drawSolvedBanner(canvas, w, h);
             else drawCandidateDrawer(canvas, drawerTop, effectiveDrawerHeight, w, h, drawerMin, drawerMax);
@@ -1285,6 +1321,82 @@ public class MainActivity extends Activity {
             }
         }
 
+        void resetBoardViewport() {
+            boardZoom = 1f; boardPanX = 0f; boardPanY = 0f;
+            clearLocalFocus();
+            cancelBoardLongPress();
+        }
+
+        float pointerSpacing(MotionEvent event) {
+            if (event.getPointerCount() < 2) return 0f;
+            float dx = event.getX(0) - event.getX(1);
+            float dy = event.getY(0) - event.getY(1);
+            return (float) Math.hypot(dx, dy);
+        }
+
+        void scheduleBoardLongPress(final Pos pos) {
+            cancelBoardLongPress();
+            longPressPos = pos;
+            boardLongPressRunnable = () -> {
+                if (!boardGestureMoved && !pinching && longPressPos != null && longPressPos.equals(pos)) {
+                    toggleLocalFocus(pos);
+                    boardLongPressTriggered = true;
+                    performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+                    invalidate();
+                }
+            };
+            postDelayed(boardLongPressRunnable, 430L);
+        }
+
+        void cancelBoardLongPress() {
+            if (boardLongPressRunnable != null) removeCallbacks(boardLongPressRunnable);
+            boardLongPressRunnable = null;
+            longPressPos = null;
+        }
+
+        void toggleLocalFocus(Pos pos) {
+            if (localFocusCell != null && localFocusCell.equals(pos)) {
+                clearLocalFocus();
+                tracker.event("local_focus", pos.x, pos.y, 0, "off");
+                return;
+            }
+            localFocusCell = pos;
+            localFocusPositions.clear();
+            if (puzzle != null) {
+                for (Equation e : puzzle.equations) {
+                    Pos[] line = {e.a, e.op, e.b, e.eq, e.c};
+                    boolean contains = false;
+                    for (Pos q : line) if (q.equals(pos)) { contains = true; break; }
+                    if (contains) Collections.addAll(localFocusPositions, line);
+                }
+            }
+            if (localFocusPositions.isEmpty()) localFocusPositions.add(pos);
+            tracker.event("local_focus", pos.x, pos.y, localFocusPositions.size(), "on");
+        }
+
+        void clearLocalFocus() {
+            localFocusCell = null;
+            localFocusPositions.clear();
+        }
+
+        void drawLocalFocusOverlay(Canvas c) {
+            if (localFocusCell == null || puzzle == null) return;
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.argb(128, Color.red(bg), Color.green(bg), Color.blue(bg)));
+            for (Pos pos : puzzle.cells.keySet()) {
+                if (localFocusPositions.contains(pos)) continue;
+                float left = originX + pos.x * cellSize;
+                float top = originY + pos.y * cellSize;
+                c.drawRect(left, top, left + cellSize, top + cellSize, paint);
+            }
+            float left = originX + localFocusCell.x * cellSize;
+            float top = originY + localFocusCell.y * cellSize;
+            stroke.setStyle(Paint.Style.STROKE);
+            stroke.setStrokeWidth(Math.max(dp(2f), cellSize * 0.045f));
+            stroke.setColor(accent);
+            c.drawRect(left, top, left + cellSize, top + cellSize, stroke);
+        }
+
         Map<Pos, Integer> equationStatus() {
             Map<Pos, Integer> out = new HashMap<>();
             // On hard logic levels, instant red/green feedback becomes a brute-force
@@ -1413,7 +1525,9 @@ public class MainActivity extends Activity {
         @Override public boolean onTouchEvent(MotionEvent event) {
             float x = event.getX(), y = event.getY();
             if (screen == Screen.GAME) {
+                // Drawer gesture has priority over board gestures.
                 if (!solved && event.getAction() == MotionEvent.ACTION_DOWN && drawerHandleRect.contains(x, y)) {
+                    cancelBoardLongPress();
                     draggingCandidateDrawer = true;
                     drawerDragStartY = y;
                     drawerDragStartHeight = candidateDrawerHeight;
@@ -1435,8 +1549,10 @@ public class MainActivity extends Activity {
                     float maxH = Math.min(getHeight() * 0.58f, dp(430) + bottomInset);
                     if (moved < dp(8)) {
                         if (candidateDrawerHeight <= minH + dp(8)) {
-                            candidateDrawerHeight = lastExpandedDrawerHeight > minH + dp(10)
-                                    ? Math.min(maxH, lastExpandedDrawerHeight) : compactH;
+                            candidateDrawerHeight = compactH;
+                        } else if (candidateDrawerHeight < maxH - dp(20)) {
+                            lastExpandedDrawerHeight = maxH;
+                            candidateDrawerHeight = maxH;
                         } else {
                             lastExpandedDrawerHeight = candidateDrawerHeight;
                             candidateDrawerHeight = minH;
@@ -1448,6 +1564,83 @@ public class MainActivity extends Activity {
                     tracker.event("candidate_drawer", -1, -1, Math.round(candidateDrawerHeight), "drag");
                     invalidate();
                     return true;
+                }
+
+                if (!solved && event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN && event.getPointerCount() >= 2
+                        && event.getY(0) < boardViewportBottom && event.getY(1) < boardViewportBottom) {
+                    cancelBoardLongPress();
+                    pinching = true;
+                    boardGestureMoved = true;
+                    pinchStartDistance = pointerSpacing(event);
+                    pinchStartZoom = boardZoom;
+                    return true;
+                }
+                if (pinching && event.getActionMasked() == MotionEvent.ACTION_MOVE && event.getPointerCount() >= 2) {
+                    float d = pointerSpacing(event);
+                    if (pinchStartDistance > dp(8)) {
+                        boardZoom = Math.max(1f, Math.min(2.65f, pinchStartZoom * d / pinchStartDistance));
+                        if (boardZoom <= 1.01f) { boardZoom = 1f; boardPanX = 0f; boardPanY = 0f; }
+                        invalidate();
+                    }
+                    return true;
+                }
+                if (pinching && event.getActionMasked() == MotionEvent.ACTION_POINTER_UP) {
+                    pinching = false;
+                    tracker.event("view_zoom", -1, -1, Math.round(boardZoom * 100f), null);
+                    return true;
+                }
+
+                if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                    boardGestureMoved = false;
+                    boardPanGesture = false;
+                    boardLongPressTriggered = false;
+                    boardDownX = x; boardDownY = y;
+                    boardPanStartX = boardPanX; boardPanStartY = boardPanY;
+                    if (!solved && y >= boardViewportTop && y <= boardViewportBottom) {
+                        Pos hold = gridPosAt(x, y);
+                        if (hold != null) scheduleBoardLongPress(hold);
+                    }
+                }
+                if (event.getAction() == MotionEvent.ACTION_MOVE && !pinching) {
+                    float dx = x - boardDownX, dy = y - boardDownY;
+                    if (Math.hypot(dx, dy) > dp(8)) {
+                        boardGestureMoved = true;
+                        cancelBoardLongPress();
+                        if (boardZoom > 1.01f && boardDownY >= boardViewportTop && boardDownY <= boardViewportBottom) {
+                            boardPanGesture = true;
+                            boardPanX = boardPanStartX + dx;
+                            boardPanY = boardPanStartY + dy;
+                            invalidate();
+                            return true;
+                        }
+                    }
+                }
+                if (event.getAction() == MotionEvent.ACTION_UP) {
+                    cancelBoardLongPress();
+                    if (boardLongPressTriggered) { boardLongPressTriggered = false; return true; }
+                    if (boardPanGesture || boardGestureMoved) {
+                        if (boardPanGesture) tracker.event("view_pan", -1, -1, Math.round(boardZoom * 100f), null);
+                        boardPanGesture = false; boardGestureMoved = false;
+                        return true;
+                    }
+                    if (!solved && y >= boardViewportTop && y <= boardViewportBottom) {
+                        long now = System.currentTimeMillis();
+                        if (now - lastBoardTapTime < 310L
+                                && Math.hypot(x - lastBoardTapX, y - lastBoardTapY) < dp(36)) {
+                            boardZoom = 1f; boardPanX = 0f; boardPanY = 0f;
+                            selectedCell = null; selectedTileId = -1;
+                            tracker.event("view_fit", -1, -1, 100, "double_tap");
+                            lastBoardTapTime = 0L;
+                            invalidate();
+                            return true;
+                        }
+                        lastBoardTapTime = now; lastBoardTapX = x; lastBoardTapY = y;
+                        if (localFocusCell != null && gridPosAt(x, y) == null) {
+                            clearLocalFocus();
+                            invalidate();
+                            return true;
+                        }
+                    }
                 }
             }
             if (event.getAction() != MotionEvent.ACTION_UP) return true;
@@ -1693,6 +1886,95 @@ public class MainActivity extends Activity {
             }
         }
 
+        void startUpdateDownload(String version, String downloadUrl) {
+            try {
+                DownloadManager manager = (DownloadManager) getContext().getSystemService(Context.DOWNLOAD_SERVICE);
+                if (manager == null) throw new IllegalStateException("DownloadManager недоступен");
+                String fileName = "MathCrossword-v" + version + ".apk";
+                DownloadManager.Request request = new DownloadManager.Request(Uri.parse(downloadUrl));
+                request.setTitle("MathCrossword " + version);
+                request.setDescription("Загрузка обновления");
+                request.setMimeType("application/vnd.android.package-archive");
+                request.setAllowedOverMetered(true);
+                request.setAllowedOverRoaming(true);
+                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                request.setDestinationInExternalFilesDir(getContext(), Environment.DIRECTORY_DOWNLOADS, fileName);
+                long id = manager.enqueue(request);
+                updateStatus = "скачиваю " + version;
+                invalidate();
+                Toast.makeText(getContext(), "Обновление скачивается внутри приложения", Toast.LENGTH_SHORT).show();
+                waitForUpdateDownload(manager, id, version);
+            } catch (RuntimeException ex) {
+                updateStatus = "ошибка загрузки";
+                invalidate();
+                Toast.makeText(getContext(), "Не удалось начать загрузку: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        }
+
+        void waitForUpdateDownload(DownloadManager manager, long id, String version) {
+            new Thread(() -> {
+                for (int attempt = 0; attempt < 900; attempt++) {
+                    Cursor cursor = null;
+                    try {
+                        cursor = manager.query(new DownloadManager.Query().setFilterById(id));
+                        if (cursor != null && cursor.moveToFirst()) {
+                            int status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
+                            if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                                Uri uri = manager.getUriForDownloadedFile(id);
+                                post(() -> {
+                                    pendingInstallUri = uri;
+                                    pendingInstallVersion = version;
+                                    updateStatus = "скачано " + version;
+                                    invalidate();
+                                    maybeInstallPendingUpdate();
+                                });
+                                return;
+                            }
+                            if (status == DownloadManager.STATUS_FAILED) {
+                                post(() -> {
+                                    updateStatus = "ошибка загрузки";
+                                    invalidate();
+                                    Toast.makeText(getContext(), "Android не смог скачать обновление", Toast.LENGTH_LONG).show();
+                                });
+                                return;
+                            }
+                        }
+                    } catch (RuntimeException ignored) {
+                    } finally {
+                        if (cursor != null) cursor.close();
+                    }
+                    try { Thread.sleep(500L); } catch (InterruptedException ex) { return; }
+                }
+            }, "mathcrossword-update-download").start();
+        }
+
+        void maybeInstallPendingUpdate() {
+            if (pendingInstallUri == null) return;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                    && !getContext().getPackageManager().canRequestPackageInstalls()) {
+                new AlertDialog.Builder(getContext())
+                        .setTitle("Разрешить обновления")
+                        .setMessage("Android один раз попросит разрешить MathCrossword устанавливать скачанные обновления. После этого вернись в игру — установка продолжится сама.")
+                        .setPositiveButton("Разрешить", (d, which) -> {
+                            Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                    Uri.parse("package:" + getContext().getPackageName()));
+                            settings.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            getContext().startActivity(settings);
+                        })
+                        .setNegativeButton("Позже", null)
+                        .show();
+                return;
+            }
+            try {
+                Intent install = new Intent(Intent.ACTION_VIEW);
+                install.setDataAndType(pendingInstallUri, "application/vnd.android.package-archive");
+                install.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                getContext().startActivity(install);
+            } catch (RuntimeException ex) {
+                Toast.makeText(getContext(), "APK скачан, но установщик не открылся", Toast.LENGTH_LONG).show();
+            }
+        }
+
         void checkForUpdate() {
             if (updateChecking) return;
             updateChecking = true;
@@ -1709,15 +1991,8 @@ public class MainActivity extends Activity {
                                 .setMessage("Установлена: " + installedVersionName() + " (" + installedVersionCode() + ")\n"
                                         + "Последняя: " + latestVersion);
                         if (newer && downloadUrl != null) {
-                            dialog.setPositiveButton("Скачать", (d, which) -> {
-                                try {
-                                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl));
-                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                                    getContext().startActivity(intent);
-                                } catch (RuntimeException ex) {
-                                    Toast.makeText(getContext(), "Не удалось открыть загрузку", Toast.LENGTH_SHORT).show();
-                                }
-                            });
+                            dialog.setPositiveButton("Скачать", (d, which) ->
+                                    startUpdateDownload(latestVersion, downloadUrl));
                         }
                         dialog.setNegativeButton("Закрыть", null).show();
                     });
