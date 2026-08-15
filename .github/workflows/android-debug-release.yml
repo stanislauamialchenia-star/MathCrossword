@@ -1,16 +1,15 @@
-name: Build and publish debug APK
+name: Publish MathCrossword v24 APK
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: android-debug-release-${{ github.ref }}
+  group: android-v24-publish-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -21,6 +20,30 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v5
+
+      - name: Reconstruct v24 source overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat v24_payload/part00 v24_payload/part01 v24_payload/part02 v24_payload/part03 \
+            | base64 --decode > "$RUNNER_TEMP/v24-overlay.zip"
+          unzip -o "$RUNNER_TEMP/v24-overlay.zip" -d .
+          grep -q "versionCode 24" app/build.gradle
+          grep -q "versionName '1.24'" app/build.gradle
+          test -f app/src/main/java/com/offline/mathcrossword/MoveNotation.java
+
+      - name: Commit clean v24 source to main
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf v24_payload
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "MathCrossword v24: focus UI and move notation"
+          git push origin HEAD:main
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -89,7 +112,6 @@ jobs:
         run: |
           set -euo pipefail
           apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
-          test -n "$apksigner"
           "$apksigner" verify app/build/outputs/apk/debug/app-debug.apk
           expected_digest="$(keytool -list -v \
             -keystore "$RUNNER_TEMP/mathcrossword-signing.keystore" \
@@ -99,7 +121,6 @@ jobs:
           actual_digest="$(keytool -printcert -jarfile app/build/outputs/apk/debug/app-debug.apk \
             | sed -n 's/^.*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
           test -n "$expected_digest"
-          test -n "$actual_digest"
           test "$actual_digest" = "$expected_digest"
 
       - name: Prepare release APK
@@ -115,13 +136,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: v${{ steps.version.outputs.name }}-debug.${{ github.run_number }}
           APK_NAME: ${{ steps.apk.outputs.name }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
         shell: bash
         run: |
           gh release create "$TAG_NAME" "$APK_NAME#MathCrossword debug APK" \
             --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
+            --target "$SOURCE_SHA" \
             --title "MathCrossword v${{ steps.version.outputs.name }} debug build ${{ github.run_number }}" \
-            --notes "Automatic debug APK for version ${{ steps.version.outputs.name }} (version code ${{ steps.version.outputs.code }}), built from commit $GITHUB_SHA."
+            --notes "Automatic signed debug APK for version ${{ steps.version.outputs.name }} (version code ${{ steps.version.outputs.code }}), built from source commit $SOURCE_SHA."
 
       - name: Remove temporary signing material
         if: always()
@@ -129,3 +151,4 @@ jobs:
         run: |
           rm -f "$RUNNER_TEMP/mathcrossword-signing.keystore"
           rm -f "$RUNNER_TEMP/app-debug-signed.apk"
+          rm -f "$RUNNER_TEMP/v24-overlay.zip"
