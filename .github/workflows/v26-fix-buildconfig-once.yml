@@ -1,0 +1,37 @@
+name: Fix v26 runtime version lookup once
+on:
+  push:
+    branches: [v25-publish]
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Patch main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout -B main origin/main
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/offline/mathcrossword/MainActivity.java')
+          s = p.read_text()
+          s = s.replace('BuildConfig.VERSION_NAME', 'installedVersionName()')
+          s = s.replace('BuildConfig.VERSION_CODE', 'installedVersionCode()')
+          marker = '''        void checkForUpdate() {\n'''
+          helpers = '''        String installedVersionName() {\n            try {\n                android.content.pm.PackageInfo info = getContext().getPackageManager()\n                        .getPackageInfo(getContext().getPackageName(), 0);\n                return info.versionName == null ? "1.26" : info.versionName;\n            } catch (android.content.pm.PackageManager.NameNotFoundException ex) {\n                return "1.26";\n            }\n        }\n\n        long installedVersionCode() {\n            try {\n                android.content.pm.PackageInfo info = getContext().getPackageManager()\n                        .getPackageInfo(getContext().getPackageName(), 0);\n                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return info.getLongVersionCode();\n                return info.versionCode;\n            } catch (android.content.pm.PackageManager.NameNotFoundException ex) {\n                return 26L;\n            }\n        }\n\n'''
+          if helpers.strip() not in s:
+              if marker not in s: raise SystemExit('checkForUpdate marker missing')
+              s = s.replace(marker, helpers + marker)
+          p.write_text(s)
+          PY
+          git add app/src/main/java/com/offline/mathcrossword/MainActivity.java
+          git commit -m "Fix v26 version lookup without BuildConfig"
+          git push origin main
