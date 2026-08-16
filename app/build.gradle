@@ -6,6 +6,7 @@ android {
     namespace 'com.offline.mathcrossword'
     compileSdk 36
 
+    // One codebase, two distribution channels: direct GitHub APK and Google Play AAB.
     flavorDimensions 'distribution'
     productFlavors {
         github {
