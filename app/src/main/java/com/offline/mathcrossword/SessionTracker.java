@@ -189,6 +189,22 @@ final class SessionTracker {
                 if (routeComparison.optBoolean("alternateEntry", false)) out.routeAlternateEntries++;
                 out.routeAgreementTotal += routeComparison.optDouble("agreementPct", 0.0);
             }
+            JSONObject graphTraversal = row.optJSONObject("graphTraversal");
+            if (graphTraversal != null && graphTraversal.optBoolean("available", false)) {
+                out.graphTraversalSessions++;
+                String direction = graphTraversal.optString("direction", "unknown");
+                if ("forward".equals(direction)) out.graphForward++;
+                else if ("backward".equals(direction)) out.graphBackward++;
+                else if ("bidirectional".equals(direction)) out.graphBidirectional++;
+                else if ("mixed".equals(direction)) out.graphMixed++;
+                else if ("divergent".equals(direction)) out.graphDivergent++;
+                else out.graphUnknown++;
+                if (graphTraversal.optBoolean("internalEntry", false)) out.graphInternalEntries++;
+                if (graphTraversal.optBoolean("branchProbing", false)) out.graphBranchProbes++;
+                if (graphTraversal.optBoolean("anchorReached", false)) out.graphAnchorReached++;
+                if (graphTraversal.optBoolean("structuralDivergence", false)) out.graphStructuralDivergences++;
+                out.graphConfidenceTotal += graphTraversal.optDouble("confidencePct", 0.0);
+            }
             JSONArray events = row.optJSONArray("events");
             if (events != null) {
                 for (int i = 0; i < events.length(); i++) {
@@ -225,6 +241,8 @@ final class SessionTracker {
         out.avgLongestPauseMs = pauseCount == 0 ? 0L : totalLongestPause / pauseCount;
         out.avgRouteAgreementPct = out.routeComparedSessions == 0 ? 0.0
                 : out.routeAgreementTotal / out.routeComparedSessions;
+        out.avgGraphConfidencePct = out.graphTraversalSessions == 0 ? 0.0
+                : out.graphConfidenceTotal / out.graphTraversalSessions;
 
         for (SolutionStrategy strategy : SolutionStrategy.values()) {
             StrategyStats st = strategyMap.get(strategy.name());
@@ -290,6 +308,16 @@ final class SessionTracker {
                 s.routeOrderAgreementPct = routeComparison.optDouble("orderAgreementPct", 0.0);
                 s.routeAlternateEntry = routeComparison.optBoolean("alternateEntry", false);
                 s.routeStrongDivergence = routeComparison.optBoolean("strongDivergence", false);
+            }
+            JSONObject graphTraversal = row.optJSONObject("graphTraversal");
+            if (graphTraversal != null && graphTraversal.optBoolean("available", false)) {
+                s.graphTraversalAvailable = true;
+                s.graphTraversalDirection = graphTraversal.optString("direction", "unknown");
+                s.graphTraversalEntryDepth = graphTraversal.optInt("entryDepth", -1);
+                s.graphTraversalConfidencePct = graphTraversal.optDouble("confidencePct", 0.0);
+                s.graphTraversalInternalEntry = graphTraversal.optBoolean("internalEntry", false);
+                s.graphTraversalBranchProbing = graphTraversal.optBoolean("branchProbing", false);
+                s.graphTraversalStructuralDivergence = graphTraversal.optBoolean("structuralDivergence", false);
             }
             out.recent.add(s);
         }
@@ -570,6 +598,19 @@ final class SessionTracker {
         int routeAlternateEntries;
         double routeAgreementTotal;
         double avgRouteAgreementPct;
+        int graphTraversalSessions;
+        int graphForward;
+        int graphBackward;
+        int graphBidirectional;
+        int graphMixed;
+        int graphDivergent;
+        int graphUnknown;
+        int graphInternalEntries;
+        int graphBranchProbes;
+        int graphAnchorReached;
+        int graphStructuralDivergences;
+        double graphConfidenceTotal;
+        double avgGraphConfidencePct;
         boolean calibrationReady;
         int calibrationSessions;
         double calibrationMeanError;
@@ -645,6 +686,13 @@ final class SessionTracker {
         double routeOrderAgreementPct;
         boolean routeAlternateEntry;
         boolean routeStrongDivergence;
+        boolean graphTraversalAvailable;
+        String graphTraversalDirection = "unknown";
+        int graphTraversalEntryDepth = -1;
+        double graphTraversalConfidencePct;
+        boolean graphTraversalInternalEntry;
+        boolean graphTraversalBranchProbing;
+        boolean graphTraversalStructuralDivergence;
     }
 
     private static final class OpenSession {
