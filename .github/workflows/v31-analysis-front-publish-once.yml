@@ -1,0 +1,227 @@
+name: Publish v31 trajectory analysis once
+
+on:
+  push:
+    branches: [v27-ui-publish]
+    paths:
+      - .github/workflows/v31-analysis-front-publish-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-main:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Patch v31 analysis front
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # ---- SessionTracker: rich report for the latest saved action trajectory ----
+          path = Path('app/src/main/java/com/offline/mathcrossword/SessionTracker.java')
+          s = path.read_text(encoding='utf-8')
+          anchor = '''    private void append(JSONObject json) {\n'''
+          if anchor not in s:
+              raise SystemExit('SessionTracker append anchor not found')
+          method = r'''    synchronized String latestTrajectoryReport() {
+        List<JSONObject> rows = readObjects();
+        if (rows.isEmpty()) return null;
+        JSONObject row = rows.get(rows.size() - 1);
+        StringBuilder out = new StringBuilder();
+
+        String mode = row.optString("mode", "");
+        int level = row.optInt("level", 0);
+        String where = mode.startsWith("PATH") && level > 0 ? ("уровень " + level) : "свободная игра";
+        String strategyName = row.optString("strategy", SolutionStrategy.MIXED.name());
+        String strategy = strategyName;
+        try { strategy = SolutionStrategy.valueOf(strategyName).label; }
+        catch (RuntimeException ignored) { }
+
+        out.append(where).append(" · ").append(strategy)
+                .append(" · ").append(row.optBoolean("solved", false) ? "решено" : "не завершено")
+                .append("\nАктивное время: ").append(reportTime(row.optLong("activeMs", 0L)))
+                .append(" · событий: ").append(row.optInt("eventCount", 0));
+
+        out.append("\n\nСигналы прохождения")
+                .append("\nПаузы: продуктивные ").append(row.optInt("productivePauses", 0))
+                .append(" · тупиковые ").append(row.optInt("deadEndPauses", 0))
+                .append("\nПроверки гипотез: ").append(row.optInt("hypothesisEpisodes", 0))
+                .append(" · быстрые каскады: ").append(row.optInt("rapidCascades", 0));
+
+        int commitments = row.optInt("candidateCommitments", 0);
+        if (commitments > 0) {
+            out.append("\nКандидат → решение: ").append(commitments)
+                    .append(" · в среднем ").append(reportTime(row.optLong("avgCandidateCommitmentMs", 0L)));
+        }
+        int recoveries = row.optInt("recoveryEpisodes", 0);
+        if (recoveries > 0) {
+            out.append("\nВосстановления после отмены/ошибки/намёка: ").append(recoveries)
+                    .append(" · в среднем ")
+                    .append(String.format(java.util.Locale.US, "%.1f", row.optDouble("avgRecoveryActions", 0.0)))
+                    .append(" действия");
+        }
+        int switches = row.optInt("candidateCellSwitches", 0);
+        int revisits = row.optInt("candidateCellRevisits", 0);
+        if (switches > 0 || revisits > 0) {
+            out.append("\nКандидаты: переходов между клетками ").append(switches)
+                    .append(" · возвратов ").append(revisits)
+                    .append(" · максимум в клетке ").append(row.optInt("maxCandidatesInOneCell", 0));
+        }
+
+        out.append("\n\nСигналы для проверки модели");
+        boolean signal = false;
+        int hidden = Math.max(0, row.optInt("hidden", 0));
+        int modelCascade = Math.max(0, row.optInt("maxForcedCascade", 0));
+        double cascadeFraction = hidden == 0 ? 0.0 : modelCascade / (double) hidden;
+        int rapid = row.optInt("rapidCascades", 0);
+        if (cascadeFraction < 0.35 && rapid > 0) {
+            out.append("\n• Прохождение ускорилось сильнее, чем ожидала модель каскада — проверить альтернативный путь решения.");
+            signal = true;
+        } else if (cascadeFraction >= 0.55 && rapid == 0 && row.optBoolean("solved", false)) {
+            out.append("\n• Модель ожидала сильный каскад, но в реальном прохождении ускорения не видно — проверить оценку forced-cascade.");
+            signal = true;
+        } else if (cascadeFraction >= 0.55 && rapid > 0) {
+            out.append("\n• Модель и прохождение согласуются: после ключевого шага возник быстрый каскад.");
+            signal = true;
+        }
+
+        int hypotheses = row.optInt("hypothesisEpisodes", 0);
+        int goodPivots = row.optInt("branchGoodPivotCount", 0);
+        if (hypotheses > 0 && goodPivots == 0) {
+            out.append("\n• Игрок проверял гипотезы, хотя генератор не отметил сильных pivot-точек — возможная слепая зона BranchQualityAnalyzer.");
+            signal = true;
+        } else if (row.optBoolean("solved", false) && hypotheses == 0 && goodPivots > 0) {
+            out.append("\n• Генератор ожидал точки гипотезы, но задача решилась без зафиксированной проверки гипотез — возможен другой маршрут.");
+            signal = true;
+        }
+        if (revisits >= 3) {
+            out.append("\n• Частые возвраты к уже исследованным клеткам — проверить, это содержательный узел задачи или визуальная/интерфейсная неоднозначность.");
+            signal = true;
+        }
+        if (!signal) out.append("\n• Явного расхождения между текущими структурными и поведенческими сигналами не найдено.");
+
+        JSONArray moves = row.optJSONArray("semanticMoves");
+        out.append("\n\nХод решения");
+        if (moves == null || moves.length() == 0) {
+            out.append("\nНет семантических ходов в этой сессии.");
+        } else {
+            int limit = Math.min(120, moves.length());
+            for (int i = 0; i < limit; i++) {
+                JSONObject m = moves.optJSONObject(i);
+                if (m == null) continue;
+                out.append("\n")
+                        .append(m.optInt("seq", i + 1)).append(". ")
+                        .append("[").append(reportTime(m.optLong("tMs", 0L))).append("] ")
+                        .append(m.optString("notation", m.optString("type", "")));
+            }
+            if (moves.length() > limit) out.append("\n… ещё ").append(moves.length() - limit).append(" ходов");
+        }
+        out.append("\n\nЭто след взаимодействия с задачей, а не буквальная запись мыслей человека.");
+        return out.toString();
+    }
+
+    private static String reportTime(long ms) {
+        if (ms < 0) return "—";
+        long total = ms / 1000L;
+        long min = total / 60L;
+        long sec = total % 60L;
+        return min + ":" + (sec < 10 ? "0" : "") + sec;
+    }
+
+'''
+          s = s.replace(anchor, method + anchor, 1)
+          path.write_text(s, encoding='utf-8')
+
+          # ---- MainActivity: keep the analysis page quiet, open details only on demand ----
+          path = Path('app/src/main/java/com/offline/mathcrossword/MainActivity.java')
+          s = path.read_text(encoding='utf-8')
+
+          old = '        final RectF homeUpdateRect = new RectF();\n'
+          new = old + '        final RectF analysisLastTraceRect = new RectF();\n'
+          if old not in s: raise SystemExit('homeUpdateRect anchor not found')
+          s = s.replace(old, new, 1)
+
+          old = '''            topHomeRect.set(dp(12), top, dp(62), top + dp(48));\n            drawIconButton(c, topHomeRect, "‹");\n\n            paint.setColor(ink);\n'''
+          new = '''            topHomeRect.set(dp(12), top, dp(62), top + dp(48));\n            drawIconButton(c, topHomeRect, "‹");\n            analysisLastTraceRect.setEmpty();\n\n            paint.setColor(ink);\n'''
+          if old not in s: raise SystemExit('drawAnalysis header anchor not found')
+          s = s.replace(old, new, 1)
+
+          old = '''                paint.setColor(ink);\n                paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);\n                paint.setTextSize(dp(16));\n                c.drawText("Последняя траектория", side, y, paint);\n                y += dp(24);\n'''
+          new = '''                float traceTop = y - dp(18);\n                paint.setColor(ink);\n                paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);\n                paint.setTextSize(dp(16));\n                c.drawText("Последняя траектория", side, y, paint);\n                paint.setTextAlign(Paint.Align.RIGHT);\n                paint.setTypeface(android.graphics.Typeface.DEFAULT);\n                paint.setTextSize(dp(12.5f));\n                paint.setColor(Color.rgb(82, 100, 85));\n                c.drawText("подробно ›", w - side, y, paint);\n                paint.setTextAlign(Paint.Align.LEFT);\n                y += dp(24);\n'''
+          if old not in s: raise SystemExit('last trajectory header anchor not found')
+          s = s.replace(old, new, 1)
+
+          old = '''                y += dp(7);\n            }\n\n            paint.setColor(ink);\n'''
+          new = '''                y += dp(7);\n                analysisLastTraceRect.set(side - dp(8), traceTop, w - side + dp(8), y + dp(5));\n            }\n\n            paint.setColor(ink);\n'''
+          if old not in s: raise SystemExit('last trajectory end anchor not found')
+          s = s.replace(old, new, 1)
+
+          old = '''            if (screen == Screen.ANALYSIS) {\n                if (topHomeRect.contains(x, y)) { screen = Screen.HOME; invalidate(); }\n                return true;\n            }\n'''
+          new = '''            if (screen == Screen.ANALYSIS) {\n                if (topHomeRect.contains(x, y)) { screen = Screen.HOME; invalidate(); return true; }\n                if (analysisLastTraceRect.contains(x, y)) { showLastTrajectoryDialog(); return true; }\n                return true;\n            }\n'''
+          if old not in s: raise SystemExit('analysis touch anchor not found')
+          s = s.replace(old, new, 1)
+
+          old = '''        String installedVersionName() {\n'''
+          method = r'''        void showLastTrajectoryDialog() {
+            String report = tracker.latestTrajectoryReport();
+            if (report == null || report.isEmpty()) {
+                Toast.makeText(getContext(), "Пока нет завершённых сессий", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            TextView text = new TextView(getContext());
+            int pad = (int) dp(20);
+            text.setPadding(pad, pad, pad, pad);
+            text.setText(report);
+            text.setTextSize(15.5f);
+            text.setTextColor(ink);
+            text.setLineSpacing(0f, 1.14f);
+            text.setTextIsSelectable(true);
+
+            ScrollView scroll = new ScrollView(getContext());
+            scroll.setFillViewport(true);
+            scroll.addView(text);
+
+            new AlertDialog.Builder(getContext())
+                    .setTitle("Ход решения")
+                    .setView(scroll)
+                    .setNegativeButton("Закрыть", null)
+                    .show();
+        }
+
+'''
+          if old not in s: raise SystemExit('installedVersionName anchor not found')
+          s = s.replace(old, method + old, 1)
+
+          s = s.replace('return info.versionName == null ? "1.30" : info.versionName;', 'return info.versionName == null ? "1.31" : info.versionName;', 1)
+          s = s.replace('return "1.30";', 'return "1.31";', 1)
+          s = s.replace('return 30L;', 'return 31L;', 1)
+          path.write_text(s, encoding='utf-8')
+
+          # ---- App version ----
+          path = Path('app/build.gradle')
+          s = path.read_text(encoding='utf-8')
+          if "versionCode 30" not in s or "versionName '1.30'" not in s:
+              raise SystemExit('Expected v1.30 build.gradle not found')
+          s = s.replace('versionCode 30', 'versionCode 31', 1)
+          s = s.replace("versionName '1.30'", "versionName '1.31'", 1)
+          path.write_text(s, encoding='utf-8')
+
+          Path('V31_ANALYSIS_FRONT.md').write_text('''# MathCrossword v1.31 — trajectory analysis front\n\n- The compact Analysis screen stays visually quiet.\n- `Последняя траектория` is now tappable and opens a scrollable detailed report.\n- The report exposes the chess-like semantic action log already stored locally: candidate add/remove, placements, undo, hints, reset and incorrect completion signals with active timestamps.\n- It surfaces candidate-to-commit time, recovery episodes, candidate-cell switching/revisits and rapid cascades.\n- It adds conservative **signals for checking the model** when observed play disagrees with generator/analyzer expectations (cascade mismatch, hypothesis-pivot mismatch, repeated revisits).\n- These signals describe interaction with the puzzle; they are not claims about personality or a literal recording of thought.\n- No puzzle-generation rules changed in this version. Generator v22 remains the mathematical baseline.\n''', encoding='utf-8')
+          PY
+
+      - name: Commit v31 to main
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/offline/mathcrossword/SessionTracker.java \
+                  app/src/main/java/com/offline/mathcrossword/MainActivity.java \
+                  app/build.gradle V31_ANALYSIS_FRONT.md
+          git commit -m "MathCrossword v31: expose detailed solution trajectory"
+          git push origin HEAD:main
