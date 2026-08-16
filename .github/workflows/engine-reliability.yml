@@ -19,7 +19,7 @@ concurrency:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Check out source
@@ -31,17 +31,21 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Compile engine with Android app
+      - name: Ensure Android API 36
+        shell: bash
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Compile both distribution variants
         shell: bash
         run: |
           chmod +x ./gradlew
-          ./gradlew :app:compileDebugJavaWithJavac --no-daemon
+          ./gradlew :app:compileGithubDebugJavaWithJavac :app:compilePlayDebugJavaWithJavac --no-daemon
 
       - name: Compile reliability harnesses
         shell: bash
         run: |
           set -euo pipefail
-          app_classes="app/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes"
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
           test -d "$app_classes"
           mkdir -p "$RUNNER_TEMP/mathcrossword-reliability"
           javac -cp "$app_classes" \
@@ -53,7 +57,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          app_classes="app/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes"
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
           java -Xmx512m \
             -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
             com.offline.mathcrossword.GraphTheoryHarness
@@ -62,7 +66,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          app_classes="app/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes"
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
           timeout 12m java -Xmx1536m \
             -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
             com.offline.mathcrossword.ReliabilityHarness smoke
