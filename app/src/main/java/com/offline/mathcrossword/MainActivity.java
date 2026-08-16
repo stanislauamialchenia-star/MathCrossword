@@ -164,6 +164,7 @@ public class MainActivity extends Activity {
         final RectF homeLibraryRect = new RectF();
         final RectF homeAnalysisRect = new RectF();
         final RectF homeUpdateRect = new RectF();
+        final RectF homePrivacyRect = new RectF();
         final RectF analysisLastTraceRect = new RectF();
         final RectF analysisExportRect = new RectF();
         String updateStatus = "обновление не проверено";
@@ -498,6 +499,13 @@ public class MainActivity extends Activity {
             } else {
                 homeUpdateRect.setEmpty();
             }
+
+            homePrivacyRect.set(dp(18), footerY - dp(50), w - dp(18), footerY - dp(24));
+            paint.setColor(Color.rgb(88, 105, 91));
+            paint.setTextSize(dp(11.2f));
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            c.drawText("Конфиденциальность", footerCenterX, footerY - dp(31), paint);
 
             paint.setColor(Color.rgb(108, 119, 110));
             paint.setTextSize(dp(11.8f));
@@ -1745,6 +1753,7 @@ public class MainActivity extends Activity {
                 else if (homeFreeRect.contains(x, y)) { screen = Screen.FREE_SETUP; invalidate(); }
                 else if (homeLibraryRect.contains(x, y)) { screen = Screen.LIBRARY; invalidate(); }
                 else if (homeAnalysisRect.contains(x, y)) { screen = Screen.ANALYSIS; invalidate(); }
+                else if (homePrivacyRect.contains(x, y)) { showPrivacyDialog(); }
                 else if (DistributionConfig.selfUpdateEnabled() && homeUpdateRect.contains(x, y)) { checkForUpdate(); }
                 return true;
             }
@@ -1960,6 +1969,27 @@ public class MainActivity extends Activity {
             builder.show();
         }
 
+        void showPrivacyDialog() {
+            TextView text = new TextView(getContext());
+            int pad = (int) dp(20);
+            text.setPadding(pad, pad, pad, pad);
+            text.setText(PrivacyPolicy.text());
+            text.setTextSize(15.5f);
+            text.setTextColor(ink);
+            text.setLineSpacing(0f, 1.14f);
+            text.setTextIsSelectable(true);
+
+            ScrollView scroll = new ScrollView(getContext());
+            scroll.setFillViewport(true);
+            scroll.addView(text);
+
+            new AlertDialog.Builder(getContext())
+                    .setTitle("Конфиденциальность")
+                    .setView(scroll)
+                    .setNegativeButton("Закрыть", null)
+                    .show();
+        }
+
         void showLastTrajectoryDialog() {
             String report = tracker.latestTrajectoryReport();
             if (report == null || report.isEmpty()) {
@@ -1990,9 +2020,9 @@ public class MainActivity extends Activity {
             try {
                 android.content.pm.PackageInfo info = getContext().getPackageManager()
                         .getPackageInfo(getContext().getPackageName(), 0);
-                return info.versionName == null ? "1.35" : info.versionName;
+                return info.versionName == null ? "1.36" : info.versionName;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return "1.35";
+                return "1.36";
             }
         }
 
@@ -2003,7 +2033,7 @@ public class MainActivity extends Activity {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return info.getLongVersionCode();
                 return info.versionCode;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return 35L;
+                return 36L;
             }
         }
 
