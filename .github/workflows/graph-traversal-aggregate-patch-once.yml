@@ -1,0 +1,89 @@
+name: Patch traversal aggregates once
+
+on:
+  push:
+    branches:
+      - research/graph-traversal-report
+    paths:
+      - '.github/workflows/graph-traversal-aggregate-patch-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Aggregate and display graph traversal patterns
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin research/graph-traversal-report
+          git checkout -B research/graph-traversal-report origin/research/graph-traversal-report
+          python - <<'PY'
+          from pathlib import Path
+
+          session = Path('app/src/main/java/com/offline/mathcrossword/SessionTracker.java')
+          s = session.read_text()
+
+          old = '''            JSONObject routeComparison = row.optJSONObject("routeComparison");\n            if (routeComparison != null && routeComparison.optBoolean("available", false)) {\n                out.routeComparedSessions++;\n                if (routeComparison.optBoolean("strongDivergence", false)) out.routeStrongDivergences++;\n                if (routeComparison.optBoolean("alternateEntry", false)) out.routeAlternateEntries++;\n                out.routeAgreementTotal += routeComparison.optDouble("agreementPct", 0.0);\n            }\n            JSONArray events = row.optJSONArray("events");\n'''
+          new = '''            JSONObject routeComparison = row.optJSONObject("routeComparison");\n            if (routeComparison != null && routeComparison.optBoolean("available", false)) {\n                out.routeComparedSessions++;\n                if (routeComparison.optBoolean("strongDivergence", false)) out.routeStrongDivergences++;\n                if (routeComparison.optBoolean("alternateEntry", false)) out.routeAlternateEntries++;\n                out.routeAgreementTotal += routeComparison.optDouble("agreementPct", 0.0);\n            }\n            JSONObject graphTraversal = row.optJSONObject("graphTraversal");\n            if (graphTraversal != null && graphTraversal.optBoolean("available", false)) {\n                out.graphTraversalSessions++;\n                String direction = graphTraversal.optString("direction", "unknown");\n                if ("forward".equals(direction)) out.graphForward++;\n                else if ("backward".equals(direction)) out.graphBackward++;\n                else if ("bidirectional".equals(direction)) out.graphBidirectional++;\n                else if ("mixed".equals(direction)) out.graphMixed++;\n                else if ("divergent".equals(direction)) out.graphDivergent++;\n                else out.graphUnknown++;\n                if (graphTraversal.optBoolean("internalEntry", false)) out.graphInternalEntries++;\n                if (graphTraversal.optBoolean("branchProbing", false)) out.graphBranchProbes++;\n                if (graphTraversal.optBoolean("anchorReached", false)) out.graphAnchorReached++;\n                if (graphTraversal.optBoolean("structuralDivergence", false)) out.graphStructuralDivergences++;\n                out.graphConfidenceTotal += graphTraversal.optDouble("confidencePct", 0.0);\n            }\n            JSONArray events = row.optJSONArray("events");\n'''
+          if old not in s:
+              raise SystemExit('analysis graph aggregate marker missing')
+          s = s.replace(old, new, 1)
+
+          old = '''        out.avgRouteAgreementPct = out.routeComparedSessions == 0 ? 0.0\n                : out.routeAgreementTotal / out.routeComparedSessions;\n\n        for (SolutionStrategy strategy : SolutionStrategy.values()) {\n'''
+          new = '''        out.avgRouteAgreementPct = out.routeComparedSessions == 0 ? 0.0\n                : out.routeAgreementTotal / out.routeComparedSessions;\n        out.avgGraphConfidencePct = out.graphTraversalSessions == 0 ? 0.0\n                : out.graphConfidenceTotal / out.graphTraversalSessions;\n\n        for (SolutionStrategy strategy : SolutionStrategy.values()) {\n'''
+          if old not in s:
+              raise SystemExit('analysis average graph marker missing')
+          s = s.replace(old, new, 1)
+
+          old = '''            JSONObject routeComparison = row.optJSONObject("routeComparison");\n            if (routeComparison != null && routeComparison.optBoolean("available", false)) {\n                s.routeCompared = true;\n                s.routeAgreementPct = routeComparison.optDouble("agreementPct", 0.0);\n                s.routeEarlyAgreementPct = routeComparison.optDouble("earlyAgreementPct", 0.0);\n                s.routeOrderAgreementPct = routeComparison.optDouble("orderAgreementPct", 0.0);\n                s.routeAlternateEntry = routeComparison.optBoolean("alternateEntry", false);\n                s.routeStrongDivergence = routeComparison.optBoolean("strongDivergence", false);\n            }\n            out.recent.add(s);\n'''
+          new = '''            JSONObject routeComparison = row.optJSONObject("routeComparison");\n            if (routeComparison != null && routeComparison.optBoolean("available", false)) {\n                s.routeCompared = true;\n                s.routeAgreementPct = routeComparison.optDouble("agreementPct", 0.0);\n                s.routeEarlyAgreementPct = routeComparison.optDouble("earlyAgreementPct", 0.0);\n                s.routeOrderAgreementPct = routeComparison.optDouble("orderAgreementPct", 0.0);\n                s.routeAlternateEntry = routeComparison.optBoolean("alternateEntry", false);\n                s.routeStrongDivergence = routeComparison.optBoolean("strongDivergence", false);\n            }\n            JSONObject graphTraversal = row.optJSONObject("graphTraversal");\n            if (graphTraversal != null && graphTraversal.optBoolean("available", false)) {\n                s.graphTraversalAvailable = true;\n                s.graphTraversalDirection = graphTraversal.optString("direction", "unknown");\n                s.graphTraversalEntryDepth = graphTraversal.optInt("entryDepth", -1);\n                s.graphTraversalConfidencePct = graphTraversal.optDouble("confidencePct", 0.0);\n                s.graphTraversalInternalEntry = graphTraversal.optBoolean("internalEntry", false);\n                s.graphTraversalBranchProbing = graphTraversal.optBoolean("branchProbing", false);\n                s.graphTraversalStructuralDivergence = graphTraversal.optBoolean("structuralDivergence", false);\n            }\n            out.recent.add(s);\n'''
+          if old not in s:
+              raise SystemExit('recent graph summary marker missing')
+          s = s.replace(old, new, 1)
+
+          old = '''        int routeAlternateEntries;\n        double routeAgreementTotal;\n        double avgRouteAgreementPct;\n        boolean calibrationReady;\n'''
+          new = '''        int routeAlternateEntries;\n        double routeAgreementTotal;\n        double avgRouteAgreementPct;\n        int graphTraversalSessions;\n        int graphForward;\n        int graphBackward;\n        int graphBidirectional;\n        int graphMixed;\n        int graphDivergent;\n        int graphUnknown;\n        int graphInternalEntries;\n        int graphBranchProbes;\n        int graphAnchorReached;\n        int graphStructuralDivergences;\n        double graphConfidenceTotal;\n        double avgGraphConfidencePct;\n        boolean calibrationReady;\n'''
+          if old not in s:
+              raise SystemExit('snapshot graph fields marker missing')
+          s = s.replace(old, new, 1)
+
+          old = '''        boolean routeAlternateEntry;\n        boolean routeStrongDivergence;\n    }\n'''
+          new = '''        boolean routeAlternateEntry;\n        boolean routeStrongDivergence;\n        boolean graphTraversalAvailable;\n        String graphTraversalDirection = "unknown";\n        int graphTraversalEntryDepth = -1;\n        double graphTraversalConfidencePct;\n        boolean graphTraversalInternalEntry;\n        boolean graphTraversalBranchProbing;\n        boolean graphTraversalStructuralDivergence;\n    }\n'''
+          if old not in s:
+              raise SystemExit('session summary graph fields marker missing')
+          s = s.replace(old, new, 1)
+          session.write_text(s)
+
+          main = Path('app/src/main/java/com/offline/mathcrossword/MainActivity.java')
+          m = main.read_text()
+
+          old = '''            if (a.routeComparedSessions > 0) {\n                c.drawText("Маршруты: " + a.routeComparedSessions + " сравн. · согласование "\n                        + String.format(Locale.US, "%.0f%%", a.avgRouteAgreementPct)\n                        + " · сильных расхождений " + a.routeStrongDivergences, side, y, paint); y += dp(24);\n            }\n\n            paint.setColor(ink);\n'''
+          new = '''            if (a.routeComparedSessions > 0) {\n                c.drawText("Маршруты: " + a.routeComparedSessions + " сравн. · согласование "\n                        + String.format(Locale.US, "%.0f%%", a.avgRouteAgreementPct)\n                        + " · сильных расхождений " + a.routeStrongDivergences, side, y, paint); y += dp(24);\n            }\n            if (a.graphTraversalSessions > 0) {\n                c.drawText("Реальный граф: " + a.graphTraversalSessions + " · вперёд " + a.graphForward\n                        + " · назад " + a.graphBackward + " · ↔ " + a.graphBidirectional, side, y, paint); y += dp(24);\n                c.drawText("Вход изнутри " + a.graphInternalEntries + " · ветви " + a.graphBranchProbes\n                        + " · вне структуры " + a.graphStructuralDivergences\n                        + " · увер. " + String.format(Locale.US, "%.0f%%", a.avgGraphConfidencePct), side, y, paint); y += dp(24);\n            }\n\n            paint.setColor(ink);\n'''
+          if old not in m:
+              raise SystemExit('analysis screen graph aggregate marker missing')
+          m = m.replace(old, new, 1)
+
+          old = '''                if (last.routeCompared) {\n                    String routeLine = "маршрут: согласование "\n'''
+          new = '''                if (last.graphTraversalAvailable) {\n                    String graphLine = "реальный граф: " + graphTraversalShortLabel(last.graphTraversalDirection)\n                            + (last.graphTraversalEntryDepth >= 0 ? (" · вход d" + last.graphTraversalEntryDepth) : "")\n                            + " · увер. " + String.format(Locale.US, "%.0f%%", last.graphTraversalConfidencePct);\n                    c.drawText(graphLine, side, y, paint);\n                    y += dp(21);\n                }\n                if (last.routeCompared) {\n                    String routeLine = "маршрут: согласование "\n'''
+          if old not in m:
+              raise SystemExit('last trajectory graph line marker missing')
+          m = m.replace(old, new, 1)
+
+          old = '''        String kernelFamilyLabel(String name) {\n'''
+          new = '''        String graphTraversalShortLabel(String name) {\n            if ("forward".equals(name)) return "вперёд";\n            if ("backward".equals(name)) return "назад";\n            if ("bidirectional".equals(name)) return "двунаправл.";\n            if ("mixed".equals(name)) return "смешанный";\n            if ("divergent".equals(name)) return "вне структуры";\n            return "неопределённый";\n        }\n\n        String kernelFamilyLabel(String name) {\n'''
+          if old not in m:
+              raise SystemExit('MainActivity graph label helper marker missing')
+          m = m.replace(old, new, 1)
+          main.write_text(m)
+          PY
+          git add app/src/main/java/com/offline/mathcrossword/SessionTracker.java app/src/main/java/com/offline/mathcrossword/MainActivity.java
+          git commit -m "Aggregate graph traversal patterns in analysis"
+          git push origin HEAD:research/graph-traversal-report
