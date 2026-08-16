@@ -85,19 +85,22 @@ final class PathCascadePolicy {
                     productiveCascadeFloor, systemicResolvedLimit, vulnerableCellAllowance);
         }
 
+        // Systemic fragility is a stronger defect than a nice-looking chain. If
+        // several unrelated correct cells can each unlock most of the board, the
+        // puzzle is fragile even when the solver also observes reasoning steps.
+        boolean largeSingleCellReveal = maxResolvedAfterOneCell > systemicResolvedLimit;
+        boolean repeatedFragility = vulnerableSingleCells > vulnerableCellAllowance;
+        if (largeSingleCellReveal && repeatedFragility) {
+            return new Assessment(Shape.SYSTEMIC_FRAGILITY, openingForcedLimit,
+                    productiveCascadeFloor, systemicResolvedLimit, vulnerableCellAllowance);
+        }
+
         boolean openingStillUncertain = basicRemaining >= Math.max(3, (hidden * 3) / 5);
         boolean reasoningBeforeCascade = reasoningSteps > 0 || maxReasoningDepth > 0;
         boolean longLaterCascade = maxForcedCascade >= productiveCascadeFloor;
 
         if (openingStillUncertain && reasoningBeforeCascade && longLaterCascade) {
             return new Assessment(Shape.PRODUCTIVE_DEPENDENCY_CASCADE, openingForcedLimit,
-                    productiveCascadeFloor, systemicResolvedLimit, vulnerableCellAllowance);
-        }
-
-        boolean largeSingleCellReveal = maxResolvedAfterOneCell > systemicResolvedLimit;
-        boolean repeatedFragility = vulnerableSingleCells > vulnerableCellAllowance;
-        if (largeSingleCellReveal && repeatedFragility && !reasoningBeforeCascade) {
-            return new Assessment(Shape.SYSTEMIC_FRAGILITY, openingForcedLimit,
                     productiveCascadeFloor, systemicResolvedLimit, vulnerableCellAllowance);
         }
 
