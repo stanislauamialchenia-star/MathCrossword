@@ -60,7 +60,7 @@ final class SessionTracker {
                             int contradictionKernelDepth2Branches, int contradictionKernelDepth3Branches, int contradictionKernelDeepBranches,
                             int contradictionKernelMaxRemaining,
                             String generationStageTimings, long generationMillis, int generationAttempts, int generationRejects,
-                            String generationRejectSummary) {
+                            String generationRejectSummary, GraphAnalyzer.Metrics graph) {
         if (open != null) finish(false, "replaced");
         open = new OpenSession(mode, level, seed, logic, calc, logicScore, calcScore, strategy, hidden, equations,
                 ratedLogic, predictedSteps, predictedDepth, basicForced, basicRemaining, maxForcedCascade,
@@ -77,7 +77,7 @@ final class SessionTracker {
                 contradictionKernelDepth2Branches, contradictionKernelDepth3Branches, contradictionKernelDeepBranches,
                 contradictionKernelMaxRemaining,
                 generationStageTimings, generationMillis, generationAttempts, generationRejects,
-                generationRejectSummary);
+                generationRejectSummary, graph);
     }
 
     synchronized void resume() {
@@ -272,6 +272,12 @@ final class SessionTracker {
             s.candidateCellSwitches = row.optInt("candidateCellSwitches", 0);
             s.candidateCellRevisits = row.optInt("candidateCellRevisits", 0);
             s.maxCandidatesInOneCell = row.optInt("maxCandidatesInOneCell", 0);
+            s.graphCycleRank = row.optInt("graphCycleRank", 0);
+            s.graphBridges = row.optInt("graphBridges", 0);
+            s.graphArticulationPoints = row.optInt("graphArticulationPoints", 0);
+            s.graphHiddenArticulations = row.optInt("graphHiddenArticulations", 0);
+            s.graphBranchNodes = row.optInt("graphBranchNodes", 0);
+            s.graphDiameter = row.optInt("graphDiameter", 0);
             JSONObject routeComparison = row.optJSONObject("routeComparison");
             if (routeComparison != null && routeComparison.optBoolean("available", false)) {
                 s.routeCompared = true;
@@ -304,6 +310,14 @@ final class SessionTracker {
                 .append(" · ").append(row.optBoolean("solved", false) ? "решено" : "не завершено")
                 .append("\nАктивное время: ").append(reportTime(row.optLong("activeMs", 0L)))
                 .append(" · событий: ").append(row.optInt("eventCount", 0));
+        if (row.has("graphNodes")) {
+            out.append("\nГраф: μ=").append(row.optInt("graphCycleRank", 0))
+                    .append(" · мосты ").append(row.optInt("graphBridges", 0))
+                    .append(" · точки сочленения ").append(row.optInt("graphArticulationPoints", 0))
+                    .append(" · скрытые узлы-сочленения ").append(row.optInt("graphHiddenArticulations", 0))
+                    .append(" · ветвления ").append(row.optInt("graphBranchNodes", 0))
+                    .append(" · диаметр ").append(row.optInt("graphDiameter", 0));
+        }
 
         out.append("\n\nСигналы прохождения")
                 .append("\nПаузы: продуктивные ").append(row.optInt("productivePauses", 0))
@@ -558,6 +572,12 @@ final class SessionTracker {
         int candidateCellSwitches;
         int candidateCellRevisits;
         int maxCandidatesInOneCell;
+        int graphCycleRank;
+        int graphBridges;
+        int graphArticulationPoints;
+        int graphHiddenArticulations;
+        int graphBranchNodes;
+        int graphDiameter;
         boolean routeCompared;
         double routeAgreementPct;
         double routeEarlyAgreementPct;
@@ -629,6 +649,19 @@ final class SessionTracker {
         final int generationAttempts;
         final int generationRejects;
         final String generationRejectSummary;
+        final int graphNodes;
+        final int graphEdges;
+        final int graphComponents;
+        final int graphCycleRank;
+        final int graphBridges;
+        final int graphArticulationPoints;
+        final int graphVariableArticulations;
+        final int graphFactorArticulations;
+        final int graphHiddenArticulations;
+        final int graphBranchNodes;
+        final int graphDiameter;
+        final int graphMaxDegree;
+        final double graphAverageDegree;
         final JSONArray events = new JSONArray();
         JSONArray modelRoute = new JSONArray();
 
@@ -662,7 +695,7 @@ final class SessionTracker {
                     int contradictionKernelDepth2Branches, int contradictionKernelDepth3Branches, int contradictionKernelDeepBranches,
                     int contradictionKernelMaxRemaining,
                     String generationStageTimings, long generationMillis, int generationAttempts,
-                    int generationRejects, String generationRejectSummary) {
+                    int generationRejects, String generationRejectSummary, GraphAnalyzer.Metrics graph) {
             this.mode = mode;
             this.level = level;
             this.seed = seed;
@@ -723,6 +756,19 @@ final class SessionTracker {
             this.generationAttempts = generationAttempts;
             this.generationRejects = generationRejects;
             this.generationRejectSummary = generationRejectSummary == null ? "" : generationRejectSummary;
+            this.graphNodes = graph == null ? 0 : graph.nodes;
+            this.graphEdges = graph == null ? 0 : graph.edges;
+            this.graphComponents = graph == null ? 0 : graph.components;
+            this.graphCycleRank = graph == null ? 0 : graph.cycleRank;
+            this.graphBridges = graph == null ? 0 : graph.bridges;
+            this.graphArticulationPoints = graph == null ? 0 : graph.articulationPoints;
+            this.graphVariableArticulations = graph == null ? 0 : graph.variableArticulations;
+            this.graphFactorArticulations = graph == null ? 0 : graph.factorArticulations;
+            this.graphHiddenArticulations = graph == null ? 0 : graph.hiddenVariableArticulations;
+            this.graphBranchNodes = graph == null ? 0 : graph.branchNodes;
+            this.graphDiameter = graph == null ? 0 : graph.diameter;
+            this.graphMaxDegree = graph == null ? 0 : graph.maxDegree;
+            this.graphAverageDegree = graph == null ? 0.0 : graph.averageDegree;
             resume();
         }
 
@@ -833,6 +879,19 @@ final class SessionTracker {
                 root.put("generationAttempts", generationAttempts);
                 root.put("generationRejects", generationRejects);
                 root.put("generationRejectSummary", generationRejectSummary);
+                root.put("graphNodes", graphNodes);
+                root.put("graphEdges", graphEdges);
+                root.put("graphComponents", graphComponents);
+                root.put("graphCycleRank", graphCycleRank);
+                root.put("graphBridges", graphBridges);
+                root.put("graphArticulationPoints", graphArticulationPoints);
+                root.put("graphVariableArticulations", graphVariableArticulations);
+                root.put("graphFactorArticulations", graphFactorArticulations);
+                root.put("graphHiddenArticulations", graphHiddenArticulations);
+                root.put("graphBranchNodes", graphBranchNodes);
+                root.put("graphDiameter", graphDiameter);
+                root.put("graphMaxDegree", graphMaxDegree);
+                root.put("graphAverageDegree", graphAverageDegree);
                 root.put("solved", solved);
                 root.put("finishReason", reason == null ? "unknown" : reason);
                 root.put("activeMs", activeAccumulatedMs);
