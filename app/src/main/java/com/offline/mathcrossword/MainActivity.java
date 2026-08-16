@@ -60,6 +60,12 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (gameView != null) gameView.onHostActivityResult(requestCode, resultCode, data);
+    }
+
+    @Override
     public void onBackPressed() {
         if (gameView != null && gameView.goHomeIfNeeded()) return;
         super.onBackPressed();
@@ -92,6 +98,7 @@ public class MainActivity extends Activity {
         final SharedPreferences prefs;
         final SessionTracker tracker;
         final Random freeSeedRandom = new Random();
+        static final int REQUEST_RESEARCH_EXPORT = 7301;
 
         Screen screen = Screen.HOME;
         GameMode mode = GameMode.PATH;
@@ -158,6 +165,7 @@ public class MainActivity extends Activity {
         final RectF homeAnalysisRect = new RectF();
         final RectF homeUpdateRect = new RectF();
         final RectF analysisLastTraceRect = new RectF();
+        final RectF analysisExportRect = new RectF();
         String updateStatus = "обновление не проверено";
         boolean updateChecking = false;
         final RectF topHomeRect = new RectF();
@@ -622,6 +630,7 @@ public class MainActivity extends Activity {
             float top = topInset + dp(14);
             topHomeRect.set(dp(12), top, dp(62), top + dp(48));
             drawIconButton(c, topHomeRect, "‹");
+            analysisExportRect.setEmpty();
 
             paint.setColor(ink);
             paint.setTextAlign(Paint.Align.CENTER);
@@ -798,7 +807,7 @@ public class MainActivity extends Activity {
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
             paint.setTextSize(dp(13.5f));
             for (SessionTracker.SessionSummary r : a.recent) {
-                if (y > getHeight() - bottomInset - dp(35)) break;
+                if (y > getHeight() - bottomInset - dp(96)) break;
                 String where = "PATH_REPLAY".equals(r.mode) ? ("↺ ур." + r.level) : ("PATH_TEST".equals(r.mode) ? ("тест ур." + r.level) : ("PATH".equals(r.mode) ? ("ур." + r.level) : strategyLabel(r.strategy)));
                 String signal = r.hypothesisEpisodes > 0 ? (" · Г" + r.hypothesisEpisodes) : "";
                 if (r.hintStage > 0) signal += " · Н" + r.hintStage;
@@ -811,11 +820,55 @@ public class MainActivity extends Activity {
                 y += dp(23);
             }
 
+            float exportBottom = getHeight() - bottomInset - dp(10);
+            analysisExportRect.set(side, exportBottom - dp(44), w - side, exportBottom);
+            drawToolButton(c, analysisExportRect, "Экспорт исследовательских данных", true, false);
+
             paint.setColor(Color.rgb(100, 111, 102));
-            paint.setTextSize(dp(12));
+            paint.setTextSize(dp(11.2f));
             paint.setTextAlign(Paint.Align.CENTER);
-            c.drawText("Полная история ходов сохраняется локально для последних 500 сессий", w / 2f,
-                    getHeight() - bottomInset - dp(18), paint);
+            c.drawText("ZIP: metadata + sessions + summary · отправка только после твоего действия",
+                    w / 2f, analysisExportRect.top - dp(8), paint);
+        }
+
+        void beginResearchExport() {
+            SessionTracker.AnalysisSnapshot snapshot = tracker.analyze();
+            if (snapshot.sessions <= 0) {
+                Toast.makeText(getContext(), "Пока нечего экспортировать", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("application/zip");
+            intent.putExtra(Intent.EXTRA_TITLE, ResearchExporter.suggestedFileName());
+            try {
+                ((Activity) getContext()).startActivityForResult(intent, REQUEST_RESEARCH_EXPORT);
+            } catch (RuntimeException ex) {
+                Toast.makeText(getContext(), "Не удалось открыть выбор файла", Toast.LENGTH_SHORT).show();
+            }
+        }
+
+        void onHostActivityResult(int requestCode, int resultCode, Intent data) {
+            if (requestCode != REQUEST_RESEARCH_EXPORT || resultCode != Activity.RESULT_OK || data == null) return;
+            Uri uri = data.getData();
+            if (uri == null) return;
+            try {
+                ResearchExporter.Result result;
+                try (java.io.OutputStream out = getContext().getContentResolver().openOutputStream(uri, "w")) {
+                    if (out == null) throw new java.io.IOException("openOutputStream returned null");
+                    result = ResearchExporter.write(getContext(), out);
+                }
+                Toast.makeText(getContext(), "Экспортировано сессий: " + result.sessions, Toast.LENGTH_SHORT).show();
+
+                Intent share = new Intent(Intent.ACTION_SEND);
+                share.setType("application/zip");
+                share.putExtra(Intent.EXTRA_STREAM, uri);
+                share.setClipData(android.content.ClipData.newRawUri("MathCrossword research export", uri));
+                share.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                ((Activity) getContext()).startActivity(Intent.createChooser(share, "Поделиться исследовательскими данными"));
+            } catch (Exception ex) {
+                Toast.makeText(getContext(), "Не удалось собрать исследовательский ZIP", Toast.LENGTH_LONG).show();
+            }
         }
 
         String strategyLabel(String name) {
@@ -1717,6 +1770,7 @@ public class MainActivity extends Activity {
 
             if (screen == Screen.ANALYSIS) {
                 if (topHomeRect.contains(x, y)) { screen = Screen.HOME; invalidate(); return true; }
+                if (analysisExportRect.contains(x, y)) { beginResearchExport(); return true; }
                 if (analysisLastTraceRect.contains(x, y)) { showLastTrajectoryDialog(); return true; }
                 return true;
             }
@@ -1930,7 +1984,7 @@ public class MainActivity extends Activity {
                         .getPackageInfo(getContext().getPackageName(), 0);
                 return info.versionName == null ? "1.32" : info.versionName;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return "1.32";
+                return "1.33";
             }
         }
 
@@ -1941,7 +1995,7 @@ public class MainActivity extends Activity {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return info.getLongVersionCode();
                 return info.versionCode;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return 32L;
+                return 33L;
             }
         }
 
