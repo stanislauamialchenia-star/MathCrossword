@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - research/vulnerability-regions
   pull_request:
     branches:
       - main
