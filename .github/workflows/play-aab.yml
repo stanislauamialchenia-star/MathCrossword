@@ -57,15 +57,18 @@ jobs:
           chmod +x ./gradlew
           ./gradlew bundlePlayRelease --no-daemon
 
-      - name: Verify Play manifest has no sideload permission
+      - name: Privacy manifest gate
         shell: bash
         run: |
+          set -euo pipefail
           manifest="$(find app/build/intermediates/merged_manifest/playRelease -type f -name AndroidManifest.xml | head -n 1)"
           test -n "$manifest"
-          if grep -q 'REQUEST_INSTALL_PACKAGES' "$manifest"; then
-            echo 'Play manifest unexpectedly contains REQUEST_INSTALL_PACKAGES' >&2
+          if grep -q '<uses-permission' "$manifest"; then
+            echo 'Play manifest contains a permission that requires privacy/Data safety review:' >&2
+            grep '<uses-permission' "$manifest" >&2 || true
             exit 1
           fi
+          echo 'Play manifest permission set: empty (expected baseline)'
 
       - name: Restore upload key
         env:
