@@ -1,11 +1,14 @@
 package com.offline.mathcrossword;
 
+import static com.offline.mathcrossword.PuzzleModel.*;
+
 import java.util.Arrays;
 import java.util.List;
 
 /** Deterministic Android-independent contracts for concrete graph traversal semantics. */
 public final class ConcreteReasoningGraphHarness {
     public static void main(String[] args) {
+        reconstructRealizedPuzzle();
         forwardChain();
         reverseChain();
         internalEntry();
@@ -13,6 +16,31 @@ public final class ConcreteReasoningGraphHarness {
         branchProbe();
         offGraphDivergence();
         System.out.println("ConcreteReasoningGraphHarness OK");
+    }
+
+    private static void reconstructRealizedPuzzle() {
+        Puzzle p = new Puzzle();
+        Pos a = new Pos(0, 0);
+        Pos b = new Pos(0, 2);
+        Pos c = new Pos(0, 6);
+        p.hidden.add(a);
+        p.hidden.add(b);
+        p.hidden.add(c);
+
+        // A is directly constrained by one equation with two visible peers.
+        p.equations.add(new Equation(new Slot(0, 0, Orientation.H, -1), '+'));
+        // The next equations realize A--B--C through shared constraints.
+        p.equations.add(new Equation(new Slot(0, 0, Orientation.V, -1), '+'));
+        p.equations.add(new Equation(new Slot(0, 2, Orientation.V, -1), '+'));
+
+        ConcreteReasoningGraph g = ConcreteReasoningGraph.fromPuzzle(p);
+        require(g.nodes.size() == 3, "realized hidden nodes");
+        require(g.edges.size() == 2, "realized constraint edges");
+        require(g.anchorCandidates.size() == 1 && g.anchorCandidates.get(0) == 0, "directly supported anchor");
+        require(g.anchorConfidence == 1.0, "direct anchor confidence");
+        require(g.distanceToAnchor(0) == 0, "anchor distance");
+        require(g.distanceToAnchor(1) == 1, "middle distance");
+        require(g.distanceToAnchor(2) == 2, "deep distance");
     }
 
     private static ConcreteReasoningGraph chain5() {
