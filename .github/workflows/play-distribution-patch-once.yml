@@ -1,0 +1,479 @@
+name: Apply Play distribution architecture patch once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/play-distribution-patch-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Add GitHub and Play distributions, API 36 and AAB workflow
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # Toolchain: API 36 requires a newer AGP than the old 8.7.x line.
+          root = Path('build.gradle')
+          s = root.read_text()
+          assert "version '8.7.3'" in s
+          root.write_text(s.replace("version '8.7.3'", "version '8.10.1'", 1))
+
+          wrapper = Path('gradle/wrapper/gradle-wrapper.properties')
+          s = wrapper.read_text()
+          old_url = 'distributionUrl=https\\://services.gradle.org/distributions/gradle-9.3.0-bin.zip'
+          assert old_url in s
+          wrapper.write_text(s.replace(old_url, 'distributionUrl=https\\://services.gradle.org/distributions/gradle-8.11.1-bin.zip', 1))
+
+          # Two distribution flavors share the same applicationId and game code.
+          # GitHub keeps the self-updater; Play removes install/network permissions.
+          Path('app/build.gradle').write_text("""plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.offline.mathcrossword'
+    compileSdk 36
+
+    flavorDimensions 'distribution'
+    productFlavors {
+        github {
+            dimension 'distribution'
+        }
+        play {
+            dimension 'distribution'
+        }
+    }
+
+    defaultConfig {
+        applicationId 'com.offline.mathcrossword'
+        minSdk 23
+        targetSdk 36
+        versionCode 35
+        versionName '1.35'
+    }
+}
+""")
+
+          Path('app/src/main/AndroidManifest.xml').write_text("""<?xml version=\"1.0\" encoding=\"utf-8\"?>
+<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">
+    <application
+        android:allowBackup=\"true\"
+        android:label=\"Math Crossword\"
+        android:theme=\"@style/AppTheme\">
+        <activity
+            android:name=\".MainActivity\"
+            android:screenOrientation=\"portrait\"
+            android:exported=\"true\">
+            <intent-filter>
+                <action android:name=\"android.intent.action.MAIN\" />
+                <category android:name=\"android.intent.category.LAUNCHER\" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
+""")
+
+          github_manifest = Path('app/src/github/AndroidManifest.xml')
+          github_manifest.parent.mkdir(parents=True, exist_ok=True)
+          github_manifest.write_text("""<?xml version=\"1.0\" encoding=\"utf-8\"?>
+<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">
+    <uses-permission android:name=\"android.permission.INTERNET\" />
+    <uses-permission android:name=\"android.permission.REQUEST_INSTALL_PACKAGES\" />
+</manifest>
+""")
+
+          play_manifest = Path('app/src/play/AndroidManifest.xml')
+          play_manifest.parent.mkdir(parents=True, exist_ok=True)
+          play_manifest.write_text("""<?xml version=\"1.0\" encoding=\"utf-8\"?>
+<!-- Google Play distribution intentionally adds no network or package-install permissions. -->
+<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\" />
+""")
+
+          github_config = Path('app/src/github/java/com/offline/mathcrossword/DistributionConfig.java')
+          github_config.parent.mkdir(parents=True, exist_ok=True)
+          github_config.write_text("""package com.offline.mathcrossword;
+
+/** Distribution-specific capabilities for the direct GitHub APK. */
+final class DistributionConfig {
+    private DistributionConfig() { }
+    static boolean selfUpdateEnabled() { return true; }
+    static String channelLabel() { return \"GitHub\"; }
+}
+""")
+
+          play_config = Path('app/src/play/java/com/offline/mathcrossword/DistributionConfig.java')
+          play_config.parent.mkdir(parents=True, exist_ok=True)
+          play_config.write_text("""package com.offline.mathcrossword;
+
+/** Google Play build: Play owns updates; no sideload/install capability is exposed. */
+final class DistributionConfig {
+    private DistributionConfig() { }
+    static boolean selfUpdateEnabled() { return false; }
+    static String channelLabel() { return \"Google Play\"; }
+}
+""")
+
+          main = Path('app/src/main/java/com/offline/mathcrossword/MainActivity.java')
+          s = main.read_text()
+
+          old = '''        void onHostResume() {\n            if (screen == Screen.GAME && tracker.hasOpenSession()) tracker.resume();\n            if (pendingInstallUri != null) maybeInstallPendingUpdate();\n        }'''
+          new = '''        void onHostResume() {\n            if (screen == Screen.GAME && tracker.hasOpenSession()) tracker.resume();\n            if (DistributionConfig.selfUpdateEnabled() && pendingInstallUri != null) maybeInstallPendingUpdate();\n        }'''
+          assert old in s
+          s = s.replace(old, new, 1)
+
+          old = '''            float footerY = h - bottomInset - dp(34);\n            homeUpdateRect.set(w - dp(62), footerY - dp(20), w - dp(18), footerY + dp(20));\n            paint.setStyle(Paint.Style.FILL);\n            paint.setColor(Color.argb(115, 255, 255, 255));\n            c.drawRoundRect(homeUpdateRect, dp(12), dp(12), paint);\n            paint.setColor(updateChecking ? Color.rgb(120, 130, 121) : ink);\n            paint.setTextAlign(Paint.Align.CENTER);\n            paint.setTypeface(android.graphics.Typeface.DEFAULT);\n            paint.setTextSize(dp(23));\n            Paint.FontMetrics updateFm = paint.getFontMetrics();\n            c.drawText(updateChecking ? "…" : "↻", homeUpdateRect.centerX(),\n                    homeUpdateRect.centerY() - (updateFm.ascent + updateFm.descent) / 2f, paint);\n\n            paint.setColor(Color.rgb(108, 119, 110));\n            paint.setTextSize(dp(11.8f));\n            paint.setTextAlign(Paint.Align.CENTER);\n            String versionLine = "v" + installedVersionName() + " (" + installedVersionCode() + ") · офлайн · без рекламы";\n            if (!"обновление не проверено".equals(updateStatus)) versionLine += " · " + updateStatus;\n            c.drawText(versionLine, w / 2f - dp(14), footerY - dp(7), paint);\n            paint.setTextSize(dp(10.8f));\n            c.drawText("данные и история решения хранятся локально", w / 2f - dp(14), footerY + dp(11), paint);'''
+          new = '''            float footerY = h - bottomInset - dp(34);\n            float footerCenterX = w / 2f;\n            if (DistributionConfig.selfUpdateEnabled()) {\n                homeUpdateRect.set(w - dp(62), footerY - dp(20), w - dp(18), footerY + dp(20));\n                paint.setStyle(Paint.Style.FILL);\n                paint.setColor(Color.argb(115, 255, 255, 255));\n                c.drawRoundRect(homeUpdateRect, dp(12), dp(12), paint);\n                paint.setColor(updateChecking ? Color.rgb(120, 130, 121) : ink);\n                paint.setTextAlign(Paint.Align.CENTER);\n                paint.setTypeface(android.graphics.Typeface.DEFAULT);\n                paint.setTextSize(dp(23));\n                Paint.FontMetrics updateFm = paint.getFontMetrics();\n                c.drawText(updateChecking ? "…" : "↻", homeUpdateRect.centerX(),\n                        homeUpdateRect.centerY() - (updateFm.ascent + updateFm.descent) / 2f, paint);\n                footerCenterX -= dp(14);\n            } else {\n                homeUpdateRect.setEmpty();\n            }\n\n            paint.setColor(Color.rgb(108, 119, 110));\n            paint.setTextSize(dp(11.8f));\n            paint.setTextAlign(Paint.Align.CENTER);\n            String versionLine = "v" + installedVersionName() + " (" + installedVersionCode() + ") · "\n                    + DistributionConfig.channelLabel() + " · офлайн · без рекламы";\n            if (DistributionConfig.selfUpdateEnabled() && !"обновление не проверено".equals(updateStatus))\n                versionLine += " · " + updateStatus;\n            c.drawText(versionLine, footerCenterX, footerY - dp(7), paint);\n            paint.setTextSize(dp(10.8f));\n            c.drawText("данные и история решения хранятся локально", footerCenterX, footerY + dp(11), paint);'''
+          assert old in s
+          s = s.replace(old, new, 1)
+
+          old = '                else if (homeUpdateRect.contains(x, y)) { checkForUpdate(); }'
+          new = '                else if (DistributionConfig.selfUpdateEnabled() && homeUpdateRect.contains(x, y)) { checkForUpdate(); }'
+          assert old in s
+          s = s.replace(old, new, 1)
+
+          old = '''        void startUpdateDownload(String version, String downloadUrl) {\n            try {'''
+          new = '''        void startUpdateDownload(String version, String downloadUrl) {\n            if (!DistributionConfig.selfUpdateEnabled()) return;\n            try {'''
+          assert old in s
+          s = s.replace(old, new, 1)
+
+          old = '''        void maybeInstallPendingUpdate() {\n            if (pendingInstallUri == null) return;'''
+          new = '''        void maybeInstallPendingUpdate() {\n            if (!DistributionConfig.selfUpdateEnabled()) return;\n            if (pendingInstallUri == null) return;'''
+          assert old in s
+          s = s.replace(old, new, 1)
+
+          old = '''        void checkForUpdate() {\n            if (updateChecking) return;'''
+          new = '''        void checkForUpdate() {\n            if (!DistributionConfig.selfUpdateEnabled()) return;\n            if (updateChecking) return;'''
+          assert old in s
+          s = s.replace(old, new, 1)
+
+          assert 'return info.versionName == null ? "1.32" : info.versionName;' in s
+          s = s.replace('return info.versionName == null ? "1.32" : info.versionName;',
+                        'return info.versionName == null ? "1.35" : info.versionName;', 1)
+          assert 'return "1.33";' in s
+          s = s.replace('return "1.33";', 'return "1.35";', 1)
+          assert 'return 33L;' in s
+          s = s.replace('return 33L;', 'return 35L;', 1)
+          main.write_text(s)
+
+          # Existing direct-install release now explicitly builds the GitHub flavor.
+          Path('.github/workflows/android-debug-release.yml').write_text(r'''name: Build, verify and publish GitHub debug APK
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - app/build.gradle
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-debug-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Ensure Android API 36
+        shell: bash
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Read app version
+        id: version
+        shell: bash
+        run: |
+          version_name="$(sed -n "s/.*versionName '\([^']*\)'.*/\1/p" app/build.gradle | head -n 1)"
+          version_code="$(sed -n 's/.*versionCode \([0-9][0-9]*\).*/\1/p' app/build.gradle | head -n 1)"
+          test -n "$version_name"
+          test -n "$version_code"
+          echo "name=$version_name" >> "$GITHUB_OUTPUT"
+          echo "code=$version_code" >> "$GITHUB_OUTPUT"
+
+      - name: Build GitHub debug APK
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleGithubDebug --no-daemon
+
+      - name: Reliability smoke gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          test -d "$app_classes"
+          mkdir -p "$RUNNER_TEMP/mathcrossword-reliability"
+          javac -cp "$app_classes" -d "$RUNNER_TEMP/mathcrossword-reliability" tools/ReliabilityHarness.java
+          timeout 12m java -Xmx1536m -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" com.offline.mathcrossword.ReliabilityHarness smoke
+
+      - name: Locate APK
+        id: unsigned
+        shell: bash
+        run: |
+          apk_path="$(find app/build/outputs/apk/github/debug -type f -name '*.apk' | head -n 1)"
+          test -n "$apk_path"
+          echo "path=$apk_path" >> "$GITHUB_OUTPUT"
+
+      - name: Restore persistent signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_SIGNING_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/mathcrossword-signing.keystore"
+          chmod 600 "$RUNNER_TEMP/mathcrossword-signing.keystore"
+          keytool -list -keystore "$RUNNER_TEMP/mathcrossword-signing.keystore" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" > /dev/null
+
+      - name: Sign GitHub APK with persistent key
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+          APK_PATH: ${{ steps.unsigned.outputs.path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -n "$apksigner"
+          zip -q -d "$APK_PATH" 'META-INF/*.SF' 'META-INF/*.RSA' 'META-INF/*.DSA' 'META-INF/*.EC' || true
+          "$apksigner" sign --ks "$RUNNER_TEMP/mathcrossword-signing.keystore" --ks-key-alias "$KEY_ALIAS" --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD --out "$RUNNER_TEMP/app-github-debug-signed.apk" "$APK_PATH"
+          mv "$RUNNER_TEMP/app-github-debug-signed.apk" "$APK_PATH"
+
+      - name: Verify persistent APK signature
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+          APK_PATH: ${{ steps.unsigned.outputs.path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          "$apksigner" verify "$APK_PATH"
+          expected_digest="$(keytool -list -v -keystore "$RUNNER_TEMP/mathcrossword-signing.keystore" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" | sed -n 's/^.*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          actual_digest="$(keytool -printcert -jarfile "$APK_PATH" | sed -n 's/^.*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          test -n "$expected_digest" && test "$actual_digest" = "$expected_digest"
+
+      - name: Prepare release APK
+        id: apk
+        env:
+          APK_PATH: ${{ steps.unsigned.outputs.path }}
+        shell: bash
+        run: |
+          apk_name="MathCrossword-v${{ steps.version.outputs.name }}-github-debug-${{ github.run_number }}.apk"
+          cp "$APK_PATH" "$apk_name"
+          echo "name=$apk_name" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: v${{ steps.version.outputs.name }}-debug.${{ github.run_number }}
+          APK_NAME: ${{ steps.apk.outputs.name }}
+        shell: bash
+        run: |
+          gh release create "$TAG_NAME" "$APK_NAME#MathCrossword GitHub debug APK" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "MathCrossword v${{ steps.version.outputs.name }} debug build ${{ github.run_number }}" --notes "GitHub distribution for version ${{ steps.version.outputs.name }} (version code ${{ steps.version.outputs.code }}). Self-update is enabled only in this distribution. Deterministic reliability smoke gate passed."
+
+      - name: Remove temporary signing material
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/mathcrossword-signing.keystore" "$RUNNER_TEMP/app-github-debug-signed.apk"
+          rm -rf "$RUNNER_TEMP/mathcrossword-reliability"
+''')
+
+          Path('.github/workflows/engine-reliability.yml').write_text(r'''name: Engine reliability CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: engine-reliability-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Ensure Android API 36
+        shell: bash
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Compile both distribution variants
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:compileGithubDebugJavaWithJavac :app:compilePlayDebugJavaWithJavac --no-daemon
+
+      - name: Compile reliability harnesses
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          test -d "$app_classes"
+          mkdir -p "$RUNNER_TEMP/mathcrossword-reliability"
+          javac -cp "$app_classes" -d "$RUNNER_TEMP/mathcrossword-reliability" tools/ReliabilityHarness.java tools/GraphTheoryHarness.java
+
+      - name: Run graph topology contracts
+        shell: bash
+        run: |
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          java -Xmx512m -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" com.offline.mathcrossword.GraphTheoryHarness
+
+      - name: Run deterministic smoke gate
+        shell: bash
+        run: |
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          timeout 12m java -Xmx1536m -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" com.offline.mathcrossword.ReliabilityHarness smoke
+''')
+
+          Path('.github/workflows/play-aab.yml').write_text(r'''name: Build signed Google Play AAB
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - app/build.gradle
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: play-aab-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Ensure Android API 36
+        shell: bash
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Read app version
+        id: version
+        shell: bash
+        run: |
+          version_name="$(sed -n "s/.*versionName '\([^']*\)'.*/\1/p" app/build.gradle | head -n 1)"
+          version_code="$(sed -n 's/.*versionCode \([0-9][0-9]*\).*/\1/p' app/build.gradle | head -n 1)"
+          echo "name=$version_name" >> "$GITHUB_OUTPUT"
+          echo "code=$version_code" >> "$GITHUB_OUTPUT"
+
+      - name: Build Play release bundle
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          ./gradlew bundlePlayRelease --no-daemon
+
+      - name: Verify Play manifest has no sideload permission
+        shell: bash
+        run: |
+          manifest="$(find app/build/intermediates/merged_manifest/playRelease -type f -name AndroidManifest.xml | head -n 1)"
+          test -n "$manifest"
+          if grep -q 'REQUEST_INSTALL_PACKAGES' "$manifest"; then
+            echo 'Play manifest unexpectedly contains REQUEST_INSTALL_PACKAGES' >&2
+            exit 1
+          fi
+
+      - name: Restore upload key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_SIGNING_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+        shell: bash
+        run: |
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/mathcrossword-upload.keystore"
+          chmod 600 "$RUNNER_TEMP/mathcrossword-upload.keystore"
+          keytool -list -keystore "$RUNNER_TEMP/mathcrossword-upload.keystore" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" > /dev/null
+
+      - name: Sign AAB with upload key
+        id: bundle
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          input="$(find app/build/outputs/bundle/playRelease -type f -name '*.aab' | head -n 1)"
+          test -n "$input"
+          output="MathCrossword-v${{ steps.version.outputs.name }}-play.aab"
+          cp "$input" "$output"
+          jarsigner -keystore "$RUNNER_TEMP/mathcrossword-upload.keystore" -storepass "$STORE_PASSWORD" -keypass "$KEY_PASSWORD" "$output" "$KEY_ALIAS"
+          jarsigner -verify -verbose -certs "$output" > /dev/null
+          echo "path=$output" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Play Console artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MathCrossword-v${{ steps.version.outputs.name }}-play-aab
+          path: ${{ steps.bundle.outputs.path }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove temporary signing material
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/mathcrossword-upload.keystore"
+''')
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add build.gradle gradle/wrapper/gradle-wrapper.properties app .github/workflows/android-debug-release.yml .github/workflows/engine-reliability.yml .github/workflows/play-aab.yml
+          git commit -m "Add GitHub and Google Play distribution flavors"
+          git push origin main
