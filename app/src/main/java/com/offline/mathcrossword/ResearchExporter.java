@@ -69,7 +69,9 @@ final class ResearchExporter {
         JSONObject metadata = metadata(context, participantId, lines.size(), rows.size());
         JSONObject summary = summary(rows);
 
-        try (ZipOutputStream zip = new ZipOutputStream(output, StandardCharsets.UTF_8)) {
+        // The one-argument constructor exists since Android API 1. Entry names are ASCII,
+        // while file contents are explicitly encoded as UTF-8 below. This keeps minSdk 23 safe.
+        try (ZipOutputStream zip = new ZipOutputStream(output)) {
             writeEntry(zip, "metadata.json", metadata.toString(2) + "\n");
 
             StringBuilder sessions = new StringBuilder();
