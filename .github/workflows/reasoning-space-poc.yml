@@ -17,6 +17,7 @@ permissions:
 jobs:
   corpus:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Check out source
         uses: actions/checkout@v5
@@ -54,16 +55,17 @@ jobs:
             -d "$RUNNER_TEMP/reasoning-space" \
             tools/ReasoningSpaceCorpusHarness.java
 
-      - name: Generate small deterministic corpus
+      - name: Generate 500-puzzle deterministic corpus
         shell: bash
         run: |
           set -euo pipefail
           app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
           java -Xmx1536m \
             -cp "$app_classes:$RUNNER_TEMP/reasoning-space" \
-            com.offline.mathcrossword.ReasoningSpaceCorpusHarness 3 4 6 \
+            com.offline.mathcrossword.ReasoningSpaceCorpusHarness 20 4 8 \
             > "$RUNNER_TEMP/reasoning-space/corpus.csv"
-          head -n 6 "$RUNNER_TEMP/reasoning-space/corpus.csv"
+          echo "rows including header: $(wc -l < "$RUNNER_TEMP/reasoning-space/corpus.csv")"
+          head -n 4 "$RUNNER_TEMP/reasoning-space/corpus.csv"
 
       - name: Build reasoning-space archive
         shell: bash
@@ -72,4 +74,17 @@ jobs:
           python tools/reasoning_space_archive.py \
             "$RUNNER_TEMP/reasoning-space/corpus.csv" \
             --out-dir "$RUNNER_TEMP/reasoning-space/archive"
-          cat "$RUNNER_TEMP/reasoning-space/archive/reasoning_space_summary.json"
+          echo '--- strategy overlap ---'
+          cat "$RUNNER_TEMP/reasoning-space/archive/strategy_region_overlap.csv"
+
+      - name: Upload research corpus
+        uses: actions/upload-artifact@v4
+        with:
+          name: reasoning-space-v23-500
+          path: |
+            ${{ runner.temp }}/reasoning-space/corpus.csv
+            ${{ runner.temp }}/reasoning-space/archive/reasoning_space_elites.csv
+            ${{ runner.temp }}/reasoning-space/archive/reasoning_space_summary.json
+            ${{ runner.temp }}/reasoning-space/archive/strategy_region_overlap.csv
+          if-no-files-found: error
+          retention-days: 30
