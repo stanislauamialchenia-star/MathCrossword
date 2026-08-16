@@ -1,0 +1,58 @@
+name: Engine reliability CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: engine-reliability-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Compile engine with Android app
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:compileDebugJavaWithJavac --no-daemon
+
+      - name: Compile reliability harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes"
+          test -d "$app_classes"
+          mkdir -p "$RUNNER_TEMP/mathcrossword-reliability"
+          javac -cp "$app_classes" \
+            -d "$RUNNER_TEMP/mathcrossword-reliability" \
+            tools/ReliabilityHarness.java
+
+      - name: Run deterministic smoke gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes"
+          timeout 12m java -Xmx1536m \
+            -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+            com.offline.mathcrossword.ReliabilityHarness smoke
