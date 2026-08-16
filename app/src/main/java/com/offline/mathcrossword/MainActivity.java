@@ -320,6 +320,7 @@ public class MainActivity extends Activity {
                     puzzle.generationStageTimings,
                     puzzle.generationMillis, puzzle.generationAttempts,
                     puzzle.generationRejects, puzzle.generationRejectSummary, GraphAnalyzer.analyze(puzzle));
+            tracker.setConcreteGraph(ConcreteReasoningGraph.fromPuzzle(puzzle));
             tracker.setModelRoute(HumanRouteComparator.modelRoute(puzzle));
             invalidate();
             prefetchPathLevel(level + 1);
@@ -419,6 +420,7 @@ public class MainActivity extends Activity {
                     puzzle.generationStageTimings,
                             puzzle.generationMillis, puzzle.generationAttempts,
                             puzzle.generationRejects, puzzle.generationRejectSummary, GraphAnalyzer.analyze(puzzle));
+            tracker.setConcreteGraph(ConcreteReasoningGraph.fromPuzzle(puzzle));
             tracker.setModelRoute(HumanRouteComparator.modelRoute(puzzle));
                     invalidate();
                 });
@@ -1278,6 +1280,7 @@ public class MainActivity extends Activity {
                     puzzle.contradictionKernelDeepBranches, puzzle.contradictionKernelMaxRemaining,
                     puzzle.generationStageTimings, puzzle.generationMillis, puzzle.generationAttempts,
                     puzzle.generationRejects, puzzle.generationRejectSummary, GraphAnalyzer.analyze(puzzle));
+            tracker.setConcreteGraph(ConcreteReasoningGraph.fromPuzzle(puzzle));
             tracker.setModelRoute(HumanRouteComparator.modelRoute(puzzle));
         }
 
