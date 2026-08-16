@@ -157,6 +157,7 @@ public class MainActivity extends Activity {
         final RectF homeLibraryRect = new RectF();
         final RectF homeAnalysisRect = new RectF();
         final RectF homeUpdateRect = new RectF();
+        final RectF analysisLastTraceRect = new RectF();
         String updateStatus = "обновление не проверено";
         boolean updateChecking = false;
         final RectF topHomeRect = new RectF();
@@ -561,6 +562,7 @@ public class MainActivity extends Activity {
             float top = topInset + dp(14);
             topHomeRect.set(dp(12), top, dp(62), top + dp(48));
             drawIconButton(c, topHomeRect, "‹");
+            analysisLastTraceRect.setEmpty();
 
             paint.setColor(ink);
             paint.setTextAlign(Paint.Align.CENTER);
@@ -718,10 +720,17 @@ public class MainActivity extends Activity {
 
             if (!a.recent.isEmpty() && y < getHeight() - bottomInset - dp(170)) {
                 SessionTracker.SessionSummary last = a.recent.get(0);
+                float traceTop = y - dp(18);
                 paint.setColor(ink);
                 paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
                 paint.setTextSize(dp(16));
                 c.drawText("Последняя траектория", side, y, paint);
+                paint.setTextAlign(Paint.Align.RIGHT);
+                paint.setTypeface(android.graphics.Typeface.DEFAULT);
+                paint.setTextSize(dp(12.5f));
+                paint.setColor(Color.rgb(82, 100, 85));
+                c.drawText("подробно ›", w - side, y, paint);
+                paint.setTextAlign(Paint.Align.LEFT);
                 y += dp(24);
                 paint.setTypeface(android.graphics.Typeface.DEFAULT);
                 paint.setTextSize(dp(12.8f));
@@ -762,6 +771,7 @@ public class MainActivity extends Activity {
                     y += dp(21);
                 }
                 y += dp(7);
+                analysisLastTraceRect.set(side - dp(8), traceTop, w - side + dp(8), y + dp(5));
             }
 
             paint.setColor(ink);
@@ -1689,7 +1699,8 @@ public class MainActivity extends Activity {
             }
 
             if (screen == Screen.ANALYSIS) {
-                if (topHomeRect.contains(x, y)) { screen = Screen.HOME; invalidate(); }
+                if (topHomeRect.contains(x, y)) { screen = Screen.HOME; invalidate(); return true; }
+                if (analysisLastTraceRect.contains(x, y)) { showLastTrajectoryDialog(); return true; }
                 return true;
             }
 
@@ -1870,13 +1881,39 @@ public class MainActivity extends Activity {
             builder.show();
         }
 
+        void showLastTrajectoryDialog() {
+            String report = tracker.latestTrajectoryReport();
+            if (report == null || report.isEmpty()) {
+                Toast.makeText(getContext(), "Пока нет завершённых сессий", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            TextView text = new TextView(getContext());
+            int pad = (int) dp(20);
+            text.setPadding(pad, pad, pad, pad);
+            text.setText(report);
+            text.setTextSize(15.5f);
+            text.setTextColor(ink);
+            text.setLineSpacing(0f, 1.14f);
+            text.setTextIsSelectable(true);
+
+            ScrollView scroll = new ScrollView(getContext());
+            scroll.setFillViewport(true);
+            scroll.addView(text);
+
+            new AlertDialog.Builder(getContext())
+                    .setTitle("Ход решения")
+                    .setView(scroll)
+                    .setNegativeButton("Закрыть", null)
+                    .show();
+        }
+
         String installedVersionName() {
             try {
                 android.content.pm.PackageInfo info = getContext().getPackageManager()
                         .getPackageInfo(getContext().getPackageName(), 0);
-                return info.versionName == null ? "1.30" : info.versionName;
+                return info.versionName == null ? "1.31" : info.versionName;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return "1.30";
+                return "1.31";
             }
         }
 
@@ -1887,7 +1924,7 @@ public class MainActivity extends Activity {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return info.getLongVersionCode();
                 return info.versionCode;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return 30L;
+                return 31L;
             }
         }
 

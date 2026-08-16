@@ -264,6 +264,111 @@ final class SessionTracker {
         return out;
     }
 
+    synchronized String latestTrajectoryReport() {
+        List<JSONObject> rows = readObjects();
+        if (rows.isEmpty()) return null;
+        JSONObject row = rows.get(rows.size() - 1);
+        StringBuilder out = new StringBuilder();
+
+        String mode = row.optString("mode", "");
+        int level = row.optInt("level", 0);
+        String where = mode.startsWith("PATH") && level > 0 ? ("уровень " + level) : "свободная игра";
+        String strategyName = row.optString("strategy", SolutionStrategy.MIXED.name());
+        String strategy = strategyName;
+        try { strategy = SolutionStrategy.valueOf(strategyName).label; }
+        catch (RuntimeException ignored) { }
+
+        out.append(where).append(" · ").append(strategy)
+                .append(" · ").append(row.optBoolean("solved", false) ? "решено" : "не завершено")
+                .append("\nАктивное время: ").append(reportTime(row.optLong("activeMs", 0L)))
+                .append(" · событий: ").append(row.optInt("eventCount", 0));
+
+        out.append("\n\nСигналы прохождения")
+                .append("\nПаузы: продуктивные ").append(row.optInt("productivePauses", 0))
+                .append(" · тупиковые ").append(row.optInt("deadEndPauses", 0))
+                .append("\nПроверки гипотез: ").append(row.optInt("hypothesisEpisodes", 0))
+                .append(" · быстрые каскады: ").append(row.optInt("rapidCascades", 0));
+
+        int commitments = row.optInt("candidateCommitments", 0);
+        if (commitments > 0) {
+            out.append("\nКандидат → решение: ").append(commitments)
+                    .append(" · в среднем ").append(reportTime(row.optLong("avgCandidateCommitmentMs", 0L)));
+        }
+        int recoveries = row.optInt("recoveryEpisodes", 0);
+        if (recoveries > 0) {
+            out.append("\nВосстановления после отмены/ошибки/намёка: ").append(recoveries)
+                    .append(" · в среднем ")
+                    .append(String.format(java.util.Locale.US, "%.1f", row.optDouble("avgRecoveryActions", 0.0)))
+                    .append(" действия");
+        }
+        int switches = row.optInt("candidateCellSwitches", 0);
+        int revisits = row.optInt("candidateCellRevisits", 0);
+        if (switches > 0 || revisits > 0) {
+            out.append("\nКандидаты: переходов между клетками ").append(switches)
+                    .append(" · возвратов ").append(revisits)
+                    .append(" · максимум в клетке ").append(row.optInt("maxCandidatesInOneCell", 0));
+        }
+
+        out.append("\n\nСигналы для проверки модели");
+        boolean signal = false;
+        int hidden = Math.max(0, row.optInt("hidden", 0));
+        int modelCascade = Math.max(0, row.optInt("maxForcedCascade", 0));
+        double cascadeFraction = hidden == 0 ? 0.0 : modelCascade / (double) hidden;
+        int rapid = row.optInt("rapidCascades", 0);
+        if (cascadeFraction < 0.35 && rapid > 0) {
+            out.append("\n• Прохождение ускорилось сильнее, чем ожидала модель каскада — проверить альтернативный путь решения.");
+            signal = true;
+        } else if (cascadeFraction >= 0.55 && rapid == 0 && row.optBoolean("solved", false)) {
+            out.append("\n• Модель ожидала сильный каскад, но в реальном прохождении ускорения не видно — проверить оценку forced-cascade.");
+            signal = true;
+        } else if (cascadeFraction >= 0.55 && rapid > 0) {
+            out.append("\n• Модель и прохождение согласуются: после ключевого шага возник быстрый каскад.");
+            signal = true;
+        }
+
+        int hypotheses = row.optInt("hypothesisEpisodes", 0);
+        int goodPivots = row.optInt("branchGoodPivotCount", 0);
+        if (hypotheses > 0 && goodPivots == 0) {
+            out.append("\n• Игрок проверял гипотезы, хотя генератор не отметил сильных pivot-точек — возможная слепая зона BranchQualityAnalyzer.");
+            signal = true;
+        } else if (row.optBoolean("solved", false) && hypotheses == 0 && goodPivots > 0) {
+            out.append("\n• Генератор ожидал точки гипотезы, но задача решилась без зафиксированной проверки гипотез — возможен другой маршрут.");
+            signal = true;
+        }
+        if (revisits >= 3) {
+            out.append("\n• Частые возвраты к уже исследованным клеткам — проверить, это содержательный узел задачи или визуальная/интерфейсная неоднозначность.");
+            signal = true;
+        }
+        if (!signal) out.append("\n• Явного расхождения между текущими структурными и поведенческими сигналами не найдено.");
+
+        JSONArray moves = row.optJSONArray("semanticMoves");
+        out.append("\n\nХод решения");
+        if (moves == null || moves.length() == 0) {
+            out.append("\nНет семантических ходов в этой сессии.");
+        } else {
+            int limit = Math.min(120, moves.length());
+            for (int i = 0; i < limit; i++) {
+                JSONObject m = moves.optJSONObject(i);
+                if (m == null) continue;
+                out.append("\n")
+                        .append(m.optInt("seq", i + 1)).append(". ")
+                        .append("[").append(reportTime(m.optLong("tMs", 0L))).append("] ")
+                        .append(m.optString("notation", m.optString("type", "")));
+            }
+            if (moves.length() > limit) out.append("\n… ещё ").append(moves.length() - limit).append(" ходов");
+        }
+        out.append("\n\nЭто след взаимодействия с задачей, а не буквальная запись мыслей человека.");
+        return out.toString();
+    }
+
+    private static String reportTime(long ms) {
+        if (ms < 0) return "—";
+        long total = ms / 1000L;
+        long min = total / 60L;
+        long sec = total % 60L;
+        return min + ":" + (sec < 10 ? "0" : "") + sec;
+    }
+
     private void append(JSONObject json) {
         if (json == null) return;
         List<String> lines = readLines();
