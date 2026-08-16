@@ -14,138 +14,42 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Add distribution flavors and API 36
+      - name: Enable Play and GitHub product flavors
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          root = Path('build.gradle')
-          s = root.read_text()
-          assert "version '8.7.3'" in s
-          root.write_text(s.replace("version '8.7.3'", "version '8.10.1'", 1))
+          Path('app/build.gradle').write_text("plugins {\n    id 'com.android.application'\n}\n\nandroid {\n    namespace 'com.offline.mathcrossword'\n    compileSdk 36\n\n    flavorDimensions 'distribution'\n    productFlavors {\n        github {\n            dimension 'distribution'\n        }\n        play {\n            dimension 'distribution'\n        }\n    }\n\n    defaultConfig {\n        applicationId 'com.offline.mathcrossword'\n        minSdk 23\n        targetSdk 36\n        versionCode 35\n        versionName '1.35'\n    }\n}\n")
 
-          wrapper = Path('gradle/wrapper/gradle-wrapper.properties')
-          s = wrapper.read_text()
-          old_url = 'distributionUrl=https\\://services.gradle.org/distributions/gradle-9.3.0-bin.zip'
-          assert old_url in s
-          wrapper.write_text(s.replace(old_url, 'distributionUrl=https\\://services.gradle.org/distributions/gradle-8.11.1-bin.zip', 1))
+          path = Path('app/src/main/java/com/offline/mathcrossword/MainActivity.java')
+          s = path.read_text()
 
-          Path('app/build.gradle').write_text("""plugins {
-    id 'com.android.application'
-}
-
-android {
-    namespace 'com.offline.mathcrossword'
-    compileSdk 36
-
-    flavorDimensions 'distribution'
-    productFlavors {
-        github {
-            dimension 'distribution'
-        }
-        play {
-            dimension 'distribution'
-        }
-    }
-
-    defaultConfig {
-        applicationId 'com.offline.mathcrossword'
-        minSdk 23
-        targetSdk 36
-        versionCode 35
-        versionName '1.35'
-    }
-}
-""")
-
-          Path('app/src/main/AndroidManifest.xml').write_text("""<?xml version=\"1.0\" encoding=\"utf-8\"?>
-<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">
-    <application
-        android:allowBackup=\"true\"
-        android:label=\"Math Crossword\"
-        android:theme=\"@style/AppTheme\">
-        <activity
-            android:name=\".MainActivity\"
-            android:screenOrientation=\"portrait\"
-            android:exported=\"true\">
-            <intent-filter>
-                <action android:name=\"android.intent.action.MAIN\" />
-                <category android:name=\"android.intent.category.LAUNCHER\" />
-            </intent-filter>
-        </activity>
-    </application>
-</manifest>
-""")
-
-          github_manifest = Path('app/src/github/AndroidManifest.xml')
-          github_manifest.parent.mkdir(parents=True, exist_ok=True)
-          github_manifest.write_text("""<?xml version=\"1.0\" encoding=\"utf-8\"?>
-<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">
-    <uses-permission android:name=\"android.permission.INTERNET\" />
-    <uses-permission android:name=\"android.permission.REQUEST_INSTALL_PACKAGES\" />
-</manifest>
-""")
-
-          play_manifest = Path('app/src/play/AndroidManifest.xml')
-          play_manifest.parent.mkdir(parents=True, exist_ok=True)
-          play_manifest.write_text("""<?xml version=\"1.0\" encoding=\"utf-8\"?>
-<!-- Google Play distribution intentionally adds no network or package-install permissions. -->
-<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\" />
-""")
-
-          github_config = Path('app/src/github/java/com/offline/mathcrossword/DistributionConfig.java')
-          github_config.parent.mkdir(parents=True, exist_ok=True)
-          github_config.write_text("""package com.offline.mathcrossword;
-
-/** Distribution-specific capabilities for the direct GitHub APK. */
-final class DistributionConfig {
-    private DistributionConfig() { }
-    static boolean selfUpdateEnabled() { return true; }
-    static String channelLabel() { return \"GitHub\"; }
-}
-""")
-
-          play_config = Path('app/src/play/java/com/offline/mathcrossword/DistributionConfig.java')
-          play_config.parent.mkdir(parents=True, exist_ok=True)
-          play_config.write_text("""package com.offline.mathcrossword;
-
-/** Google Play build: Play owns updates; no sideload/install capability is exposed. */
-final class DistributionConfig {
-    private DistributionConfig() { }
-    static boolean selfUpdateEnabled() { return false; }
-    static String channelLabel() { return \"Google Play\"; }
-}
-""")
-
-          main = Path('app/src/main/java/com/offline/mathcrossword/MainActivity.java')
-          s = main.read_text()
-
-          old = '''        void onHostResume() {\n            if (screen == Screen.GAME && tracker.hasOpenSession()) tracker.resume();\n            if (pendingInstallUri != null) maybeInstallPendingUpdate();\n        }'''
-          new = '''        void onHostResume() {\n            if (screen == Screen.GAME && tracker.hasOpenSession()) tracker.resume();\n            if (DistributionConfig.selfUpdateEnabled() && pendingInstallUri != null) maybeInstallPendingUpdate();\n        }'''
+          old = "        void onHostResume() {\n            if (screen == Screen.GAME && tracker.hasOpenSession()) tracker.resume();\n            if (pendingInstallUri != null) maybeInstallPendingUpdate();\n        }"
+          new = "        void onHostResume() {\n            if (screen == Screen.GAME && tracker.hasOpenSession()) tracker.resume();\n            if (DistributionConfig.selfUpdateEnabled() && pendingInstallUri != null) maybeInstallPendingUpdate();\n        }"
           assert old in s
           s = s.replace(old, new, 1)
 
-          old = '''            float footerY = h - bottomInset - dp(34);\n            homeUpdateRect.set(w - dp(62), footerY - dp(20), w - dp(18), footerY + dp(20));\n            paint.setStyle(Paint.Style.FILL);\n            paint.setColor(Color.argb(115, 255, 255, 255));\n            c.drawRoundRect(homeUpdateRect, dp(12), dp(12), paint);\n            paint.setColor(updateChecking ? Color.rgb(120, 130, 121) : ink);\n            paint.setTextAlign(Paint.Align.CENTER);\n            paint.setTypeface(android.graphics.Typeface.DEFAULT);\n            paint.setTextSize(dp(23));\n            Paint.FontMetrics updateFm = paint.getFontMetrics();\n            c.drawText(updateChecking ? "…" : "↻", homeUpdateRect.centerX(),\n                    homeUpdateRect.centerY() - (updateFm.ascent + updateFm.descent) / 2f, paint);\n\n            paint.setColor(Color.rgb(108, 119, 110));\n            paint.setTextSize(dp(11.8f));\n            paint.setTextAlign(Paint.Align.CENTER);\n            String versionLine = "v" + installedVersionName() + " (" + installedVersionCode() + ") · офлайн · без рекламы";\n            if (!"обновление не проверено".equals(updateStatus)) versionLine += " · " + updateStatus;\n            c.drawText(versionLine, w / 2f - dp(14), footerY - dp(7), paint);\n            paint.setTextSize(dp(10.8f));\n            c.drawText("данные и история решения хранятся локально", w / 2f - dp(14), footerY + dp(11), paint);'''
-          new = '''            float footerY = h - bottomInset - dp(34);\n            float footerCenterX = w / 2f;\n            if (DistributionConfig.selfUpdateEnabled()) {\n                homeUpdateRect.set(w - dp(62), footerY - dp(20), w - dp(18), footerY + dp(20));\n                paint.setStyle(Paint.Style.FILL);\n                paint.setColor(Color.argb(115, 255, 255, 255));\n                c.drawRoundRect(homeUpdateRect, dp(12), dp(12), paint);\n                paint.setColor(updateChecking ? Color.rgb(120, 130, 121) : ink);\n                paint.setTextAlign(Paint.Align.CENTER);\n                paint.setTypeface(android.graphics.Typeface.DEFAULT);\n                paint.setTextSize(dp(23));\n                Paint.FontMetrics updateFm = paint.getFontMetrics();\n                c.drawText(updateChecking ? "…" : "↻", homeUpdateRect.centerX(),\n                        homeUpdateRect.centerY() - (updateFm.ascent + updateFm.descent) / 2f, paint);\n                footerCenterX -= dp(14);\n            } else {\n                homeUpdateRect.setEmpty();\n            }\n\n            paint.setColor(Color.rgb(108, 119, 110));\n            paint.setTextSize(dp(11.8f));\n            paint.setTextAlign(Paint.Align.CENTER);\n            String versionLine = "v" + installedVersionName() + " (" + installedVersionCode() + ") · "\n                    + DistributionConfig.channelLabel() + " · офлайн · без рекламы";\n            if (DistributionConfig.selfUpdateEnabled() && !"обновление не проверено".equals(updateStatus))\n                versionLine += " · " + updateStatus;\n            c.drawText(versionLine, footerCenterX, footerY - dp(7), paint);\n            paint.setTextSize(dp(10.8f));\n            c.drawText("данные и история решения хранятся локально", footerCenterX, footerY + dp(11), paint);'''
+          old = "            float footerY = h - bottomInset - dp(34);\n            homeUpdateRect.set(w - dp(62), footerY - dp(20), w - dp(18), footerY + dp(20));\n            paint.setStyle(Paint.Style.FILL);\n            paint.setColor(Color.argb(115, 255, 255, 255));\n            c.drawRoundRect(homeUpdateRect, dp(12), dp(12), paint);\n            paint.setColor(updateChecking ? Color.rgb(120, 130, 121) : ink);\n            paint.setTextAlign(Paint.Align.CENTER);\n            paint.setTypeface(android.graphics.Typeface.DEFAULT);\n            paint.setTextSize(dp(23));\n            Paint.FontMetrics updateFm = paint.getFontMetrics();\n            c.drawText(updateChecking ? \"…\" : \"↻\", homeUpdateRect.centerX(),\n                    homeUpdateRect.centerY() - (updateFm.ascent + updateFm.descent) / 2f, paint);\n\n            paint.setColor(Color.rgb(108, 119, 110));\n            paint.setTextSize(dp(11.8f));\n            paint.setTextAlign(Paint.Align.CENTER);\n            String versionLine = \"v\" + installedVersionName() + \" (\" + installedVersionCode() + \") · офлайн · без рекламы\";\n            if (!\"обновление не проверено\".equals(updateStatus)) versionLine += \" · \" + updateStatus;\n            c.drawText(versionLine, w / 2f - dp(14), footerY - dp(7), paint);\n            paint.setTextSize(dp(10.8f));\n            c.drawText(\"данные и история решения хранятся локально\", w / 2f - dp(14), footerY + dp(11), paint);"
+          new = "            float footerY = h - bottomInset - dp(34);\n            float footerCenterX = w / 2f;\n            if (DistributionConfig.selfUpdateEnabled()) {\n                homeUpdateRect.set(w - dp(62), footerY - dp(20), w - dp(18), footerY + dp(20));\n                paint.setStyle(Paint.Style.FILL);\n                paint.setColor(Color.argb(115, 255, 255, 255));\n                c.drawRoundRect(homeUpdateRect, dp(12), dp(12), paint);\n                paint.setColor(updateChecking ? Color.rgb(120, 130, 121) : ink);\n                paint.setTextAlign(Paint.Align.CENTER);\n                paint.setTypeface(android.graphics.Typeface.DEFAULT);\n                paint.setTextSize(dp(23));\n                Paint.FontMetrics updateFm = paint.getFontMetrics();\n                c.drawText(updateChecking ? \"…\" : \"↻\", homeUpdateRect.centerX(),\n                        homeUpdateRect.centerY() - (updateFm.ascent + updateFm.descent) / 2f, paint);\n                footerCenterX -= dp(14);\n            } else {\n                homeUpdateRect.setEmpty();\n            }\n\n            paint.setColor(Color.rgb(108, 119, 110));\n            paint.setTextSize(dp(11.8f));\n            paint.setTextAlign(Paint.Align.CENTER);\n            String versionLine = \"v\" + installedVersionName() + \" (\" + installedVersionCode() + \") · \"\n                    + DistributionConfig.channelLabel() + \" · офлайн · без рекламы\";\n            if (DistributionConfig.selfUpdateEnabled() && !\"обновление не проверено\".equals(updateStatus))\n                versionLine += \" · \" + updateStatus;\n            c.drawText(versionLine, footerCenterX, footerY - dp(7), paint);\n            paint.setTextSize(dp(10.8f));\n            c.drawText(\"данные и история решения хранятся локально\", footerCenterX, footerY + dp(11), paint);"
           assert old in s
           s = s.replace(old, new, 1)
 
-          old = '                else if (homeUpdateRect.contains(x, y)) { checkForUpdate(); }'
+          old = "                else if (homeUpdateRect.contains(x, y)) { checkForUpdate(); }"
           assert old in s
-          s = s.replace(old, '                else if (DistributionConfig.selfUpdateEnabled() && homeUpdateRect.contains(x, y)) { checkForUpdate(); }', 1)
+          s = s.replace(old, "                else if (DistributionConfig.selfUpdateEnabled() && homeUpdateRect.contains(x, y)) { checkForUpdate(); }", 1)
 
-          old = '''        void startUpdateDownload(String version, String downloadUrl) {\n            try {'''
+          old = "        void startUpdateDownload(String version, String downloadUrl) {\n            try {"
           assert old in s
-          s = s.replace(old, '''        void startUpdateDownload(String version, String downloadUrl) {\n            if (!DistributionConfig.selfUpdateEnabled()) return;\n            try {''', 1)
+          s = s.replace(old, "        void startUpdateDownload(String version, String downloadUrl) {\n            if (!DistributionConfig.selfUpdateEnabled()) return;\n            try {", 1)
 
-          old = '''        void maybeInstallPendingUpdate() {\n            if (pendingInstallUri == null) return;'''
+          old = "        void maybeInstallPendingUpdate() {\n            if (pendingInstallUri == null) return;"
           assert old in s
-          s = s.replace(old, '''        void maybeInstallPendingUpdate() {\n            if (!DistributionConfig.selfUpdateEnabled()) return;\n            if (pendingInstallUri == null) return;''', 1)
+          s = s.replace(old, "        void maybeInstallPendingUpdate() {\n            if (!DistributionConfig.selfUpdateEnabled()) return;\n            if (pendingInstallUri == null) return;", 1)
 
-          old = '''        void checkForUpdate() {\n            if (updateChecking) return;'''
+          old = "        void checkForUpdate() {\n            if (updateChecking) return;"
           assert old in s
-          s = s.replace(old, '''        void checkForUpdate() {\n            if (!DistributionConfig.selfUpdateEnabled()) return;\n            if (updateChecking) return;''', 1)
+          s = s.replace(old, "        void checkForUpdate() {\n            if (!DistributionConfig.selfUpdateEnabled()) return;\n            if (updateChecking) return;", 1)
 
           assert 'return info.versionName == null ? "1.32" : info.versionName;' in s
           s = s.replace('return info.versionName == null ? "1.32" : info.versionName;', 'return info.versionName == null ? "1.35" : info.versionName;', 1)
@@ -153,11 +57,11 @@ final class DistributionConfig {
           s = s.replace('return "1.33";', 'return "1.35";', 1)
           assert 'return 33L;' in s
           s = s.replace('return 33L;', 'return 35L;', 1)
-          main.write_text(s)
+          path.write_text(s)
           PY
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add build.gradle gradle/wrapper/gradle-wrapper.properties app
-          git commit -m "Add GitHub and Google Play distribution flavors"
+          git add app/build.gradle app/src/main/java/com/offline/mathcrossword/MainActivity.java
+          git commit -m "Enable GitHub and Google Play build flavors"
           git push origin main
