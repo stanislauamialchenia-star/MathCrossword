@@ -138,6 +138,11 @@ final class PuzzleModel {
         int maxAdditionalForcedAfterOneCell = 0;
         double maxResolvedFractionAfterOneCell = 0.0;
         int vulnerableSingleCells = 0;
+        int vulnerableRegions = 0;
+        int largestVulnerableRegionSize = 0;
+        int largestVulnerableRegionEntries = 0;
+        int independentCollapseFronts = 0;
+        double vulnerabilityOverlap = 0.0;
         int maxResolvedAfterOneEquation = 0;
         double maxResolvedFractionAfterOneEquation = 0.0;
         boolean contradictionKernel = false;
