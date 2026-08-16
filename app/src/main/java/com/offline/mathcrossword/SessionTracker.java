@@ -349,6 +349,42 @@ final class SessionTracker {
                     .append(" · максимум в клетке ").append(row.optInt("maxCandidatesInOneCell", 0));
         }
 
+        JSONObject graphTraversal = row.optJSONObject("graphTraversal");
+        if (graphTraversal != null && graphTraversal.optBoolean("available", false)) {
+            String direction = graphTraversal.optString("direction", "unknown");
+            out.append("\n\nМаршрут по реальному графу")
+                    .append("\nТип: ").append(graphTraversalLabel(direction));
+            int entryDepth = graphTraversal.optInt("entryDepth", -1);
+            int maxDepth = graphTraversal.optInt("maxDepth", -1);
+            if (entryDepth >= 0) out.append(" · вход depth ").append(entryDepth);
+            if (maxDepth >= 0) out.append(" · max depth ").append(maxDepth);
+            if (graphTraversal.optBoolean("anchorReached", false)) out.append(" · anchor достигнут");
+            if (graphTraversal.optBoolean("internalEntry", false)) out.append(" · внутренний вход");
+            if (graphTraversal.optBoolean("branchProbing", false)) out.append(" · исследование ветви");
+            if (graphTraversal.optBoolean("structuralDivergence", false)) out.append(" · структурное расхождение");
+            out.append("\nПокрытие графа действиями: ")
+                    .append(String.format(java.util.Locale.US, "%.0f%%", graphTraversal.optDouble("mappedPct", 0.0)))
+                    .append(" · связность переходов ")
+                    .append(String.format(java.util.Locale.US, "%.0f%%", graphTraversal.optDouble("adjacencyContinuityPct", 0.0)))
+                    .append(" · уверенность ")
+                    .append(String.format(java.util.Locale.US, "%.0f%%", graphTraversal.optDouble("confidencePct", 0.0)))
+                    .append(" · anchor ")
+                    .append(String.format(java.util.Locale.US, "%.0f%%", graphTraversal.optDouble("anchorConfidencePct", 0.0)));
+            JSONArray graphRoute = graphTraversal.optJSONArray("observedGraphRoute");
+            if (graphRoute != null && graphRoute.length() > 0) {
+                out.append("\nГлубины: ");
+                int routeLimit = Math.min(18, graphRoute.length());
+                for (int i = 0; i < routeLimit; i++) {
+                    JSONObject visit = graphRoute.optJSONObject(i);
+                    if (visit == null) continue;
+                    if (i > 0) out.append(" → ");
+                    int d = visit.optInt("anchorDistance", -1);
+                    out.append(d >= 0 ? ("d" + d) : "?");
+                }
+                if (graphRoute.length() > routeLimit) out.append(" → …+").append(graphRoute.length() - routeLimit);
+            }
+        }
+
         JSONObject routeComparison = row.optJSONObject("routeComparison");
         if (routeComparison != null && routeComparison.optBoolean("available", false)) {
             out.append("\n\nМаршрут HumanSolver ↔ прохождение")
@@ -417,6 +453,18 @@ final class SessionTracker {
                 signal = true;
             }
         }
+        if (graphTraversal != null && graphTraversal.optBoolean("available", false)
+                && routeComparison != null && routeComparison.optBoolean("available", false)) {
+            String graphDirection = graphTraversal.optString("direction", "unknown");
+            boolean coherentAlternate = !graphTraversal.optBoolean("structuralDivergence", false)
+                    && ("backward".equals(graphDirection) || "bidirectional".equals(graphDirection));
+            if (routeComparison.optBoolean("strongDivergence", false) && coherentAlternate) {
+                out.append("\n• HumanSolver видит сильное расхождение порядка, но реальный граф показывает связный ")
+                        .append(graphTraversalLabel(graphDirection))
+                        .append(" маршрут — это кандидат на валидный альтернативный обход, а не на ошибку игрока.");
+                signal = true;
+            }
+        }
         if (!signal) out.append("\n• Явного расхождения между текущими структурными и поведенческими сигналами не найдено.");
 
         JSONArray moves = row.optJSONArray("semanticMoves");
@@ -437,6 +485,15 @@ final class SessionTracker {
         }
         out.append("\n\nЭто след взаимодействия с задачей, а не буквальная запись мыслей человека.");
         return out.toString();
+    }
+
+    private static String graphTraversalLabel(String direction) {
+        if ("forward".equals(direction)) return "вперёд";
+        if ("backward".equals(direction)) return "обратный";
+        if ("bidirectional".equals(direction)) return "двунаправленный";
+        if ("mixed".equals(direction)) return "смешанный";
+        if ("divergent".equals(direction)) return "вне структуры";
+        return "неопределённый";
     }
 
     private static String reportTime(long ms) {
