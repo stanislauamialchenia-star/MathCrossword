@@ -1,0 +1,71 @@
+name: Wire concrete traversal telemetry once
+
+on:
+  push:
+    branches:
+      - research/concrete-reasoning-graph
+    paths:
+      - '.github/workflows/concrete-traversal-wire-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Wire concrete graph into sessions
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin research/concrete-reasoning-graph
+          git checkout -B research/concrete-reasoning-graph origin/research/concrete-reasoning-graph
+          python - <<'PY'
+          from pathlib import Path
+
+          session = Path('app/src/main/java/com/offline/mathcrossword/SessionTracker.java')
+          s = session.read_text()
+
+          old = '''    synchronized void setModelRoute(JSONArray route) {\n        if (open != null) open.setModelRoute(route);\n    }\n'''
+          new = '''    synchronized void setModelRoute(JSONArray route) {\n        if (open != null) open.setModelRoute(route);\n    }\n\n    synchronized void setConcreteGraph(ConcreteReasoningGraph graph) {\n        if (open != null) open.setConcreteGraph(graph);\n    }\n'''
+          if old not in s:
+              raise SystemExit('SessionTracker public graph setter marker missing')
+          s = s.replace(old, new, 1)
+
+          old = '''        final JSONArray events = new JSONArray();\n        JSONArray modelRoute = new JSONArray();\n'''
+          new = '''        final JSONArray events = new JSONArray();\n        JSONArray modelRoute = new JSONArray();\n        ConcreteReasoningGraph concreteGraph;\n'''
+          if old not in s:
+              raise SystemExit('OpenSession graph field marker missing')
+          s = s.replace(old, new, 1)
+
+          old = '''        void setModelRoute(JSONArray route) {\n            try { modelRoute = route == null ? new JSONArray() : new JSONArray(route.toString()); }\n            catch (Exception ignored) { modelRoute = new JSONArray(); }\n        }\n'''
+          new = '''        void setModelRoute(JSONArray route) {\n            try { modelRoute = route == null ? new JSONArray() : new JSONArray(route.toString()); }\n            catch (Exception ignored) { modelRoute = new JSONArray(); }\n        }\n\n        void setConcreteGraph(ConcreteReasoningGraph graph) {\n            concreteGraph = graph;\n        }\n'''
+          if old not in s:
+              raise SystemExit('OpenSession graph setter marker missing')
+          s = s.replace(old, new, 1)
+
+          old = '''                root.put("modelRouteVersion", HumanRouteComparator.VERSION);\n                root.put("modelRoute", modelRoute);\n                root.put("routeComparison", HumanRouteComparator.compare(modelRoute, events));\n                root.put("moveNotationVersion", MoveNotation.VERSION);\n'''
+          new = '''                root.put("modelRouteVersion", HumanRouteComparator.VERSION);\n                root.put("modelRoute", modelRoute);\n                root.put("routeComparison", HumanRouteComparator.compare(modelRoute, events));\n                root.put("graphTraversalVersion", GraphTraversalTelemetry.VERSION);\n                root.put("graphTraversal", GraphTraversalTelemetry.analyze(concreteGraph, events));\n                root.put("moveNotationVersion", MoveNotation.VERSION);\n'''
+          if old not in s:
+              raise SystemExit('Session finish traversal marker missing')
+          s = s.replace(old, new, 1)
+          session.write_text(s)
+
+          main = Path('app/src/main/java/com/offline/mathcrossword/MainActivity.java')
+          m = main.read_text()
+          old = '            tracker.setModelRoute(HumanRouteComparator.modelRoute(puzzle));'
+          new = '            tracker.setConcreteGraph(ConcreteReasoningGraph.fromPuzzle(puzzle));\n            tracker.setModelRoute(HumanRouteComparator.modelRoute(puzzle));'
+          count = m.count(old)
+          if count != 3:
+              raise SystemExit(f'expected 3 model-route wiring sites, found {count}')
+          m = m.replace(old, new)
+          main.write_text(m)
+          PY
+          git add app/src/main/java/com/offline/mathcrossword/SessionTracker.java app/src/main/java/com/offline/mathcrossword/MainActivity.java
+          git commit -m "Record concrete graph traversal telemetry"
+          git push origin HEAD:research/concrete-reasoning-graph
