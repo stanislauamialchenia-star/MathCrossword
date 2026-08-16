@@ -8,8 +8,8 @@ package com.offline.mathcrossword;
  * - opening collapse: too much of the puzzle is forced before meaningful reasoning;
  * - productive dependency cascade: the opening stays uncertain, then a later
  *   reasoning step unlocks a long chain;
- * - systemic fragility: many different single-cell revelations can each collapse
- *   most of the board.
+ * - systemic fragility: many single-cell revelations can collapse most of the
+ *   board when there is no evidence of a non-trivial reasoning dependency.
  *
  * This class is Android-independent so the policy can be regression-tested in CI.
  */
@@ -63,19 +63,17 @@ final class PathCascadePolicy {
         hidden = Math.max(1, hidden);
         double strength = clamp(antiCollapseStrength, 0.0, 1.0);
 
-        // Keep the existing intent: harder PATH boards should expose less free
-        // information at the opening. This is the part of anti-collapse worth
-        // preserving.
+        // Preserve the useful part of anti-collapse: a hard board should not give
+        // away too much information before the player has done anything meaningful.
         int openingForcedLimit = Math.max(1,
                 (int) Math.ceil(hidden * lerp(0.38, 0.16, strength)));
 
-        // A long later cascade is evidence of a dependency chain, not necessarily
-        // fragility. The floor becomes stricter as PATH difficulty rises.
+        // A long later cascade can be the dependency structure we intentionally
+        // want to train. Higher PATH difficulty asks for a more substantial chain
+        // before we label it productive.
         int productiveCascadeFloor = Math.max(3,
                 (int) Math.ceil(hidden * lerp(0.42, 0.55, strength)));
 
-        // Systemic fragility is about how much can be revealed by arbitrary single
-        // correct cells, not about the longest solver cascade in isolation.
         int systemicResolvedLimit = Math.max(3,
                 (int) Math.ceil(hidden * lerp(0.82, 0.68, strength)));
         int vulnerableCellAllowance = strength >= 0.65 ? 1 : 2;
@@ -85,22 +83,28 @@ final class PathCascadePolicy {
                     productiveCascadeFloor, systemicResolvedLimit, vulnerableCellAllowance);
         }
 
-        // Systemic fragility is a stronger defect than a nice-looking chain. If
-        // several unrelated correct cells can each unlock most of the board, the
-        // puzzle is fragile even when the solver also observes reasoning steps.
-        boolean largeSingleCellReveal = maxResolvedAfterOneCell > systemicResolvedLimit;
-        boolean repeatedFragility = vulnerableSingleCells > vulnerableCellAllowance;
-        if (largeSingleCellReveal && repeatedFragility) {
-            return new Assessment(Shape.SYSTEMIC_FRAGILITY, openingForcedLimit,
+        boolean openingStillUncertain = basicRemaining >= Math.max(3, (hidden * 3) / 5);
+        boolean hasNonTrivialReasoning = reasoningSteps > 0 || maxReasoningDepth > 0;
+        boolean longLaterCascade = maxForcedCascade >= productiveCascadeFloor;
+
+        // Aggregate solver metrics do not yet prove temporal order, so this is a
+        // conservative proxy: the board has a non-trivial reasoning dependency and
+        // a long cascade while its opening remains uncertain. Step-level traversal
+        // telemetry will refine this in the reasoning-graph work.
+        if (openingStillUncertain && hasNonTrivialReasoning && longLaterCascade) {
+            return new Assessment(Shape.PRODUCTIVE_DEPENDENCY_CASCADE, openingForcedLimit,
                     productiveCascadeFloor, systemicResolvedLimit, vulnerableCellAllowance);
         }
 
-        boolean openingStillUncertain = basicRemaining >= Math.max(3, (hidden * 3) / 5);
-        boolean reasoningBeforeCascade = reasoningSteps > 0 || maxReasoningDepth > 0;
-        boolean longLaterCascade = maxForcedCascade >= productiveCascadeFloor;
+        boolean largeSingleCellReveal = maxResolvedAfterOneCell > systemicResolvedLimit;
+        boolean repeatedFragility = vulnerableSingleCells > vulnerableCellAllowance;
 
-        if (openingStillUncertain && reasoningBeforeCascade && longLaterCascade) {
-            return new Assessment(Shape.PRODUCTIVE_DEPENDENCY_CASCADE, openingForcedLimit,
+        // `vulnerableSingleCells` currently counts cells, not independent regions.
+        // Several cells on one dependency chain can therefore look like several
+        // weaknesses. Until vulnerability is graph-clustered, only use this as a
+        // hard reject when the solver sees no non-trivial reasoning dependency.
+        if (largeSingleCellReveal && repeatedFragility && !hasNonTrivialReasoning) {
+            return new Assessment(Shape.SYSTEMIC_FRAGILITY, openingForcedLimit,
                     productiveCascadeFloor, systemicResolvedLimit, vulnerableCellAllowance);
         }
 
