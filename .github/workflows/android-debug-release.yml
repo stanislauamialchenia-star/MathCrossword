@@ -1,4 +1,4 @@
-name: Build and publish debug APK
+name: Build, verify and publish debug APK
 
 on:
   push:
@@ -28,21 +28,6 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Restore persistent signing key
-        env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_SIGNING_KEYSTORE_BASE64 }}
-          STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/mathcrossword-signing.keystore"
-          chmod 600 "$RUNNER_TEMP/mathcrossword-signing.keystore"
-          keytool -list \
-            -keystore "$RUNNER_TEMP/mathcrossword-signing.keystore" \
-            -storepass "$STORE_PASSWORD" \
-            -alias "$KEY_ALIAS" > /dev/null
-
       - name: Read app version
         id: version
         shell: bash
@@ -59,6 +44,35 @@ jobs:
         run: |
           chmod +x ./gradlew
           ./gradlew assembleDebug --no-daemon
+
+      - name: Reliability smoke gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes"
+          test -d "$app_classes"
+          mkdir -p "$RUNNER_TEMP/mathcrossword-reliability"
+          javac -cp "$app_classes" \
+            -d "$RUNNER_TEMP/mathcrossword-reliability" \
+            tools/ReliabilityHarness.java
+          timeout 12m java -Xmx1536m \
+            -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+            com.offline.mathcrossword.ReliabilityHarness smoke
+
+      - name: Restore persistent signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_SIGNING_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/mathcrossword-signing.keystore"
+          chmod 600 "$RUNNER_TEMP/mathcrossword-signing.keystore"
+          keytool -list \
+            -keystore "$RUNNER_TEMP/mathcrossword-signing.keystore" \
+            -storepass "$STORE_PASSWORD" \
+            -alias "$KEY_ALIAS" > /dev/null
 
       - name: Sign debug APK with persistent key
         env:
@@ -121,7 +135,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "MathCrossword v${{ steps.version.outputs.name }} debug build ${{ github.run_number }}" \
-            --notes "Automatic debug APK for version ${{ steps.version.outputs.name }} (version code ${{ steps.version.outputs.code }}), built from commit $GITHUB_SHA."
+            --notes "Automatic debug APK for version ${{ steps.version.outputs.name }} (version code ${{ steps.version.outputs.code }}), built from commit $GITHUB_SHA after the deterministic reliability smoke gate passed."
 
       - name: Remove temporary signing material
         if: always()
@@ -129,3 +143,4 @@ jobs:
         run: |
           rm -f "$RUNNER_TEMP/mathcrossword-signing.keystore"
           rm -f "$RUNNER_TEMP/app-debug-signed.apk"
+          rm -rf "$RUNNER_TEMP/mathcrossword-reliability"
