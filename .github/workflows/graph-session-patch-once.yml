@@ -22,68 +22,40 @@ jobs:
 
           main = Path('app/src/main/java/com/offline/mathcrossword/MainActivity.java')
           s = main.read_text()
-          old = '''            String sessionMode = LevelAccess.sessionMode(level, progressLevel);\n            tracker.start(sessionMode, level, puzzle.seed, puzzle.displayLogicLevel, puzzle.displayCalcLevel, puzzle.logicScore, puzzle.calcScore,'''
-          new = '''            String sessionMode = LevelAccess.sessionMode(level, progressLevel);\n            GraphAnalyzer.Metrics graph = GraphAnalyzer.analyze(puzzle);\n            tracker.start(sessionMode, level, puzzle.seed, puzzle.displayLogicLevel, puzzle.displayCalcLevel, puzzle.logicScore, puzzle.calcScore,'''
-          assert old in s
-          s = s.replace(old, new, 1)
-
-          old = '''                    screen = Screen.GAME;\n                    tracker.start("FREE", 0, puzzle.seed, puzzle.displayLogicLevel, puzzle.displayCalcLevel, puzzle.logicScore, puzzle.calcScore,'''
-          new = '''                    screen = Screen.GAME;\n                    GraphAnalyzer.Metrics graph = GraphAnalyzer.analyze(puzzle);\n                    tracker.start("FREE", 0, puzzle.seed, puzzle.displayLogicLevel, puzzle.displayCalcLevel, puzzle.logicScore, puzzle.calcScore,'''
-          assert old in s
-          s = s.replace(old, new, 1)
-
           tail = 'puzzle.generationRejects, puzzle.generationRejectSummary);'
-          assert s.count(tail) == 2, s.count(tail)
-          s = s.replace(tail, 'puzzle.generationRejects, puzzle.generationRejectSummary, graph);')
+          count = s.count(tail)
+          assert count == 3, f'expected 3 session starts, found {count}'
+          s = s.replace(tail,
+              'puzzle.generationRejects, puzzle.generationRejectSummary, GraphAnalyzer.analyze(puzzle));')
           main.write_text(s)
 
           tracker = Path('app/src/main/java/com/offline/mathcrossword/SessionTracker.java')
           s = tracker.read_text()
 
-          old = '''                            String generationStageTimings, long generationMillis, int generationAttempts, int generationRejects,\n                            String generationRejectSummary) {'''
-          new = '''                            String generationStageTimings, long generationMillis, int generationAttempts, int generationRejects,\n                            String generationRejectSummary, GraphAnalyzer.Metrics graph) {'''
-          assert old in s
-          s = s.replace(old, new, 1)
+          replacements = [
+          ('''                            String generationStageTimings, long generationMillis, int generationAttempts, int generationRejects,\n                            String generationRejectSummary) {''',
+           '''                            String generationStageTimings, long generationMillis, int generationAttempts, int generationRejects,\n                            String generationRejectSummary, GraphAnalyzer.Metrics graph) {'''),
+          ('''                generationStageTimings, generationMillis, generationAttempts, generationRejects,\n                generationRejectSummary);''',
+           '''                generationStageTimings, generationMillis, generationAttempts, generationRejects,\n                generationRejectSummary, graph);'''),
+          ('''        final int generationRejects;\n        final String generationRejectSummary;\n        final JSONArray events = new JSONArray();''',
+           '''        final int generationRejects;\n        final String generationRejectSummary;\n        final int graphNodes;\n        final int graphEdges;\n        final int graphComponents;\n        final int graphCycleRank;\n        final int graphBridges;\n        final int graphArticulationPoints;\n        final int graphVariableArticulations;\n        final int graphFactorArticulations;\n        final int graphHiddenArticulations;\n        final int graphBranchNodes;\n        final int graphDiameter;\n        final int graphMaxDegree;\n        final double graphAverageDegree;\n        final JSONArray events = new JSONArray();'''),
+          ('''                    String generationStageTimings, long generationMillis, int generationAttempts,\n                    int generationRejects, String generationRejectSummary) {''',
+           '''                    String generationStageTimings, long generationMillis, int generationAttempts,\n                    int generationRejects, String generationRejectSummary, GraphAnalyzer.Metrics graph) {'''),
+          ('''            this.generationRejects = generationRejects;\n            this.generationRejectSummary = generationRejectSummary == null ? "" : generationRejectSummary;\n            resume();''',
+           '''            this.generationRejects = generationRejects;\n            this.generationRejectSummary = generationRejectSummary == null ? "" : generationRejectSummary;\n            this.graphNodes = graph == null ? 0 : graph.nodes;\n            this.graphEdges = graph == null ? 0 : graph.edges;\n            this.graphComponents = graph == null ? 0 : graph.components;\n            this.graphCycleRank = graph == null ? 0 : graph.cycleRank;\n            this.graphBridges = graph == null ? 0 : graph.bridges;\n            this.graphArticulationPoints = graph == null ? 0 : graph.articulationPoints;\n            this.graphVariableArticulations = graph == null ? 0 : graph.variableArticulations;\n            this.graphFactorArticulations = graph == null ? 0 : graph.factorArticulations;\n            this.graphHiddenArticulations = graph == null ? 0 : graph.hiddenVariableArticulations;\n            this.graphBranchNodes = graph == null ? 0 : graph.branchNodes;\n            this.graphDiameter = graph == null ? 0 : graph.diameter;\n            this.graphMaxDegree = graph == null ? 0 : graph.maxDegree;\n            this.graphAverageDegree = graph == null ? 0.0 : graph.averageDegree;\n            resume();'''),
+          ('''                root.put("generationRejects", generationRejects);\n                root.put("generationRejectSummary", generationRejectSummary);\n                root.put("solved", solved);''',
+           '''                root.put("generationRejects", generationRejects);\n                root.put("generationRejectSummary", generationRejectSummary);\n                root.put("graphNodes", graphNodes);\n                root.put("graphEdges", graphEdges);\n                root.put("graphComponents", graphComponents);\n                root.put("graphCycleRank", graphCycleRank);\n                root.put("graphBridges", graphBridges);\n                root.put("graphArticulationPoints", graphArticulationPoints);\n                root.put("graphVariableArticulations", graphVariableArticulations);\n                root.put("graphFactorArticulations", graphFactorArticulations);\n                root.put("graphHiddenArticulations", graphHiddenArticulations);\n                root.put("graphBranchNodes", graphBranchNodes);\n                root.put("graphDiameter", graphDiameter);\n                root.put("graphMaxDegree", graphMaxDegree);\n                root.put("graphAverageDegree", graphAverageDegree);\n                root.put("solved", solved);'''),
+          ('''            s.maxCandidatesInOneCell = row.optInt("maxCandidatesInOneCell", 0);\n            JSONObject routeComparison = row.optJSONObject("routeComparison");''',
+           '''            s.maxCandidatesInOneCell = row.optInt("maxCandidatesInOneCell", 0);\n            s.graphCycleRank = row.optInt("graphCycleRank", 0);\n            s.graphBridges = row.optInt("graphBridges", 0);\n            s.graphArticulationPoints = row.optInt("graphArticulationPoints", 0);\n            s.graphHiddenArticulations = row.optInt("graphHiddenArticulations", 0);\n            s.graphBranchNodes = row.optInt("graphBranchNodes", 0);\n            s.graphDiameter = row.optInt("graphDiameter", 0);\n            JSONObject routeComparison = row.optJSONObject("routeComparison");'''),
+          ('''        int maxCandidatesInOneCell;\n        boolean routeCompared;''',
+           '''        int maxCandidatesInOneCell;\n        int graphCycleRank;\n        int graphBridges;\n        int graphArticulationPoints;\n        int graphHiddenArticulations;\n        int graphBranchNodes;\n        int graphDiameter;\n        boolean routeCompared;'''),
+          ('''        out.append(where).append(" · ").append(strategy)\n                .append(" · ").append(row.optBoolean("solved", false) ? "решено" : "не завершено")\n                .append("\\nАктивное время: ").append(reportTime(row.optLong("activeMs", 0L)))\n                .append(" · событий: ").append(row.optInt("eventCount", 0));''',
+           '''        out.append(where).append(" · ").append(strategy)\n                .append(" · ").append(row.optBoolean("solved", false) ? "решено" : "не завершено")\n                .append("\\nАктивное время: ").append(reportTime(row.optLong("activeMs", 0L)))\n                .append(" · событий: ").append(row.optInt("eventCount", 0));\n        if (row.has("graphNodes")) {\n            out.append("\\nГраф: μ=").append(row.optInt("graphCycleRank", 0))\n                    .append(" · мосты ").append(row.optInt("graphBridges", 0))\n                    .append(" · точки сочленения ").append(row.optInt("graphArticulationPoints", 0))\n                    .append(" · скрытые узлы-сочленения ").append(row.optInt("graphHiddenArticulations", 0))\n                    .append(" · ветвления ").append(row.optInt("graphBranchNodes", 0))\n                    .append(" · диаметр ").append(row.optInt("graphDiameter", 0));\n        }''')
+          ]
 
-          old = '''                generationStageTimings, generationMillis, generationAttempts, generationRejects,\n                generationRejectSummary);'''
-          new = '''                generationStageTimings, generationMillis, generationAttempts, generationRejects,\n                generationRejectSummary, graph);'''
-          assert old in s
-          s = s.replace(old, new, 1)
-
-          old = '''        final int generationRejects;\n        final String generationRejectSummary;\n        final JSONArray events = new JSONArray();'''
-          new = '''        final int generationRejects;\n        final String generationRejectSummary;\n        final int graphNodes;\n        final int graphEdges;\n        final int graphComponents;\n        final int graphCycleRank;\n        final int graphBridges;\n        final int graphArticulationPoints;\n        final int graphVariableArticulations;\n        final int graphFactorArticulations;\n        final int graphHiddenArticulations;\n        final int graphBranchNodes;\n        final int graphDiameter;\n        final int graphMaxDegree;\n        final double graphAverageDegree;\n        final JSONArray events = new JSONArray();'''
-          assert old in s
-          s = s.replace(old, new, 1)
-
-          old = '''                    String generationStageTimings, long generationMillis, int generationAttempts,\n                    int generationRejects, String generationRejectSummary) {'''
-          new = '''                    String generationStageTimings, long generationMillis, int generationAttempts,\n                    int generationRejects, String generationRejectSummary, GraphAnalyzer.Metrics graph) {'''
-          assert old in s
-          s = s.replace(old, new, 1)
-
-          old = '''            this.generationRejects = generationRejects;\n            this.generationRejectSummary = generationRejectSummary == null ? "" : generationRejectSummary;\n            resume();'''
-          new = '''            this.generationRejects = generationRejects;\n            this.generationRejectSummary = generationRejectSummary == null ? "" : generationRejectSummary;\n            this.graphNodes = graph == null ? 0 : graph.nodes;\n            this.graphEdges = graph == null ? 0 : graph.edges;\n            this.graphComponents = graph == null ? 0 : graph.components;\n            this.graphCycleRank = graph == null ? 0 : graph.cycleRank;\n            this.graphBridges = graph == null ? 0 : graph.bridges;\n            this.graphArticulationPoints = graph == null ? 0 : graph.articulationPoints;\n            this.graphVariableArticulations = graph == null ? 0 : graph.variableArticulations;\n            this.graphFactorArticulations = graph == null ? 0 : graph.factorArticulations;\n            this.graphHiddenArticulations = graph == null ? 0 : graph.hiddenVariableArticulations;\n            this.graphBranchNodes = graph == null ? 0 : graph.branchNodes;\n            this.graphDiameter = graph == null ? 0 : graph.diameter;\n            this.graphMaxDegree = graph == null ? 0 : graph.maxDegree;\n            this.graphAverageDegree = graph == null ? 0.0 : graph.averageDegree;\n            resume();'''
-          assert old in s
-          s = s.replace(old, new, 1)
-
-          old = '''                root.put("generationRejects", generationRejects);\n                root.put("generationRejectSummary", generationRejectSummary);\n                root.put("solved", solved);'''
-          new = '''                root.put("generationRejects", generationRejects);\n                root.put("generationRejectSummary", generationRejectSummary);\n                root.put("graphNodes", graphNodes);\n                root.put("graphEdges", graphEdges);\n                root.put("graphComponents", graphComponents);\n                root.put("graphCycleRank", graphCycleRank);\n                root.put("graphBridges", graphBridges);\n                root.put("graphArticulationPoints", graphArticulationPoints);\n                root.put("graphVariableArticulations", graphVariableArticulations);\n                root.put("graphFactorArticulations", graphFactorArticulations);\n                root.put("graphHiddenArticulations", graphHiddenArticulations);\n                root.put("graphBranchNodes", graphBranchNodes);\n                root.put("graphDiameter", graphDiameter);\n                root.put("graphMaxDegree", graphMaxDegree);\n                root.put("graphAverageDegree", graphAverageDegree);\n                root.put("solved", solved);'''
-          assert old in s
-          s = s.replace(old, new, 1)
-
-          old = '''            s.maxCandidatesInOneCell = row.optInt("maxCandidatesInOneCell", 0);\n            JSONObject routeComparison = row.optJSONObject("routeComparison");'''
-          new = '''            s.maxCandidatesInOneCell = row.optInt("maxCandidatesInOneCell", 0);\n            s.graphCycleRank = row.optInt("graphCycleRank", 0);\n            s.graphBridges = row.optInt("graphBridges", 0);\n            s.graphArticulationPoints = row.optInt("graphArticulationPoints", 0);\n            s.graphHiddenArticulations = row.optInt("graphHiddenArticulations", 0);\n            s.graphBranchNodes = row.optInt("graphBranchNodes", 0);\n            s.graphDiameter = row.optInt("graphDiameter", 0);\n            JSONObject routeComparison = row.optJSONObject("routeComparison");'''
-          assert old in s
-          s = s.replace(old, new, 1)
-
-          old = '''        int maxCandidatesInOneCell;\n        boolean routeCompared;'''
-          new = '''        int maxCandidatesInOneCell;\n        int graphCycleRank;\n        int graphBridges;\n        int graphArticulationPoints;\n        int graphHiddenArticulations;\n        int graphBranchNodes;\n        int graphDiameter;\n        boolean routeCompared;'''
-          assert old in s
-          s = s.replace(old, new, 1)
-
-          old = '''        out.append(where).append(" · ").append(strategy)\n                .append(" · ").append(row.optBoolean("solved", false) ? "решено" : "не завершено")\n                .append("\\nАктивное время: ").append(reportTime(row.optLong("activeMs", 0L)))\n                .append(" · событий: ").append(row.optInt("eventCount", 0));'''
-          new = '''        out.append(where).append(" · ").append(strategy)\n                .append(" · ").append(row.optBoolean("solved", false) ? "решено" : "не завершено")\n                .append("\\nАктивное время: ").append(reportTime(row.optLong("activeMs", 0L)))\n                .append(" · событий: ").append(row.optInt("eventCount", 0));\n        if (row.has("graphNodes")) {\n            out.append("\\nГраф: μ=").append(row.optInt("graphCycleRank", 0))\n                    .append(" · мосты ").append(row.optInt("graphBridges", 0))\n                    .append(" · точки сочленения ").append(row.optInt("graphArticulationPoints", 0))\n                    .append(" · скрытые узлы-сочленения ").append(row.optInt("graphHiddenArticulations", 0))\n                    .append(" · ветвления ").append(row.optInt("graphBranchNodes", 0))\n                    .append(" · диаметр ").append(row.optInt("graphDiameter", 0));\n        }'''
-          assert old in s
-          s = s.replace(old, new, 1)
+          for old, new in replacements:
+              assert old in s, old[:100]
+              s = s.replace(old, new, 1)
 
           tracker.write_text(s)
           PY
