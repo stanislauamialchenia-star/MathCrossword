@@ -311,6 +311,7 @@ public class MainActivity extends Activity {
                     puzzle.generationStageTimings,
                     puzzle.generationMillis, puzzle.generationAttempts,
                     puzzle.generationRejects, puzzle.generationRejectSummary);
+            tracker.setModelRoute(HumanRouteComparator.modelRoute(puzzle));
             invalidate();
             prefetchPathLevel(level + 1);
         }
@@ -409,6 +410,7 @@ public class MainActivity extends Activity {
                     puzzle.generationStageTimings,
                             puzzle.generationMillis, puzzle.generationAttempts,
                             puzzle.generationRejects, puzzle.generationRejectSummary);
+            tracker.setModelRoute(HumanRouteComparator.modelRoute(puzzle));
                     invalidate();
                 });
             }, "mathcrossword-generator").start();
@@ -660,6 +662,12 @@ public class MainActivity extends Activity {
             c.drawText("Кандидаты: переходы между клетками " + a.candidateCellSwitches
                     + " · возвраты " + a.candidateCellRevisits, side, y, paint); y += dp(24);
 
+            if (a.routeComparedSessions > 0) {
+                c.drawText("Маршруты: " + a.routeComparedSessions + " сравн. · согласование "
+                        + String.format(Locale.US, "%.0f%%", a.avgRouteAgreementPct)
+                        + " · сильных расхождений " + a.routeStrongDivergences, side, y, paint); y += dp(24);
+            }
+
             paint.setColor(ink);
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             paint.setTextSize(dp(15.5f));
@@ -744,6 +752,14 @@ public class MainActivity extends Activity {
                     c.drawText("кандидаты: переходов " + last.candidateCellSwitches
                             + " · возвратов " + last.candidateCellRevisits
                             + " · максимум в клетке " + last.maxCandidatesInOneCell, side, y, paint);
+                    y += dp(21);
+                }
+                if (last.routeCompared) {
+                    String routeLine = "маршрут: согласование "
+                            + String.format(Locale.US, "%.0f%%", last.routeAgreementPct)
+                            + " · начало " + String.format(Locale.US, "%.0f%%", last.routeEarlyAgreementPct)
+                            + " · порядок " + String.format(Locale.US, "%.0f%%", last.routeOrderAgreementPct);
+                    c.drawText(routeLine, side, y, paint);
                     y += dp(21);
                 }
                 if (last.hidden > 0 && last.maxForcedCascade > 0) {
@@ -1193,6 +1209,7 @@ public class MainActivity extends Activity {
                     puzzle.contradictionKernelDeepBranches, puzzle.contradictionKernelMaxRemaining,
                     puzzle.generationStageTimings, puzzle.generationMillis, puzzle.generationAttempts,
                     puzzle.generationRejects, puzzle.generationRejectSummary);
+            tracker.setModelRoute(HumanRouteComparator.modelRoute(puzzle));
         }
 
         void drawIconButton(Canvas c, RectF r, String text) {
@@ -1911,9 +1928,9 @@ public class MainActivity extends Activity {
             try {
                 android.content.pm.PackageInfo info = getContext().getPackageManager()
                         .getPackageInfo(getContext().getPackageName(), 0);
-                return info.versionName == null ? "1.31" : info.versionName;
+                return info.versionName == null ? "1.32" : info.versionName;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return "1.31";
+                return "1.32";
             }
         }
 
@@ -1924,7 +1941,7 @@ public class MainActivity extends Activity {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return info.getLongVersionCode();
                 return info.versionCode;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return 31L;
+                return 32L;
             }
         }
 

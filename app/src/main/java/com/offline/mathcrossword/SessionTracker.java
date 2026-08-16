@@ -92,6 +92,10 @@ final class SessionTracker {
         if (open != null) open.event(type, x, y, value, detail);
     }
 
+    synchronized void setModelRoute(JSONArray route) {
+        if (open != null) open.setModelRoute(route);
+    }
+
     synchronized void finish(boolean solved, String reason) {
         if (open == null) return;
         JSONObject json = open.finish(solved, reason);
@@ -174,6 +178,13 @@ final class SessionTracker {
                 if (row.optInt("contradictionKernelDeepBranches", 0) > 0
                         || row.optInt("contradictionKernelDepth", 0) >= 4) out.deepKernelSessions++;
             }
+            JSONObject routeComparison = row.optJSONObject("routeComparison");
+            if (routeComparison != null && routeComparison.optBoolean("available", false)) {
+                out.routeComparedSessions++;
+                if (routeComparison.optBoolean("strongDivergence", false)) out.routeStrongDivergences++;
+                if (routeComparison.optBoolean("alternateEntry", false)) out.routeAlternateEntries++;
+                out.routeAgreementTotal += routeComparison.optDouble("agreementPct", 0.0);
+            }
             JSONArray events = row.optJSONArray("events");
             if (events != null) {
                 for (int i = 0; i < events.length(); i++) {
@@ -208,6 +219,8 @@ final class SessionTracker {
         out.avgEvents = rows.isEmpty() ? 0.0 : totalEvents / (double) rows.size();
         out.avgFirstActionMs = firstActionCount == 0 ? 0L : totalFirstAction / firstActionCount;
         out.avgLongestPauseMs = pauseCount == 0 ? 0L : totalLongestPause / pauseCount;
+        out.avgRouteAgreementPct = out.routeComparedSessions == 0 ? 0.0
+                : out.routeAgreementTotal / out.routeComparedSessions;
 
         for (SolutionStrategy strategy : SolutionStrategy.values()) {
             StrategyStats st = strategyMap.get(strategy.name());
@@ -259,6 +272,15 @@ final class SessionTracker {
             s.candidateCellSwitches = row.optInt("candidateCellSwitches", 0);
             s.candidateCellRevisits = row.optInt("candidateCellRevisits", 0);
             s.maxCandidatesInOneCell = row.optInt("maxCandidatesInOneCell", 0);
+            JSONObject routeComparison = row.optJSONObject("routeComparison");
+            if (routeComparison != null && routeComparison.optBoolean("available", false)) {
+                s.routeCompared = true;
+                s.routeAgreementPct = routeComparison.optDouble("agreementPct", 0.0);
+                s.routeEarlyAgreementPct = routeComparison.optDouble("earlyAgreementPct", 0.0);
+                s.routeOrderAgreementPct = routeComparison.optDouble("orderAgreementPct", 0.0);
+                s.routeAlternateEntry = routeComparison.optBoolean("alternateEntry", false);
+                s.routeStrongDivergence = routeComparison.optBoolean("strongDivergence", false);
+            }
             out.recent.add(s);
         }
         return out;
@@ -309,6 +331,22 @@ final class SessionTracker {
                     .append(" · максимум в клетке ").append(row.optInt("maxCandidatesInOneCell", 0));
         }
 
+        JSONObject routeComparison = row.optJSONObject("routeComparison");
+        if (routeComparison != null && routeComparison.optBoolean("available", false)) {
+            out.append("\n\nМаршрут HumanSolver ↔ прохождение")
+                    .append("\nСогласование: ")
+                    .append(String.format(java.util.Locale.US, "%.0f%%", routeComparison.optDouble("agreementPct", 0.0)))
+                    .append(" · начало ")
+                    .append(String.format(java.util.Locale.US, "%.0f%%", routeComparison.optDouble("earlyAgreementPct", 0.0)))
+                    .append(" · порядок ")
+                    .append(String.format(java.util.Locale.US, "%.0f%%", routeComparison.optDouble("orderAgreementPct", 0.0)));
+            double probePct = routeComparison.optDouble("probeReachedEarlyPct", -1.0);
+            if (probePct >= 0.0) out.append(" · pivot вовремя ")
+                    .append(String.format(java.util.Locale.US, "%.0f%%", probePct));
+            out.append("\nМодель: ").append(HumanRouteComparator.describeModel(row.optJSONArray("modelRoute"), 10));
+            out.append("\nПрохождение: ").append(HumanRouteComparator.describeActual(routeComparison, 14));
+        }
+
         out.append("\n\nСигналы для проверки модели");
         boolean signal = false;
         int hidden = Math.max(0, row.optInt("hidden", 0));
@@ -338,6 +376,28 @@ final class SessionTracker {
         if (revisits >= 3) {
             out.append("\n• Частые возвраты к уже исследованным клеткам — проверить, это содержательный узел задачи или визуальная/интерфейсная неоднозначность.");
             signal = true;
+        }
+        if (routeComparison != null && routeComparison.optBoolean("available", false)) {
+            double routeAgreement = routeComparison.optDouble("agreementPct", 100.0);
+            int firstModelStep = routeComparison.optInt("firstModelStep", -1);
+            boolean routeSolved = row.optBoolean("solved", false);
+            if (routeSolved && routeComparison.optBoolean("strongDivergence", false)) {
+                out.append("\n• Задача решена по порядку, слабо похожему на маршрут HumanSolver — сильный кандидат на альтернативный путь решения.");
+                signal = true;
+            }
+            if (routeComparison.optBoolean("alternateEntry", false)) {
+                out.append("\n• Первые содержательные действия вошли в задачу не через ранние шаги HumanSolver")
+                        .append(firstModelStep >= 0 ? (" (первое совпадение: шаг модели " + (firstModelStep + 1) + ").") : ".");
+                signal = true;
+            }
+            if (routeComparison.optBoolean("alternateOrder", false) && routeAgreement >= 45.0) {
+                out.append("\n• Игрок использовал знакомые модели узлы, но в заметно другом порядке — проверить независимые фронты и порядок дедукций.");
+                signal = true;
+            }
+            if (routeAgreement >= 78.0 && !routeComparison.optBoolean("alternateEntry", false)) {
+                out.append("\n• Порядок прохождения хорошо согласуется с текущим маршрутом HumanSolver.");
+                signal = true;
+            }
         }
         if (!signal) out.append("\n• Явного расхождения между текущими структурными и поведенческими сигналами не найдено.");
 
@@ -430,6 +490,11 @@ final class SessionTracker {
         int candidateCellRevisits;
         int kernelSessions;
         int deepKernelSessions;
+        int routeComparedSessions;
+        int routeStrongDivergences;
+        int routeAlternateEntries;
+        double routeAgreementTotal;
+        double avgRouteAgreementPct;
         boolean calibrationReady;
         int calibrationSessions;
         double calibrationMeanError;
@@ -493,6 +558,12 @@ final class SessionTracker {
         int candidateCellSwitches;
         int candidateCellRevisits;
         int maxCandidatesInOneCell;
+        boolean routeCompared;
+        double routeAgreementPct;
+        double routeEarlyAgreementPct;
+        double routeOrderAgreementPct;
+        boolean routeAlternateEntry;
+        boolean routeStrongDivergence;
     }
 
     private static final class OpenSession {
@@ -559,6 +630,7 @@ final class SessionTracker {
         final int generationRejects;
         final String generationRejectSummary;
         final JSONArray events = new JSONArray();
+        JSONArray modelRoute = new JSONArray();
 
         long activeAccumulatedMs = 0L;
         long activeSegmentStart = 0L;
@@ -652,6 +724,11 @@ final class SessionTracker {
             this.generationRejects = generationRejects;
             this.generationRejectSummary = generationRejectSummary == null ? "" : generationRejectSummary;
             resume();
+        }
+
+        void setModelRoute(JSONArray route) {
+            try { modelRoute = route == null ? new JSONArray() : new JSONArray(route.toString()); }
+            catch (Exception ignored) { modelRoute = new JSONArray(); }
         }
 
         void resume() {
@@ -763,6 +840,9 @@ final class SessionTracker {
                 root.put("longestPauseBetweenActionsMs", longestPauseBetweenActionsMs);
                 root.put("eventCount", events.length());
                 appendDerivedEventStats(root);
+                root.put("modelRouteVersion", HumanRouteComparator.VERSION);
+                root.put("modelRoute", modelRoute);
+                root.put("routeComparison", HumanRouteComparator.compare(modelRoute, events));
                 root.put("moveNotationVersion", MoveNotation.VERSION);
                 root.put("semanticMoves", MoveNotation.semanticMoves(events));
                 root.put("candidateTrail", MoveNotation.candidateTrail(events));
