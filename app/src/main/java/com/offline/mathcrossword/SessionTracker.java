@@ -96,6 +96,10 @@ final class SessionTracker {
         if (open != null) open.setModelRoute(route);
     }
 
+    synchronized void setConcreteGraph(ConcreteReasoningGraph graph) {
+        if (open != null) open.setConcreteGraph(graph);
+    }
+
     synchronized void finish(boolean solved, String reason) {
         if (open == null) return;
         JSONObject json = open.finish(solved, reason);
@@ -664,6 +668,7 @@ final class SessionTracker {
         final double graphAverageDegree;
         final JSONArray events = new JSONArray();
         JSONArray modelRoute = new JSONArray();
+        ConcreteReasoningGraph concreteGraph;
 
         long activeAccumulatedMs = 0L;
         long activeSegmentStart = 0L;
@@ -775,6 +780,10 @@ final class SessionTracker {
         void setModelRoute(JSONArray route) {
             try { modelRoute = route == null ? new JSONArray() : new JSONArray(route.toString()); }
             catch (Exception ignored) { modelRoute = new JSONArray(); }
+        }
+
+        void setConcreteGraph(ConcreteReasoningGraph graph) {
+            concreteGraph = graph;
         }
 
         void resume() {
@@ -902,6 +911,8 @@ final class SessionTracker {
                 root.put("modelRouteVersion", HumanRouteComparator.VERSION);
                 root.put("modelRoute", modelRoute);
                 root.put("routeComparison", HumanRouteComparator.compare(modelRoute, events));
+                root.put("graphTraversalVersion", GraphTraversalTelemetry.VERSION);
+                root.put("graphTraversal", GraphTraversalTelemetry.analyze(concreteGraph, events));
                 root.put("moveNotationVersion", MoveNotation.VERSION);
                 root.put("semanticMoves", MoveNotation.semanticMoves(events));
                 root.put("candidateTrail", MoveNotation.candidateTrail(events));
