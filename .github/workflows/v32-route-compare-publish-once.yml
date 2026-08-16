@@ -17,14 +17,17 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-      - name: Load v32 patch script
+      - name: Load v32 patch scripts
         shell: bash
         run: |
           git fetch origin v27-ui-publish
           git show origin/v27-ui-publish:tools/v32_patch.py > /tmp/v32_patch.py
+          git show origin/v27-ui-publish:tools/v32_patch_fix.py > /tmp/v32_patch_fix.py
       - name: Patch v32
         shell: bash
-        run: python3 /tmp/v32_patch.py
+        run: |
+          python3 /tmp/v32_patch_fix.py
+          python3 /tmp/v32_patch.py
       - name: Compile v32 before publishing
         shell: bash
         run: |
