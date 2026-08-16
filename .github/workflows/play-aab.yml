@@ -6,6 +6,9 @@ on:
       - main
     paths:
       - app/build.gradle
+      - app/src/main/AndroidManifest.xml
+      - app/src/play/**
+      - .github/workflows/play-aab.yml
   workflow_dispatch:
 
 permissions:
