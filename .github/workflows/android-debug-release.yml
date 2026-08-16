@@ -6,6 +6,9 @@ on:
       - main
     paths:
       - app/build.gradle
+      - app/src/main/AndroidManifest.xml
+      - app/src/github/**
+      - .github/workflows/android-debug-release.yml
   workflow_dispatch:
 
 permissions:
@@ -128,6 +131,14 @@ jobs:
           cp "$APK_PATH" "$apk_name"
           echo "name=$apk_name" >> "$GITHUB_OUTPUT"
 
+      - name: Preserve signed APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MathCrossword-v${{ steps.version.outputs.name }}-github-apk
+          path: ${{ steps.apk.outputs.name }}
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -137,7 +148,6 @@ jobs:
         run: |
           gh release create "$TAG_NAME" "$APK_NAME#MathCrossword GitHub debug APK" \
             --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
             --title "MathCrossword v${{ steps.version.outputs.name }} debug build ${{ github.run_number }}" \
             --notes "GitHub distribution for version ${{ steps.version.outputs.name }} (version code ${{ steps.version.outputs.code }}). Self-update is enabled only in this distribution. Deterministic reliability smoke gate passed."
 
