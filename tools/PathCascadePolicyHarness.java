@@ -8,7 +8,7 @@ public final class PathCascadePolicyHarness {
         openingCollapseIsRejected();
         productiveLaterCascadeIsAccepted();
         systemicFragilityIsRejected();
-        systemicFragilityOverridesProductiveShape();
+        reasoningChainIsNotMistakenForIndependentFragility();
         ordinaryResilientBoardIsAccepted();
         System.out.println("PathCascadePolicyHarness: OK");
     }
@@ -38,12 +38,12 @@ public final class PathCascadePolicyHarness {
         require(a.reject(), "systemic fragility must be rejected");
     }
 
-    private static void systemicFragilityOverridesProductiveShape() {
+    private static void reasoningChainIsNotMistakenForIndependentFragility() {
         PathCascadePolicy.Assessment a = PathCascadePolicy.assess(
                 12, 1, 10, 8, 2, 1, 10, 3, 0.80);
-        require(a.shape == PathCascadePolicy.Shape.SYSTEMIC_FRAGILITY,
-                "systemic fragility must override productive shape, got " + a.shape);
-        require(a.reject(), "systemically fragile board must be rejected even with reasoning steps");
+        require(a.shape == PathCascadePolicy.Shape.PRODUCTIVE_DEPENDENCY_CASCADE,
+                "reasoning-chain vulnerability must remain productive until graph clustering exists, got " + a.shape);
+        require(!a.reject(), "cells on one reasoning chain must not be treated as independent fragility");
     }
 
     private static void ordinaryResilientBoardIsAccepted() {
