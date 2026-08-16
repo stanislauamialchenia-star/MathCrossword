@@ -37,7 +37,7 @@ jobs:
           chmod +x ./gradlew
           ./gradlew :app:compileDebugJavaWithJavac --no-daemon
 
-      - name: Compile reliability harness
+      - name: Compile reliability harnesses
         shell: bash
         run: |
           set -euo pipefail
@@ -46,7 +46,17 @@ jobs:
           mkdir -p "$RUNNER_TEMP/mathcrossword-reliability"
           javac -cp "$app_classes" \
             -d "$RUNNER_TEMP/mathcrossword-reliability" \
-            tools/ReliabilityHarness.java
+            tools/ReliabilityHarness.java \
+            tools/GraphTheoryHarness.java
+
+      - name: Run graph topology contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes"
+          java -Xmx512m \
+            -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+            com.offline.mathcrossword.GraphTheoryHarness
 
       - name: Run deterministic smoke gate
         shell: bash
