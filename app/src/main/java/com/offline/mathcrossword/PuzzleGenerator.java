@@ -1817,6 +1817,11 @@ final class PuzzleGenerator {
         p.maxAdditionalForcedAfterOneCell = cascade.maxAdditionalForcedAfterOneCell;
         p.maxResolvedFractionAfterOneCell = cascade.maxResolvedFractionAfterOneCell;
         p.vulnerableSingleCells = cascade.vulnerableSingleCells;
+        p.vulnerableRegions = cascade.vulnerableRegions;
+        p.largestVulnerableRegionSize = cascade.largestVulnerableRegionSize;
+        p.largestVulnerableRegionEntries = cascade.largestVulnerableRegionEntries;
+        p.independentCollapseFronts = cascade.independentCollapseFronts;
+        p.vulnerabilityOverlap = cascade.vulnerabilityOverlap;
         p.maxResolvedAfterOneEquation = cascade.maxResolvedAfterOneEquation;
         p.maxResolvedFractionAfterOneEquation = cascade.maxResolvedFractionAfterOneEquation;
     }

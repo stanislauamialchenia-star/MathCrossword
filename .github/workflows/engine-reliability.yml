@@ -58,9 +58,10 @@ jobs:
             -d "$RUNNER_TEMP/mathcrossword-reliability" \
             tools/ReliabilityHarness.java \
             tools/GraphTheoryHarness.java \
-            tools/PathCascadePolicyHarness.java
+            tools/PathCascadePolicyHarness.java \
+            tools/VulnerabilityRegionHarness.java
 
-      - name: Run graph topology contracts
+      - name: Run graph and cascade contracts
         shell: bash
         run: |
           set -euo pipefail
@@ -71,6 +72,9 @@ jobs:
           java -Xmx512m \
             -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
             com.offline.mathcrossword.PathCascadePolicyHarness
+          java -Xmx512m \
+            -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+            com.offline.mathcrossword.VulnerabilityRegionHarness
 
       - name: Run deterministic smoke gate
         shell: bash
