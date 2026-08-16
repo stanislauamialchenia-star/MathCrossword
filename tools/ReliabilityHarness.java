@@ -21,6 +21,7 @@ import java.util.Set;
 public final class ReliabilityHarness {
     private static int checks = 0;
     private static int generated = 0;
+    private static int rawFreeFailures = 0;
     private static long totalGenerationMs = 0L;
 
     private ReliabilityHarness() { }
@@ -62,21 +63,22 @@ public final class ReliabilityHarness {
                     "requested strategy provenance changed for " + c.strategy + ": " + p.solutionStrategy);
         }
 
-        // Reproducibility is a contract: same config + seed => same mathematical puzzle.
+        // Reproducibility is a contract: same base config + seed + bounded retries => same accepted puzzle.
         FreeCase[] deterministic = extended
                 ? cases
                 : new FreeCase[]{cases[0], cases[2], cases[3], cases[6]};
         for (FreeCase c : deterministic) {
-            Puzzle a = timedFree(c, c.seed ^ 0x5A5A5A5A5A5A5A5AL);
-            Puzzle b = timedFree(c, c.seed ^ 0x5A5A5A5A5A5A5A5AL);
+            long base = c.seed ^ 0x5A5A5A5A5A5A5A5AL;
+            Puzzle a = timedFree(c, base);
+            Puzzle b = timedFree(c, base);
             validatePuzzle("DETERMINISM-A " + c.strategy + " L" + c.logic, a);
             validatePuzzle("DETERMINISM-B " + c.strategy + " L" + c.logic, b);
             require(fingerprint(a).equals(fingerprint(b)),
-                    "same seed produced a different puzzle for " + c.strategy + " L" + c.logic);
+                    "same base seed produced a different accepted puzzle for " + c.strategy + " L" + c.logic);
         }
 
         if (extended) {
-            // Small property sweep. Fixed seeds make regressions reproducible in CI.
+            // Small property sweep. Fixed base seeds make regressions reproducible in CI.
             for (SolutionStrategy strategy : SolutionStrategy.values()) {
                 for (int logic : new int[]{4, 6, 8, 10}) {
                     for (int sample = 0; sample < 2; sample++) {
@@ -95,29 +97,42 @@ public final class ReliabilityHarness {
 
         double avgMs = generated == 0 ? 0.0 : totalGenerationMs / (double) generated;
         System.out.printf(Locale.US,
-                "PASS · checks=%d · generated=%d · avg_generation_ms=%.1f%n",
-                checks, generated, avgMs);
+                "PASS · checks=%d · generated=%d · raw_free_failures=%d · avg_generation_ms=%.1f%n",
+                checks, generated, rawFreeFailures, avgMs);
     }
 
     private static Puzzle timedPath(int level) {
         long t0 = System.nanoTime();
         Puzzle p = PuzzleGenerator.generatePath(level);
-        recordGeneration(t0, "PATH L" + level, p);
+        recordGeneration(t0, "PATH L" + level, p, 0);
         return p;
     }
 
-    private static Puzzle timedFree(FreeCase c, long seed) {
+    /** Mirrors the bounded 3-seed retry contract used by the Android Free Play caller. */
+    private static Puzzle timedFree(FreeCase c, long baseSeed) {
         long t0 = System.nanoTime();
-        Puzzle p = PuzzleGenerator.generateFree(c.logic, c.calc, 1, c.maxNumber, c.operations, seed, c.strategy);
-        recordGeneration(t0, "FREE " + c.strategy + " L" + c.logic, p);
-        return p;
+        RuntimeException last = null;
+        for (int retry = 0; retry < 3; retry++) {
+            long seed = PuzzleGenerator.mix64(baseSeed + retry * 0x9E3779B97F4A7C15L);
+            try {
+                Puzzle p = PuzzleGenerator.generateFree(c.logic, c.calc, 1, c.maxNumber, c.operations, seed, c.strategy);
+                recordGeneration(t0, "FREE " + c.strategy + " L" + c.logic, p, retry);
+                return p;
+            } catch (RuntimeException ex) {
+                rawFreeFailures++;
+                last = ex;
+            }
+        }
+        throw new IllegalStateException("FREE " + c.strategy + " L" + c.logic
+                + " failed all three production retries for base seed " + baseSeed, last);
     }
 
-    private static void recordGeneration(long t0, String label, Puzzle p) {
+    private static void recordGeneration(long t0, String label, Puzzle p, int retriesUsed) {
         long ms = (System.nanoTime() - t0) / 1_000_000L;
         generated++;
         totalGenerationMs += ms;
         System.out.println("generated " + label + " in " + ms + " ms"
+                + (retriesUsed > 0 ? " · retries=" + retriesUsed : "")
                 + " · stage=" + p.generationStage
                 + " · matched=" + p.strategyTargetMatched
                 + " · family=" + safe(p.generatorFamily));
