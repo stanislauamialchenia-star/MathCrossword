@@ -1000,7 +1000,7 @@ public class MainActivity extends Activity {
             candidateDrawerHeight = Math.max(drawerMin, Math.min(drawerMax, candidateDrawerHeight));
             if (candidateDrawerHeight > drawerMin + dp(10)) lastExpandedDrawerHeight = candidateDrawerHeight;
             // Completion gets its own reserved bottom sheet. Never overlay the board.
-            float solvedDrawerHeight = dp(142) + bottomInset;
+            float solvedDrawerHeight = dp(158) + bottomInset;
             float effectiveDrawerHeight = solved ? solvedDrawerHeight : (focusMode ? drawerMin : candidateDrawerHeight);
 
             float headerH = focusMode ? 0f : dp(46);
@@ -1016,7 +1016,7 @@ public class MainActivity extends Activity {
             // Finished puzzles get a real breathing gap above the completion sheet.
             // This is reserved board space, not an overlay, so the last crossword tile
             // never visually sticks to the bottom controls.
-            float boardBottomGap = solved ? dp(26) : dp(8);
+            float boardBottomGap = solved ? dp(38) : dp(10);
             float availH = Math.max(dp(60), drawerTop - topH - boardBottomGap);
             boardViewportTop = topH;
             boardViewportBottom = drawerTop;
@@ -1496,7 +1496,7 @@ public class MainActivity extends Activity {
         void drawSolvedBanner(Canvas c, float w, float h) {
             // Replace the candidate drawer after completion instead of floating controls
             // over the crossword. The board has already reserved this exact area.
-            float sheetTop = h - bottomInset - dp(142);
+            float sheetTop = h - bottomInset - dp(158);
             drawerHandleRect.setEmpty();
             bankHits.clear();
             undoRect.setEmpty(); candidateRect.setEmpty(); hintRect.setEmpty();
@@ -1511,11 +1511,11 @@ public class MainActivity extends Activity {
             paint.setTextAlign(Paint.Align.CENTER);
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             paint.setTextSize(dp(16.5f));
-            c.drawText("Готово ✓", w / 2f, sheetTop + dp(32), paint);
+            c.drawText("Готово ✓", w / 2f, sheetTop + dp(38), paint);
 
             // Keep completion action obvious but less visually dominant than the board.
             float side = dp(38);
-            nextLevelRect.set(side, sheetTop + dp(62), w - side, h - bottomInset - dp(24));
+            nextLevelRect.set(side, sheetTop + dp(76), w - side, h - bottomInset - dp(32));
             paint.setColor(accent);
             c.drawRoundRect(nextLevelRect, dp(13), dp(13), paint);
             paint.setColor(Color.WHITE);
@@ -1874,9 +1874,9 @@ public class MainActivity extends Activity {
             try {
                 android.content.pm.PackageInfo info = getContext().getPackageManager()
                         .getPackageInfo(getContext().getPackageName(), 0);
-                return info.versionName == null ? "1.29" : info.versionName;
+                return info.versionName == null ? "1.30" : info.versionName;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return "1.29";
+                return "1.30";
             }
         }
 
@@ -1887,7 +1887,7 @@ public class MainActivity extends Activity {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return info.getLongVersionCode();
                 return info.versionCode;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return 29L;
+                return 30L;
             }
         }
 
