@@ -190,6 +190,25 @@ public final class ReliabilityHarness {
 
         int solutions = SolutionCounter.countSolutions(p, 2);
         require(solutions == 1, label + ": expected exactly one solution, got " + solutions);
+
+        GraphAnalyzer.Metrics graph = GraphAnalyzer.analyze(p);
+        require(graph.variableNodes > 0, label + ": constraint graph has no variable nodes");
+        require(graph.factorNodes == p.equations.size(),
+                label + ": factor graph equation-node count mismatch");
+        require(graph.nodes == graph.variableNodes + graph.factorNodes,
+                label + ": graph node accounting mismatch");
+        require(graph.edges == p.equations.size() * 3,
+                label + ": every equation must contribute exactly three factor edges");
+        require(graph.components >= 1 && graph.components <= graph.nodes,
+                label + ": invalid graph component count");
+        require(graph.cycleRank == graph.edges - graph.nodes + graph.components,
+                label + ": graph cycle-rank identity broken");
+        require(graph.bridges >= 0 && graph.bridges <= graph.edges,
+                label + ": invalid bridge count");
+        require(graph.articulationPoints >= 0 && graph.articulationPoints <= graph.nodes,
+                label + ": invalid articulation count");
+        require(graph.hiddenVariableArticulations <= graph.variableArticulations,
+                label + ": hidden articulation count exceeds variable articulations");
     }
 
     private static boolean equationTrue(int a, char op, int b, int c) {
