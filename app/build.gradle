@@ -4,13 +4,23 @@ plugins {
 
 android {
     namespace 'com.offline.mathcrossword'
-    compileSdk 35
+    compileSdk 36
+
+    flavorDimensions 'distribution'
+    productFlavors {
+        github {
+            dimension 'distribution'
+        }
+        play {
+            dimension 'distribution'
+        }
+    }
 
     defaultConfig {
         applicationId 'com.offline.mathcrossword'
         minSdk 23
-        targetSdk 35
-        versionCode 34
-        versionName '1.34'
+        targetSdk 36
+        versionCode 35
+        versionName '1.35'
     }
 }

@@ -223,7 +223,7 @@ public class MainActivity extends Activity {
 
         void onHostResume() {
             if (screen == Screen.GAME && tracker.hasOpenSession()) tracker.resume();
-            if (pendingInstallUri != null) maybeInstallPendingUpdate();
+            if (DistributionConfig.selfUpdateEnabled() && pendingInstallUri != null) maybeInstallPendingUpdate();
         }
 
         void onHostPause() {
@@ -481,26 +481,34 @@ public class MainActivity extends Activity {
             drawBigButton(c, homeAnalysisRect, "Анализ прохождений", false);
 
             float footerY = h - bottomInset - dp(34);
-            homeUpdateRect.set(w - dp(62), footerY - dp(20), w - dp(18), footerY + dp(20));
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.argb(115, 255, 255, 255));
-            c.drawRoundRect(homeUpdateRect, dp(12), dp(12), paint);
-            paint.setColor(updateChecking ? Color.rgb(120, 130, 121) : ink);
-            paint.setTextAlign(Paint.Align.CENTER);
-            paint.setTypeface(android.graphics.Typeface.DEFAULT);
-            paint.setTextSize(dp(23));
-            Paint.FontMetrics updateFm = paint.getFontMetrics();
-            c.drawText(updateChecking ? "…" : "↻", homeUpdateRect.centerX(),
-                    homeUpdateRect.centerY() - (updateFm.ascent + updateFm.descent) / 2f, paint);
+            float footerCenterX = w / 2f;
+            if (DistributionConfig.selfUpdateEnabled()) {
+                homeUpdateRect.set(w - dp(62), footerY - dp(20), w - dp(18), footerY + dp(20));
+                paint.setStyle(Paint.Style.FILL);
+                paint.setColor(Color.argb(115, 255, 255, 255));
+                c.drawRoundRect(homeUpdateRect, dp(12), dp(12), paint);
+                paint.setColor(updateChecking ? Color.rgb(120, 130, 121) : ink);
+                paint.setTextAlign(Paint.Align.CENTER);
+                paint.setTypeface(android.graphics.Typeface.DEFAULT);
+                paint.setTextSize(dp(23));
+                Paint.FontMetrics updateFm = paint.getFontMetrics();
+                c.drawText(updateChecking ? "…" : "↻", homeUpdateRect.centerX(),
+                        homeUpdateRect.centerY() - (updateFm.ascent + updateFm.descent) / 2f, paint);
+                footerCenterX -= dp(14);
+            } else {
+                homeUpdateRect.setEmpty();
+            }
 
             paint.setColor(Color.rgb(108, 119, 110));
             paint.setTextSize(dp(11.8f));
             paint.setTextAlign(Paint.Align.CENTER);
-            String versionLine = "v" + installedVersionName() + " (" + installedVersionCode() + ") · офлайн · без рекламы";
-            if (!"обновление не проверено".equals(updateStatus)) versionLine += " · " + updateStatus;
-            c.drawText(versionLine, w / 2f - dp(14), footerY - dp(7), paint);
+            String versionLine = "v" + installedVersionName() + " (" + installedVersionCode() + ") · "
+                    + DistributionConfig.channelLabel() + " · офлайн · без рекламы";
+            if (DistributionConfig.selfUpdateEnabled() && !"обновление не проверено".equals(updateStatus))
+                versionLine += " · " + updateStatus;
+            c.drawText(versionLine, footerCenterX, footerY - dp(7), paint);
             paint.setTextSize(dp(10.8f));
-            c.drawText("данные и история решения хранятся локально", w / 2f - dp(14), footerY + dp(11), paint);
+            c.drawText("данные и история решения хранятся локально", footerCenterX, footerY + dp(11), paint);
         }
 
         void drawLevels(Canvas c) {
@@ -1737,7 +1745,7 @@ public class MainActivity extends Activity {
                 else if (homeFreeRect.contains(x, y)) { screen = Screen.FREE_SETUP; invalidate(); }
                 else if (homeLibraryRect.contains(x, y)) { screen = Screen.LIBRARY; invalidate(); }
                 else if (homeAnalysisRect.contains(x, y)) { screen = Screen.ANALYSIS; invalidate(); }
-                else if (homeUpdateRect.contains(x, y)) { checkForUpdate(); }
+                else if (DistributionConfig.selfUpdateEnabled() && homeUpdateRect.contains(x, y)) { checkForUpdate(); }
                 return true;
             }
 
@@ -1982,9 +1990,9 @@ public class MainActivity extends Activity {
             try {
                 android.content.pm.PackageInfo info = getContext().getPackageManager()
                         .getPackageInfo(getContext().getPackageName(), 0);
-                return info.versionName == null ? "1.32" : info.versionName;
+                return info.versionName == null ? "1.35" : info.versionName;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return "1.33";
+                return "1.35";
             }
         }
 
@@ -1995,11 +2003,12 @@ public class MainActivity extends Activity {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return info.getLongVersionCode();
                 return info.versionCode;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return 33L;
+                return 35L;
             }
         }
 
         void startUpdateDownload(String version, String downloadUrl) {
+            if (!DistributionConfig.selfUpdateEnabled()) return;
             try {
                 DownloadManager manager = (DownloadManager) getContext().getSystemService(Context.DOWNLOAD_SERVICE);
                 if (manager == null) throw new IllegalStateException("DownloadManager недоступен");
@@ -2062,6 +2071,7 @@ public class MainActivity extends Activity {
         }
 
         void maybeInstallPendingUpdate() {
+            if (!DistributionConfig.selfUpdateEnabled()) return;
             if (pendingInstallUri == null) return;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                     && !getContext().getPackageManager().canRequestPackageInstalls()) {
@@ -2089,6 +2099,7 @@ public class MainActivity extends Activity {
         }
 
         void checkForUpdate() {
+            if (!DistributionConfig.selfUpdateEnabled()) return;
             if (updateChecking) return;
             updateChecking = true;
             updateStatus = "проверяю…";
