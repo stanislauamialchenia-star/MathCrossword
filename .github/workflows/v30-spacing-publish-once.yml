@@ -1,0 +1,54 @@
+name: Publish v30 spacing cleanup once
+on:
+  push:
+    branches: [v27-ui-publish]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Patch main to v30
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout -B main origin/main
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('app/src/main/java/com/offline/mathcrossword/MainActivity.java')
+          s = p.read_text()
+
+          replacements = [
+              ('float solvedDrawerHeight = dp(142) + bottomInset;', 'float solvedDrawerHeight = dp(158) + bottomInset;'),
+              ('float boardBottomGap = solved ? dp(26) : dp(8);', 'float boardBottomGap = solved ? dp(38) : dp(10);'),
+              ('float sheetTop = h - bottomInset - dp(142);', 'float sheetTop = h - bottomInset - dp(158);'),
+              ('c.drawText("Готово ✓", w / 2f, sheetTop + dp(32), paint);', 'c.drawText("Готово ✓", w / 2f, sheetTop + dp(38), paint);'),
+              ('nextLevelRect.set(side, sheetTop + dp(62), w - side, h - bottomInset - dp(24));', 'nextLevelRect.set(side, sheetTop + dp(76), w - side, h - bottomInset - dp(32));'),
+              ('return info.versionName == null ? "1.29" : info.versionName;', 'return info.versionName == null ? "1.30" : info.versionName;'),
+              ('return "1.29";', 'return "1.30";'),
+              ('return 29L;', 'return 30L;'),
+          ]
+          for old, new in replacements:
+              if old not in s:
+                  raise SystemExit(f'expected text not found: {old}')
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+
+          g = Path('app/build.gradle')
+          t = g.read_text()
+          if 'versionCode 29' not in t or "versionName '1.29'" not in t:
+              raise SystemExit('expected v29 build.gradle not found')
+          t = t.replace('versionCode 29', 'versionCode 30', 1)
+          t = t.replace("versionName '1.29'", "versionName '1.30'", 1)
+          g.write_text(t)
+          PY
+          git add app/src/main/java/com/offline/mathcrossword/MainActivity.java app/build.gradle
+          git commit -m "MathCrossword v30: increase vertical breathing room"
+          git push origin main
