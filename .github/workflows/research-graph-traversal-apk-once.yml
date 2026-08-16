@@ -1,0 +1,118 @@
+name: Build signed graph traversal research APK once
+
+on:
+  push:
+    branches:
+      - research/graph-traversal-apk
+    paths:
+      - '.github/workflows/research-graph-traversal-apk-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Ensure Android API 36
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f "$ANDROID_HOME/platforms/android-36/android.jar" ]; then
+            sdkmanager_bin="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+            test -n "$sdkmanager_bin"
+            "$sdkmanager_bin" "platforms;android-36" "build-tools;36.0.0"
+          fi
+
+      - name: Build GitHub debug APK
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleGithubDebug --no-daemon
+
+      - name: Run graph and reliability contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          test -d "$app_classes"
+          mkdir -p "$RUNNER_TEMP/mathcrossword-research"
+          javac -cp "$app_classes" -d "$RUNNER_TEMP/mathcrossword-research" \
+            tools/ReliabilityHarness.java \
+            tools/GraphTheoryHarness.java \
+            tools/PathCascadePolicyHarness.java \
+            tools/ConcreteReasoningGraphHarness.java
+          java -Xmx512m -cp "$app_classes:$RUNNER_TEMP/mathcrossword-research" com.offline.mathcrossword.GraphTheoryHarness
+          java -Xmx512m -cp "$app_classes:$RUNNER_TEMP/mathcrossword-research" com.offline.mathcrossword.PathCascadePolicyHarness
+          java -Xmx512m -cp "$app_classes:$RUNNER_TEMP/mathcrossword-research" com.offline.mathcrossword.ConcreteReasoningGraphHarness
+          timeout 12m java -Xmx1536m -cp "$app_classes:$RUNNER_TEMP/mathcrossword-research" com.offline.mathcrossword.ReliabilityHarness smoke
+
+      - name: Locate APK
+        id: unsigned
+        shell: bash
+        run: |
+          apk_path="$(find app/build/outputs/apk/github/debug -type f -name '*.apk' | head -n 1)"
+          test -n "$apk_path"
+          echo "path=$apk_path" >> "$GITHUB_OUTPUT"
+
+      - name: Restore persistent signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_SIGNING_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/mathcrossword-signing.keystore"
+          chmod 600 "$RUNNER_TEMP/mathcrossword-signing.keystore"
+          keytool -list -keystore "$RUNNER_TEMP/mathcrossword-signing.keystore" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" > /dev/null
+
+      - name: Sign APK with persistent key
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+          APK_PATH: ${{ steps.unsigned.outputs.path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          zip -q -d "$APK_PATH" 'META-INF/*.SF' 'META-INF/*.RSA' 'META-INF/*.DSA' 'META-INF/*.EC' || true
+          "$apksigner" sign --ks "$RUNNER_TEMP/mathcrossword-signing.keystore" --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD \
+            --out "$RUNNER_TEMP/MathCrossword-v1.37-research.apk" "$APK_PATH"
+          "$apksigner" verify "$RUNNER_TEMP/MathCrossword-v1.37-research.apk"
+
+      - name: Verify package version
+        shell: bash
+        run: |
+          set -euo pipefail
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          "$aapt_bin" dump badging "$RUNNER_TEMP/MathCrossword-v1.37-research.apk" | head -n 3
+          "$aapt_bin" dump badging "$RUNNER_TEMP/MathCrossword-v1.37-research.apk" | grep -q "versionCode='37'"
+          "$aapt_bin" dump badging "$RUNNER_TEMP/MathCrossword-v1.37-research.apk" | grep -q "versionName='1.37'"
+
+      - name: Upload signed research APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MathCrossword-v1.37-research-apk
+          path: ${{ runner.temp }}/MathCrossword-v1.37-research.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove temporary signing material
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/mathcrossword-signing.keystore"
+          rm -rf "$RUNNER_TEMP/mathcrossword-research"
