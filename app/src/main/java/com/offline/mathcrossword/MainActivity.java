@@ -694,6 +694,13 @@ public class MainActivity extends Activity {
                         + String.format(Locale.US, "%.0f%%", a.avgRouteAgreementPct)
                         + " · сильных расхождений " + a.routeStrongDivergences, side, y, paint); y += dp(24);
             }
+            if (a.graphTraversalSessions > 0) {
+                c.drawText("Реальный граф: " + a.graphTraversalSessions + " · вперёд " + a.graphForward
+                        + " · назад " + a.graphBackward + " · ↔ " + a.graphBidirectional, side, y, paint); y += dp(24);
+                c.drawText("Вход изнутри " + a.graphInternalEntries + " · ветви " + a.graphBranchProbes
+                        + " · вне структуры " + a.graphStructuralDivergences
+                        + " · увер. " + String.format(Locale.US, "%.0f%%", a.avgGraphConfidencePct), side, y, paint); y += dp(24);
+            }
 
             paint.setColor(ink);
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
@@ -779,6 +786,13 @@ public class MainActivity extends Activity {
                     c.drawText("кандидаты: переходов " + last.candidateCellSwitches
                             + " · возвратов " + last.candidateCellRevisits
                             + " · максимум в клетке " + last.maxCandidatesInOneCell, side, y, paint);
+                    y += dp(21);
+                }
+                if (last.graphTraversalAvailable) {
+                    String graphLine = "реальный граф: " + graphTraversalShortLabel(last.graphTraversalDirection)
+                            + (last.graphTraversalEntryDepth >= 0 ? (" · вход d" + last.graphTraversalEntryDepth) : "")
+                            + " · увер. " + String.format(Locale.US, "%.0f%%", last.graphTraversalConfidencePct);
+                    c.drawText(graphLine, side, y, paint);
                     y += dp(21);
                 }
                 if (last.routeCompared) {
@@ -892,6 +906,15 @@ public class MainActivity extends Activity {
         String strategyLabel(String name) {
             try { return SolutionStrategy.valueOf(name).label; }
             catch (RuntimeException ex) { return "Свободная"; }
+        }
+
+        String graphTraversalShortLabel(String name) {
+            if ("forward".equals(name)) return "вперёд";
+            if ("backward".equals(name)) return "назад";
+            if ("bidirectional".equals(name)) return "двунаправл.";
+            if ("mixed".equals(name)) return "смешанный";
+            if ("divergent".equals(name)) return "вне структуры";
+            return "неопределённый";
         }
 
         String kernelFamilyLabel(String name) {

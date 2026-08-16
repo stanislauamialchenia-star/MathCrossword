@@ -189,6 +189,22 @@ final class SessionTracker {
                 if (routeComparison.optBoolean("alternateEntry", false)) out.routeAlternateEntries++;
                 out.routeAgreementTotal += routeComparison.optDouble("agreementPct", 0.0);
             }
+            JSONObject graphTraversal = row.optJSONObject("graphTraversal");
+            if (graphTraversal != null && graphTraversal.optBoolean("available", false)) {
+                out.graphTraversalSessions++;
+                String direction = graphTraversal.optString("direction", "unknown");
+                if ("forward".equals(direction)) out.graphForward++;
+                else if ("backward".equals(direction)) out.graphBackward++;
+                else if ("bidirectional".equals(direction)) out.graphBidirectional++;
+                else if ("mixed".equals(direction)) out.graphMixed++;
+                else if ("divergent".equals(direction)) out.graphDivergent++;
+                else out.graphUnknown++;
+                if (graphTraversal.optBoolean("internalEntry", false)) out.graphInternalEntries++;
+                if (graphTraversal.optBoolean("branchProbing", false)) out.graphBranchProbes++;
+                if (graphTraversal.optBoolean("anchorReached", false)) out.graphAnchorReached++;
+                if (graphTraversal.optBoolean("structuralDivergence", false)) out.graphStructuralDivergences++;
+                out.graphConfidenceTotal += graphTraversal.optDouble("confidencePct", 0.0);
+            }
             JSONArray events = row.optJSONArray("events");
             if (events != null) {
                 for (int i = 0; i < events.length(); i++) {
@@ -225,6 +241,8 @@ final class SessionTracker {
         out.avgLongestPauseMs = pauseCount == 0 ? 0L : totalLongestPause / pauseCount;
         out.avgRouteAgreementPct = out.routeComparedSessions == 0 ? 0.0
                 : out.routeAgreementTotal / out.routeComparedSessions;
+        out.avgGraphConfidencePct = out.graphTraversalSessions == 0 ? 0.0
+                : out.graphConfidenceTotal / out.graphTraversalSessions;
 
         for (SolutionStrategy strategy : SolutionStrategy.values()) {
             StrategyStats st = strategyMap.get(strategy.name());
@@ -291,6 +309,16 @@ final class SessionTracker {
                 s.routeAlternateEntry = routeComparison.optBoolean("alternateEntry", false);
                 s.routeStrongDivergence = routeComparison.optBoolean("strongDivergence", false);
             }
+            JSONObject graphTraversal = row.optJSONObject("graphTraversal");
+            if (graphTraversal != null && graphTraversal.optBoolean("available", false)) {
+                s.graphTraversalAvailable = true;
+                s.graphTraversalDirection = graphTraversal.optString("direction", "unknown");
+                s.graphTraversalEntryDepth = graphTraversal.optInt("entryDepth", -1);
+                s.graphTraversalConfidencePct = graphTraversal.optDouble("confidencePct", 0.0);
+                s.graphTraversalInternalEntry = graphTraversal.optBoolean("internalEntry", false);
+                s.graphTraversalBranchProbing = graphTraversal.optBoolean("branchProbing", false);
+                s.graphTraversalStructuralDivergence = graphTraversal.optBoolean("structuralDivergence", false);
+            }
             out.recent.add(s);
         }
         return out;
@@ -347,6 +375,42 @@ final class SessionTracker {
             out.append("\nКандидаты: переходов между клетками ").append(switches)
                     .append(" · возвратов ").append(revisits)
                     .append(" · максимум в клетке ").append(row.optInt("maxCandidatesInOneCell", 0));
+        }
+
+        JSONObject graphTraversal = row.optJSONObject("graphTraversal");
+        if (graphTraversal != null && graphTraversal.optBoolean("available", false)) {
+            String direction = graphTraversal.optString("direction", "unknown");
+            out.append("\n\nМаршрут по реальному графу")
+                    .append("\nТип: ").append(graphTraversalLabel(direction));
+            int entryDepth = graphTraversal.optInt("entryDepth", -1);
+            int maxDepth = graphTraversal.optInt("maxDepth", -1);
+            if (entryDepth >= 0) out.append(" · вход depth ").append(entryDepth);
+            if (maxDepth >= 0) out.append(" · max depth ").append(maxDepth);
+            if (graphTraversal.optBoolean("anchorReached", false)) out.append(" · anchor достигнут");
+            if (graphTraversal.optBoolean("internalEntry", false)) out.append(" · внутренний вход");
+            if (graphTraversal.optBoolean("branchProbing", false)) out.append(" · исследование ветви");
+            if (graphTraversal.optBoolean("structuralDivergence", false)) out.append(" · структурное расхождение");
+            out.append("\nПокрытие графа действиями: ")
+                    .append(String.format(java.util.Locale.US, "%.0f%%", graphTraversal.optDouble("mappedPct", 0.0)))
+                    .append(" · связность переходов ")
+                    .append(String.format(java.util.Locale.US, "%.0f%%", graphTraversal.optDouble("adjacencyContinuityPct", 0.0)))
+                    .append(" · уверенность ")
+                    .append(String.format(java.util.Locale.US, "%.0f%%", graphTraversal.optDouble("confidencePct", 0.0)))
+                    .append(" · anchor ")
+                    .append(String.format(java.util.Locale.US, "%.0f%%", graphTraversal.optDouble("anchorConfidencePct", 0.0)));
+            JSONArray graphRoute = graphTraversal.optJSONArray("observedGraphRoute");
+            if (graphRoute != null && graphRoute.length() > 0) {
+                out.append("\nГлубины: ");
+                int routeLimit = Math.min(18, graphRoute.length());
+                for (int i = 0; i < routeLimit; i++) {
+                    JSONObject visit = graphRoute.optJSONObject(i);
+                    if (visit == null) continue;
+                    if (i > 0) out.append(" → ");
+                    int d = visit.optInt("anchorDistance", -1);
+                    out.append(d >= 0 ? ("d" + d) : "?");
+                }
+                if (graphRoute.length() > routeLimit) out.append(" → …+").append(graphRoute.length() - routeLimit);
+            }
         }
 
         JSONObject routeComparison = row.optJSONObject("routeComparison");
@@ -417,6 +481,18 @@ final class SessionTracker {
                 signal = true;
             }
         }
+        if (graphTraversal != null && graphTraversal.optBoolean("available", false)
+                && routeComparison != null && routeComparison.optBoolean("available", false)) {
+            String graphDirection = graphTraversal.optString("direction", "unknown");
+            boolean coherentAlternate = !graphTraversal.optBoolean("structuralDivergence", false)
+                    && ("backward".equals(graphDirection) || "bidirectional".equals(graphDirection));
+            if (routeComparison.optBoolean("strongDivergence", false) && coherentAlternate) {
+                out.append("\n• HumanSolver видит сильное расхождение порядка, но реальный граф показывает связный ")
+                        .append(graphTraversalLabel(graphDirection))
+                        .append(" маршрут — это кандидат на валидный альтернативный обход, а не на ошибку игрока.");
+                signal = true;
+            }
+        }
         if (!signal) out.append("\n• Явного расхождения между текущими структурными и поведенческими сигналами не найдено.");
 
         JSONArray moves = row.optJSONArray("semanticMoves");
@@ -437,6 +513,15 @@ final class SessionTracker {
         }
         out.append("\n\nЭто след взаимодействия с задачей, а не буквальная запись мыслей человека.");
         return out.toString();
+    }
+
+    private static String graphTraversalLabel(String direction) {
+        if ("forward".equals(direction)) return "вперёд";
+        if ("backward".equals(direction)) return "обратный";
+        if ("bidirectional".equals(direction)) return "двунаправленный";
+        if ("mixed".equals(direction)) return "смешанный";
+        if ("divergent".equals(direction)) return "вне структуры";
+        return "неопределённый";
     }
 
     private static String reportTime(long ms) {
@@ -513,6 +598,19 @@ final class SessionTracker {
         int routeAlternateEntries;
         double routeAgreementTotal;
         double avgRouteAgreementPct;
+        int graphTraversalSessions;
+        int graphForward;
+        int graphBackward;
+        int graphBidirectional;
+        int graphMixed;
+        int graphDivergent;
+        int graphUnknown;
+        int graphInternalEntries;
+        int graphBranchProbes;
+        int graphAnchorReached;
+        int graphStructuralDivergences;
+        double graphConfidenceTotal;
+        double avgGraphConfidencePct;
         boolean calibrationReady;
         int calibrationSessions;
         double calibrationMeanError;
@@ -588,6 +686,13 @@ final class SessionTracker {
         double routeOrderAgreementPct;
         boolean routeAlternateEntry;
         boolean routeStrongDivergence;
+        boolean graphTraversalAvailable;
+        String graphTraversalDirection = "unknown";
+        int graphTraversalEntryDepth = -1;
+        double graphTraversalConfidencePct;
+        boolean graphTraversalInternalEntry;
+        boolean graphTraversalBranchProbing;
+        boolean graphTraversalStructuralDivergence;
     }
 
     private static final class OpenSession {
