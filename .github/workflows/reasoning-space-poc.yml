@@ -1,0 +1,75 @@
+name: Reasoning space PoC
+
+on:
+  push:
+    branches:
+      - research/reasoning-space-poc
+    paths:
+      - 'tools/ReasoningSpaceCorpusHarness.java'
+      - 'tools/reasoning_space_archive.py'
+      - '.github/workflows/reasoning-space-poc.yml'
+      - 'app/src/main/java/com/offline/mathcrossword/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  corpus:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Ensure Android API 36
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f "$ANDROID_HOME/platforms/android-36/android.jar" ]; then
+            sdkmanager_bin="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+            test -n "$sdkmanager_bin"
+            "$sdkmanager_bin" "platforms;android-36" "build-tools;36.0.0"
+          fi
+
+      - name: Compile engine
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:compileGithubDebugJavaWithJavac --no-daemon
+
+      - name: Compile corpus harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          test -d "$app_classes"
+          mkdir -p "$RUNNER_TEMP/reasoning-space"
+          javac -cp "$app_classes" \
+            -d "$RUNNER_TEMP/reasoning-space" \
+            tools/ReasoningSpaceCorpusHarness.java
+
+      - name: Generate small deterministic corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          java -Xmx1536m \
+            -cp "$app_classes:$RUNNER_TEMP/reasoning-space" \
+            com.offline.mathcrossword.ReasoningSpaceCorpusHarness 3 4 6 \
+            > "$RUNNER_TEMP/reasoning-space/corpus.csv"
+          head -n 6 "$RUNNER_TEMP/reasoning-space/corpus.csv"
+
+      - name: Build reasoning-space archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/reasoning_space_archive.py \
+            "$RUNNER_TEMP/reasoning-space/corpus.csv" \
+            --out-dir "$RUNNER_TEMP/reasoning-space/archive"
+          cat "$RUNNER_TEMP/reasoning-space/archive/reasoning_space_summary.json"
