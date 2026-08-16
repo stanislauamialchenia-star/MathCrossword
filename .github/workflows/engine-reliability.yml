@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - research/concrete-reasoning-graph
   pull_request:
     branches:
       - main
@@ -58,7 +59,8 @@ jobs:
             -d "$RUNNER_TEMP/mathcrossword-reliability" \
             tools/ReliabilityHarness.java \
             tools/GraphTheoryHarness.java \
-            tools/PathCascadePolicyHarness.java
+            tools/PathCascadePolicyHarness.java \
+            tools/ConcreteReasoningGraphHarness.java
 
       - name: Run graph topology contracts
         shell: bash
@@ -71,6 +73,9 @@ jobs:
           java -Xmx512m \
             -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
             com.offline.mathcrossword.PathCascadePolicyHarness
+          java -Xmx512m \
+            -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+            com.offline.mathcrossword.ConcreteReasoningGraphHarness
 
       - name: Run deterministic smoke gate
         shell: bash
