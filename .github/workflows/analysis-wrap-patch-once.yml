@@ -1,0 +1,59 @@
+name: Apply analysis wrapping patch once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/analysis-wrap-patch-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Wrap long analysis summary lines
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('app/src/main/java/com/offline/mathcrossword/MainActivity.java')
+          s = path.read_text()
+
+          old = '''            c.drawText("Кандидаты: переходы между клетками " + a.candidateCellSwitches
+                    + " · возвраты " + a.candidateCellRevisits, side, y, paint); y += dp(24);
+
+            if (a.routeComparedSessions > 0) {
+                c.drawText("Маршруты: " + a.routeComparedSessions + " сравн. · согласование "
+                        + String.format(Locale.US, "%.0f%%", a.avgRouteAgreementPct)
+                        + " · сильных расхождений " + a.routeStrongDivergences, side, y, paint); y += dp(24);
+            }
+'''
+
+          new = '''            String candidateFlowLine = "Кандидаты: переходы между клетками " + a.candidateCellSwitches
+                    + " · возвраты " + a.candidateCellRevisits;
+            y = drawWrappedText(c, candidateFlowLine, side, y, w - side * 2, dp(20));
+            y += dp(4);
+
+            if (a.routeComparedSessions > 0) {
+                String routeSummaryLine = "Маршруты: " + a.routeComparedSessions + " сравн. · согласование "
+                        + String.format(Locale.US, "%.0f%%", a.avgRouteAgreementPct)
+                        + " · сильных расхождений " + a.routeStrongDivergences;
+                y = drawWrappedText(c, routeSummaryLine, side, y, w - side * 2, dp(20));
+                y += dp(4);
+            }
+'''
+
+          if old not in s:
+              raise SystemExit('target analysis block not found')
+          path.write_text(s.replace(old, new, 1))
+          PY
+
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/src/main/java/com/offline/mathcrossword/MainActivity.java
+          git commit -m "Wrap long analysis summary lines"
+          git push
