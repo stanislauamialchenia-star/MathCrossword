@@ -684,13 +684,17 @@ public class MainActivity extends Activity {
             c.drawText("Паузы: продуктивные " + a.productivePauses + " · тупиковые " + a.deadEndPauses, side, y, paint); y += dp(24);
             c.drawText("Сигналы проверки гипотез: " + a.hypothesisEpisodes, side, y, paint); y += dp(24);
             c.drawText("Быстрые каскады действий: " + a.rapidCascades, side, y, paint); y += dp(24);
-            c.drawText("Кандидаты: переходы между клетками " + a.candidateCellSwitches
-                    + " · возвраты " + a.candidateCellRevisits, side, y, paint); y += dp(24);
+            String candidateFlowLine = "Кандидаты: переходы между клетками " + a.candidateCellSwitches
+                    + " · возвраты " + a.candidateCellRevisits;
+            y = drawWrappedText(c, candidateFlowLine, side, y, w - side * 2, dp(20));
+            y += dp(4);
 
             if (a.routeComparedSessions > 0) {
-                c.drawText("Маршруты: " + a.routeComparedSessions + " сравн. · согласование "
+                String routeSummaryLine = "Маршруты: " + a.routeComparedSessions + " сравн. · согласование "
                         + String.format(Locale.US, "%.0f%%", a.avgRouteAgreementPct)
-                        + " · сильных расхождений " + a.routeStrongDivergences, side, y, paint); y += dp(24);
+                        + " · сильных расхождений " + a.routeStrongDivergences;
+                y = drawWrappedText(c, routeSummaryLine, side, y, w - side * 2, dp(20));
+                y += dp(4);
             }
 
             paint.setColor(ink);
