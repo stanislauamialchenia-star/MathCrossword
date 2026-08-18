@@ -909,7 +909,7 @@ public class MainActivity extends Activity {
             long total = ms / 1000L;
             long min = total / 60L;
             long sec = total % 60L;
-            if (min >= 60) return (min / 60) + "ч " + (min % 60) + "м";
+            if (min >= 60) return (min / 60) + UiText.tr("h ", "ч ", "h ") + (min % 60) + UiText.tr("m", "м", "m");
             return min + ":" + (sec < 10 ? "0" : "") + sec;
         }
 
@@ -1171,7 +1171,8 @@ public class MainActivity extends Activity {
             Paint.FontMetrics fm = paint.getFontMetrics();
             float ty = centerY - (fm.ascent + fm.descent) / 2f;
             c.drawText(mode == GameMode.PATH ? UiText.tr("Level ", "Уровень ", "Úroveň ") + level
-                    : puzzle.solutionStrategy.label + " · Л" + puzzle.displayLogicLevel + "/В" + puzzle.displayCalcLevel,
+                    : puzzle.solutionStrategy.label + UiText.tr(" · L", " · Л", " · L") + puzzle.displayLogicLevel
+                    + UiText.tr("/C", "/В", "/V") + puzzle.displayCalcLevel,
                     w / 2f, ty, paint);
 
             paint.setStrokeWidth(dp(1));
@@ -1217,7 +1218,10 @@ public class MainActivity extends Activity {
 
         void showGameMenu() {
             if (puzzle == null) return;
-            String info = String.format(Locale.US, "Логика %d (%.1f) · вычисления %d (%.1f)\n%s · скрыто клеток: %d\nВерсия %s (%d)",
+            String info = UiText.format(
+                    "Logic %d (%.1f) · calculation %d (%.1f)\n%s · hidden cells: %d\nVersion %s (%d)",
+                    "Логика %d (%.1f) · вычисления %d (%.1f)\n%s · скрыто клеток: %d\nВерсия %s (%d)",
+                    "Logika %d (%.1f) · výpočty %d (%.1f)\n%s · skrytých buněk: %d\nVerze %s (%d)",
                     puzzle.displayLogicLevel, puzzle.logicScore, puzzle.displayCalcLevel, puzzle.calcScore,
                     puzzle.solutionStrategy.label, puzzle.hidden.size(), installedVersionName(), installedVersionCode());
             String focusLabel = focusMode ? UiText.tr("Show panels", "Показать панели", "Zobrazit panely") : UiText.tr("Focus mode", "Режим фокуса", "Režim soustředění");
@@ -2045,7 +2049,7 @@ public class MainActivity extends Activity {
             if (!DistributionConfig.selfUpdateEnabled()) return;
             try {
                 DownloadManager manager = (DownloadManager) getContext().getSystemService(Context.DOWNLOAD_SERVICE);
-                if (manager == null) throw new IllegalStateException("DownloadManager недоступен");
+                if (manager == null) throw new IllegalStateException(UiText.tr("DownloadManager unavailable", "DownloadManager недоступен", "DownloadManager není dostupný"));
                 String fileName = "MathCrossword-v" + version + ".apk";
                 DownloadManager.Request request = new DownloadManager.Request(Uri.parse(downloadUrl));
                 request.setTitle("MathCrossword " + version);
