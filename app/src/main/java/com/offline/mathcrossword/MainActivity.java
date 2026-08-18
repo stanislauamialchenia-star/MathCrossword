@@ -692,7 +692,8 @@ public class MainActivity extends Activity {
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
             paint.setTextSize(dp(15));
             paint.setColor(Color.rgb(55, 67, 58));
-            c.drawText(UiText.tr("Sessions: ", "Сессий: ", "Relací: ") + a.sessions + UiText.tr("   Solved: ", "   Решено: ", "   Vyřešeno: ") + a.solved, side, y, paint); y += dp(24);
+            c.drawText(UiText.tr("Visits: ", "Посещений: ", "Návštěv: ") + a.visits + UiText.tr("   Runs: ", "   Прохождений: ", "   Průchodů: ") + a.runs, side, y, paint); y += dp(24);
+            c.drawText(UiText.tr("Solved runs: ", "Решено прохождений: ", "Vyřešených průchodů: ") + a.solvedRuns + UiText.tr("   In progress: ", "   В процессе: ", "   Probíhá: ") + a.inProgressRuns, side, y, paint); y += dp(24);
             c.drawText(UiText.tr("Average solved time: ", "Среднее время решённой: ", "Průměrný čas vyřešení: ") + formatDuration(a.avgSolvedMs), side, y, paint); y += dp(24);
             c.drawText(UiText.tr("Average events: ", "Среднее событий: ", "Průměr událostí: ") + String.format(Locale.US, "%.1f", a.avgEvents), side, y, paint); y += dp(24);
             c.drawText(UiText.tr("Time to first action: ", "До первого действия: ", "Do první akce: ") + formatDuration(a.avgFirstActionMs), side, y, paint); y += dp(24);
@@ -2074,9 +2075,9 @@ public class MainActivity extends Activity {
             try {
                 android.content.pm.PackageInfo info = getContext().getPackageManager()
                         .getPackageInfo(getContext().getPackageName(), 0);
-                return info.versionName == null ? "1.38" : info.versionName;
+                return info.versionName == null ? "1.40" : info.versionName;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return "1.38";
+                return "1.40";
             }
         }
 
@@ -2087,7 +2088,7 @@ public class MainActivity extends Activity {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return info.getLongVersionCode();
                 return info.versionCode;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return 38L;
+                return 40L;
             }
         }
 

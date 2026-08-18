@@ -57,7 +57,17 @@ jobs:
           javac -cp "$app_classes" \
             -d "$RUNNER_TEMP/mathcrossword-reliability" \
             tools/ReliabilityHarness.java \
-            tools/GraphTheoryHarness.java
+            tools/GraphTheoryHarness.java \
+            tools/RunLifecycleHarness.java
+
+      - name: Run lifecycle contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          java -Xmx256m \
+            -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+            com.offline.mathcrossword.RunLifecycleHarness
 
       - name: Run graph topology contracts
         shell: bash

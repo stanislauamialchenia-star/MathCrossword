@@ -106,7 +106,29 @@ final class SessionTracker {
     synchronized AnalysisSnapshot analyze() {
         List<JSONObject> rows = readObjects();
         AnalysisSnapshot out = new AnalysisSnapshot();
-        out.sessions = rows.size();
+        out.sessions = rows.size(); // backward-compatible raw stored-row count
+        out.visits = rows.size();
+        Map<String, String> runOutcomes = new LinkedHashMap<>();
+        int legacyRunIndex = 0;
+        for (JSONObject row : rows) {
+            String runId = row.optString("runId", "");
+            if (runId.isEmpty()) {
+                String sessionId = row.optString("sessionId", "");
+                runId = sessionId.isEmpty() ? ("legacy-run-" + legacyRunIndex++) : ("legacy-session-" + sessionId);
+            }
+            String outcome = outcomeForRow(row);
+            runOutcomes.put(runId, RunLifecycle.mergeOutcome(runOutcomes.get(runId), outcome));
+        }
+        out.runs = runOutcomes.size();
+        for (String outcome : runOutcomes.values()) {
+            if (RunLifecycle.SOLVED.equals(outcome)) out.solvedRuns++;
+            else if (RunLifecycle.IN_PROGRESS.equals(outcome)) out.inProgressRuns++;
+            else if (RunLifecycle.GIVE_UP.equals(outcome)) out.giveUpRuns++;
+            else if (RunLifecycle.RESTARTED.equals(outcome)) out.restartedRuns++;
+            else if (RunLifecycle.SKIPPED.equals(outcome)) out.skippedRuns++;
+            else if (RunLifecycle.ABANDONED.equals(outcome)) out.abandonedRuns++;
+        }
+        out.solved = out.solvedRuns; // old field now reflects solved PuzzleRuns, not unfinished visits
         long solvedTime = 0L;
         int solvedCountForTime = 0;
         long totalEvents = 0L;
@@ -128,13 +150,14 @@ final class SessionTracker {
                 strategyMap.put(strategyName, strategyStats);
             }
             strategyStats.sessions++;
+            String runOutcome = outcomeForRow(row);
 
             DifficultyCalibrator.Sample calibration = new DifficultyCalibrator.Sample();
             calibration.order = calibrationOrder++;
             calibration.strategy = strategyName;
             calibration.mode = row.optString("mode", "");
             calibration.generatorVersion = row.optInt("generatorVersion", 0);
-            calibration.solved = row.optBoolean("solved", false);
+            calibration.solved = RunLifecycle.isSolved(runOutcome);
             calibration.hidden = Math.max(1, row.optInt("hidden", 1));
             calibration.activeMs = row.optLong("activeMs", 0L);
             calibration.eventCount = row.optInt("eventCount", 0);
@@ -145,9 +168,8 @@ final class SessionTracker {
 
             if (!row.optBoolean("strategyTargetMatched", true)) out.strategyFallbacks++;
             if (row.optInt("generationStage", 1) >= 2) out.expandedGenerations++;
-            boolean solved = row.optBoolean("solved", false);
+            boolean solved = RunLifecycle.isSolved(runOutcome);
             if (solved) {
-                out.solved++;
                 solvedTime += row.optLong("activeMs", 0L);
                 solvedCountForTime++;
                 strategyStats.solved++;
@@ -198,7 +220,7 @@ final class SessionTracker {
                     else if ("hint".equals(type)) { out.hintCount++; strategyStats.hintCount++; calibration.hintCount++; }
                 }
             }
-            calibrationSamples.add(calibration);
+            if (RunLifecycle.isExplicitDifficultyOutcome(runOutcome)) calibrationSamples.add(calibration);
         }
 
         DifficultyCalibrator.Result calibrationResult = DifficultyCalibrator.calibrate(calibrationSamples);
@@ -249,7 +271,8 @@ final class SessionTracker {
             s.strategy = row.optString("strategy", row.optString("style", SolutionStrategy.MIXED.name()));
             s.logic = row.optInt("logic", 0);
             s.calc = row.optInt("calc", 0);
-            s.solved = row.optBoolean("solved", false);
+            s.outcome = outcomeForRow(row);
+            s.solved = RunLifecycle.isSolved(s.outcome);
             s.activeMs = row.optLong("activeMs", 0L);
             s.eventCount = row.optInt("eventCount", 0);
             s.ratedLogic = row.optInt("ratedLogic", 0);
@@ -435,6 +458,12 @@ final class SessionTracker {
         return out.toString();
     }
 
+    private static String outcomeForRow(JSONObject row) {
+        String explicit = row.optString("runOutcome", "");
+        if (!explicit.isEmpty()) return explicit;
+        return RunLifecycle.outcome(row.optBoolean("solved", false), row.optString("finishReason", "unknown"));
+    }
+
     private static String reportTime(long ms) {
         if (ms < 0) return "—";
         long total = ms / 1000L;
@@ -484,7 +513,15 @@ final class SessionTracker {
 
     static final class AnalysisSnapshot {
         int sessions;
+        int visits;
+        int runs;
         int solved;
+        int solvedRuns;
+        int inProgressRuns;
+        int giveUpRuns;
+        int restartedRuns;
+        int skippedRuns;
+        int abandonedRuns;
         long avgSolvedMs;
         double avgEvents;
         int placements;
@@ -550,6 +587,7 @@ final class SessionTracker {
         int logic;
         int calc;
         boolean solved;
+        String outcome;
         long activeMs;
         int eventCount;
         int ratedLogic;
@@ -587,8 +625,11 @@ final class SessionTracker {
     }
 
     private static final class OpenSession {
-        final String id = UUID.randomUUID().toString();
+        final String id = UUID.randomUUID().toString(); // legacy sessionId / stored visit row id
+        final String runId = UUID.randomUUID().toString();
+        final String visitId = UUID.randomUUID().toString();
         final long startedAtEpochMs = System.currentTimeMillis();
+        final String puzzleId;
         final String mode;
         final int level;
         final long seed;
@@ -663,6 +704,7 @@ final class SessionTracker {
         final int graphMaxDegree;
         final double graphAverageDegree;
         final JSONArray events = new JSONArray();
+        final JSONArray lifecycleEvents = new JSONArray();
         JSONArray modelRoute = new JSONArray();
 
         long activeAccumulatedMs = 0L;
@@ -718,6 +760,7 @@ final class SessionTracker {
             this.maxResolvedAfterOneEquation = maxResolvedAfterOneEquation;
             this.maxResolvedFractionAfterOneEquation = maxResolvedFractionAfterOneEquation;
             this.generatorVersion = generatorVersion;
+            this.puzzleId = RunLifecycle.puzzleId(mode, level, seed, generatorVersion);
             this.generationStage = generationStage;
             this.strategyTargetMatched = strategyTargetMatched;
             this.generationStrategy = generationStrategy == null ? this.strategy : generationStrategy;
@@ -769,6 +812,7 @@ final class SessionTracker {
             this.graphDiameter = graph == null ? 0 : graph.diameter;
             this.graphMaxDegree = graph == null ? 0 : graph.maxDegree;
             this.graphAverageDegree = graph == null ? 0.0 : graph.averageDegree;
+            lifecycleEvent("PUZZLE_OPENED", null);
             resume();
         }
 
@@ -781,12 +825,30 @@ final class SessionTracker {
             if (active) return;
             active = true;
             activeSegmentStart = SystemClock.elapsedRealtime();
+            lifecycleEvent("APP_FOREGROUND", null);
         }
 
         void pause() {
             if (!active) return;
+            lifecycleEvent("APP_BACKGROUND", null);
+            stopActiveSegment();
+        }
+
+        void stopActiveSegment() {
+            if (!active) return;
             activeAccumulatedMs += Math.max(0L, SystemClock.elapsedRealtime() - activeSegmentStart);
             active = false;
+        }
+
+        void lifecycleEvent(String type, String detail) {
+            JSONObject e = new JSONObject();
+            try {
+                e.put("seq", lifecycleEvents.length() + 1);
+                e.put("tMs", activeMs());
+                e.put("type", type);
+                if (detail != null) e.put("detail", detail);
+            } catch (Exception ignored) { }
+            lifecycleEvents.put(e);
         }
 
         long activeMs() {
@@ -813,10 +875,19 @@ final class SessionTracker {
         }
 
         JSONObject finish(boolean solved, String reason) {
-            pause();
+            String runOutcome = RunLifecycle.outcome(solved, reason);
+            lifecycleEvent(RunLifecycle.lifecycleEvent(solved, reason), reason);
+            stopActiveSegment();
             JSONObject root = new JSONObject();
             try {
+                root.put("telemetrySchemaVersion", 2);
                 root.put("sessionId", id);
+                root.put("visitId", visitId);
+                root.put("runId", runId);
+                root.put("puzzleId", puzzleId);
+                root.put("visitIndex", 1);
+                root.put("visitOutcome", RunLifecycle.visitOutcome(solved, reason));
+                root.put("runOutcome", runOutcome);
                 root.put("startedAtEpochMs", startedAtEpochMs);
                 root.put("finishedAtEpochMs", System.currentTimeMillis());
                 root.put("mode", mode);
@@ -913,6 +984,7 @@ final class SessionTracker {
                 root.put("candidateCellSwitches", candidateSummary.cellSwitches);
                 root.put("candidateCellRevisits", candidateSummary.cellRevisits);
                 root.put("maxCandidatesInOneCell", candidateSummary.maxCandidatesInOneCell);
+                root.put("lifecycleEvents", lifecycleEvents);
                 root.put("events", events);
             } catch (Exception ignored) { }
             return root;
