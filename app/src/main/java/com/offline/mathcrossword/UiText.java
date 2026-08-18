@@ -33,6 +33,7 @@ final class UiText {
         return "en";
     }
 
+    // Compact label used by the home-screen language button.
     static String badge() {
         String code = language().toUpperCase(Locale.ROOT);
         return "system".equals(languageOverride) ? "A/" + code : code;
