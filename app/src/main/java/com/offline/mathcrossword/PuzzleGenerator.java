@@ -15,7 +15,7 @@ import java.util.Random;
 import java.util.Set;
 
 final class PuzzleGenerator {
-    static final int GENERATOR_VERSION = 22;
+    static final int GENERATOR_VERSION = 23;
     private static final ThreadLocal<GenerationDiagnostics> LAST_DIAGNOSTICS = new ThreadLocal<>();
 
     static GenerationDiagnostics lastDiagnostics() { return LAST_DIAGNOSTICS.get(); }
@@ -56,7 +56,15 @@ final class PuzzleGenerator {
             // on deceptive tiles or a second full solver pass. generateCandidate has
             // already measured the base bank; this gate is intentionally cheap.
             if (tooSimilarToRecentGeometry(p, level)) { diagnostics.reject(GenerationDiagnostics.RejectReason.PATH_GEOMETRY_REPEAT); continue; }
-            if (!pathQuickPrecheck(level, p, base.logicLevel)) { diagnostics.reject(GenerationDiagnostics.RejectReason.PATH_CASCADE_REJECTED); continue; }
+            if (p.ratedLogic < base.logicLevel) {
+                diagnostics.reject(GenerationDiagnostics.RejectReason.PATH_DIFFICULTY_REJECTED);
+                continue;
+            }
+            PathCascadePolicy.Assessment quickCascade = pathQuickAssessment(p, base.logicLevel);
+            if (quickCascade.reject()) {
+                recordPathCascadeReject(diagnostics, quickCascade);
+                continue;
+            }
 
             PathEvaluation pathEval = evaluatePath(level, p, base.logicLevel, diagnostics);
             if (!pathEval.accepted) {
@@ -109,9 +117,16 @@ final class PuzzleGenerator {
                         base.logicScore, base.calcScore, SolutionStrategy.MIXED, base.pathMode);
                 Puzzle p = generateCandidate(fallback, seed, diagnostics);
                 if (p == null) continue;
-                if (hardPath && !pathQuickPrecheck(level, p, fallbackLogic)) {
-                    diagnostics.reject(GenerationDiagnostics.RejectReason.PATH_CASCADE_REJECTED);
+                if (hardPath && p.ratedLogic < fallbackLogic) {
+                    diagnostics.reject(GenerationDiagnostics.RejectReason.PATH_DIFFICULTY_REJECTED);
                     continue;
+                }
+                if (hardPath) {
+                    PathCascadePolicy.Assessment quickCascade = pathQuickAssessment(p, fallbackLogic);
+                    if (quickCascade.reject()) {
+                        recordPathCascadeReject(diagnostics, quickCascade);
+                        continue;
+                    }
                 }
                 PathEvaluation pathEval = evaluatePath(level, p, fallbackLogic, diagnostics);
                 if (!pathEval.accepted) {
@@ -329,18 +344,43 @@ final class PuzzleGenerator {
     static boolean pathCascadeAcceptable(int level, Puzzle p, HumanSolver.Metrics hm,
                                          CascadeResilienceAnalyzer.Profile cascade) {
         if (p == null || hm == null || cascade == null || p.hidden.isEmpty()) return true;
-        double strength = DifficultyScale.antiCollapseStrength(p.logicScore);
+        double strength = pathPolicyStrength(p, p.logicLevel);
         if (strength <= 0.0) return true;
-        int hidden = p.hidden.size();
+        PathCascadePolicy.Assessment assessment = PathCascadePolicy.assess(
+                p.hidden.size(), hm.basicForced, hm.basicRemaining, hm.maxForcedCascade,
+                hm.reasoningSteps, hm.maxReasoningDepth,
+                cascade.maxResolvedAfterOneCell, cascade.vulnerableSingleCells, strength);
+        return !assessment.reject();
+    }
 
-        // v22: anti-collapse no longer switches on at one magic Path level.
-        // It tightens continuously as Logic score moves through the 5..7 region.
-        double openingFraction = DifficultyScale.lerp(0.38, 0.16, strength);
-        double cascadeFraction = DifficultyScale.lerp(0.68, 0.36, strength);
-        int maxOpeningForced = Math.max(1, (int)Math.ceil(hidden * openingFraction));
-        int maxReasoningCascade = Math.max(3, (int)Math.ceil(hidden * cascadeFraction));
-        if (hm.basicForced > maxOpeningForced) return false;
-        return hm.maxForcedCascade <= maxReasoningCascade;
+    static double pathPolicyStrength(Puzzle p, int logicLevel) {
+        if (p != null && p.logicScore > 0.0) return DifficultyScale.antiCollapseStrength(p.logicScore);
+        if (logicLevel >= 5) return 0.82;
+        if (logicLevel >= 4) return 0.48;
+        return 0.0;
+    }
+
+    static PathCascadePolicy.Assessment pathQuickAssessment(Puzzle p, int requestedLogic) {
+        if (p == null || p.hidden.isEmpty()) {
+            return PathCascadePolicy.assess(1, 0, 1, 0, 0, 0, 0, 0, 0.0);
+        }
+        return PathCascadePolicy.assess(
+                p.hidden.size(), p.basicForced, p.basicRemaining, p.maxForcedCascade,
+                p.reasoningSteps, p.reasoningDepth,
+                p.maxResolvedAfterOneCell, p.vulnerableSingleCells,
+                pathPolicyStrength(p, requestedLogic));
+    }
+
+    static void recordPathCascadeReject(GenerationDiagnostics diagnostics,
+                                        PathCascadePolicy.Assessment assessment) {
+        if (diagnostics == null || assessment == null) return;
+        if (assessment.shape == PathCascadePolicy.Shape.OPENING_COLLAPSE) {
+            diagnostics.reject(GenerationDiagnostics.RejectReason.PATH_OPENING_COLLAPSE);
+        } else if (assessment.shape == PathCascadePolicy.Shape.SYSTEMIC_FRAGILITY) {
+            diagnostics.reject(GenerationDiagnostics.RejectReason.PATH_SYSTEMIC_FRAGILITY);
+        } else {
+            diagnostics.reject(GenerationDiagnostics.RejectReason.PATH_CASCADE_REJECTED);
+        }
     }
 
     static GameConfig profileForLevel(int level) {
@@ -1723,11 +1763,12 @@ final class PuzzleGenerator {
     static boolean pathHiddenCandidateAcceptable(Puzzle p, LogicAnalyzer.Metrics lm, HumanSolver.Metrics hm, int logicLevel) {
         if (p == null || lm == null || hm == null || p.hidden.isEmpty()) return false;
         int hidden = p.hidden.size();
-        int maxOpening = Math.max(1, hidden / 5);
-        int maxCascade = Math.max(3, (int)Math.ceil(hidden * (logicLevel >= 5 ? 0.34 : 0.40)));
-        return hm.basicForced <= maxOpening
+        PathCascadePolicy.Assessment cascadeShape = PathCascadePolicy.assess(
+                hidden, hm.basicForced, hm.basicRemaining, hm.maxForcedCascade,
+                hm.reasoningSteps, hm.maxReasoningDepth, 0, 0,
+                pathPolicyStrength(p, logicLevel));
+        return !cascadeShape.reject()
                 && hm.basicRemaining >= Math.max(6, (hidden * 3) / 4)
-                && hm.maxForcedCascade <= maxCascade
                 && lm.ambiguousEquations >= (logicLevel >= 5 ? 5 : 4)
                 && lm.crossHidden >= (logicLevel >= 5 ? 4 : 3)
                 && lm.cycleRank >= (logicLevel >= 5 ? 2 : 1);
@@ -1736,23 +1777,22 @@ final class PuzzleGenerator {
     static int pathHiddenQualityBonus(Puzzle p, LogicAnalyzer.Metrics lm, HumanSolver.Metrics hm, int logicLevel) {
         if (p == null || hm == null) return 0;
         int hidden = Math.max(1, p.hidden.size());
+        PathCascadePolicy.Assessment cascadeShape = PathCascadePolicy.assess(
+                hidden, hm.basicForced, hm.basicRemaining, hm.maxForcedCascade,
+                hm.reasoningSteps, hm.maxReasoningDepth, 0, 0,
+                pathPolicyStrength(p, logicLevel));
         int score = hm.basicRemaining * 24 + hm.initialBranchCells * 12 + hm.reasoningSteps * 55;
         score -= hm.basicForced * 110;
-        score -= hm.maxForcedCascade * (logicLevel >= 5 ? 70 : 55);
         if (hm.basicForced == 0) score += 90;
-        if (hm.maxForcedCascade <= Math.max(3, hidden / 3)) score += 100;
+        if (cascadeShape.productiveCascade()) score += Math.min(180, hm.maxForcedCascade * 18);
+        else if (hm.maxForcedCascade <= Math.max(3, hidden / 3)) score += 40;
         return score;
     }
 
     static boolean pathQuickPrecheck(int level, Puzzle p, int requestedLogic) {
         if (p == null || p.hidden.isEmpty()) return true;
-        double strength = DifficultyScale.antiCollapseStrength(p.logicScore);
-        if (strength <= 0.0) return true;
         if (p.ratedLogic < requestedLogic) return false;
-        int hidden = p.hidden.size();
-        int maxOpeningForced = Math.max(1, (int)Math.ceil(hidden * DifficultyScale.lerp(0.38, 0.16, strength)));
-        int maxReasoningCascade = Math.max(3, (int)Math.ceil(hidden * DifficultyScale.lerp(0.68, 0.36, strength)));
-        return p.basicForced <= maxOpeningForced && p.maxForcedCascade <= maxReasoningCascade;
+        return !pathQuickAssessment(p, requestedLogic).reject();
     }
 
     static void applyGeneratorMetrics(Puzzle p, LogicAnalyzer.Metrics lm, HumanSolver.Metrics hm, int score) {

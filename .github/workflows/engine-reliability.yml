@@ -57,7 +57,8 @@ jobs:
           javac -cp "$app_classes" \
             -d "$RUNNER_TEMP/mathcrossword-reliability" \
             tools/ReliabilityHarness.java \
-            tools/GraphTheoryHarness.java
+            tools/GraphTheoryHarness.java \
+            tools/PathCascadePolicyHarness.java
 
       - name: Run graph topology contracts
         shell: bash
@@ -67,6 +68,9 @@ jobs:
           java -Xmx512m \
             -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
             com.offline.mathcrossword.GraphTheoryHarness
+          java -Xmx512m \
+            -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+            com.offline.mathcrossword.PathCascadePolicyHarness
 
       - name: Run deterministic smoke gate
         shell: bash

@@ -42,7 +42,12 @@ final class GenerationDiagnostics {
         NO_ACCEPTABLE_PUZZLE,
         PATH_GEOMETRY_REPEAT,
         PATH_DIFFICULTY_REJECTED,
-        PATH_CASCADE_REJECTED
+        /** Legacy aggregate kept for backward-compatible research exports. */
+        PATH_CASCADE_REJECTED,
+        /** Too much of the board is forced before meaningful reasoning begins. */
+        PATH_OPENING_COLLAPSE,
+        /** Several unrelated single-cell revelations can collapse most of the board. */
+        PATH_SYSTEMIC_FRAGILITY
     }
 
     final SolutionStrategy requestedStrategy;

@@ -120,9 +120,20 @@ public final class ReliabilityHarness {
 
     private static Puzzle timedPath(int level) {
         long t0 = System.nanoTime();
-        Puzzle p = PuzzleGenerator.generatePath(level);
-        recordGeneration(t0, "PATH L" + level, p, 0);
-        return p;
+        try {
+            Puzzle p = PuzzleGenerator.generatePath(level);
+            recordGeneration(t0, "PATH L" + level, p, 0);
+            return p;
+        } catch (RuntimeException ex) {
+            GenerationDiagnostics d = PuzzleGenerator.lastDiagnostics();
+            if (d != null) {
+                System.err.println("PATH L" + level + " generation failed"
+              + " · attempts=" + d.candidateAttempts
+                        + " · rejects=" + d.compactSummary()
+                        + " · stages=" + d.stageSummary());
+            }
+            throw ex;
+        }
     }
 
     /** Mirrors the bounded 3-seed retry contract used by the Android Free Play caller. */
