@@ -94,3 +94,5 @@ jobs:
           git add "${files[@]}"
           git commit -m "Resume the same PuzzleRun after Home"
           git push origin HEAD:agent/resume-puzzlerun-v141
+
+# Branch-only migration workflow; removed before merge.
