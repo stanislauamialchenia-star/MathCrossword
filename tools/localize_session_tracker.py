@@ -8,6 +8,8 @@ REPORT = ROOT / "V33_TRAJECTORY_LOCALIZATION_REMAINING.md"
 
 # Player-facing prose only. JSON keys, event names, enum values, telemetry fields and
 # research identifiers are intentionally untouched and remain language-independent.
+# Strings beginning with \\n are written here exactly as Java string contents, so java_quote()
+# intentionally preserves backslashes instead of escaping them a second time.
 TRANSLATIONS = {
     "уровень ": ("level ", "úroveň "),
     "свободная игра": ("free play", "volná hra"),
@@ -62,7 +64,9 @@ TRANSLATIONS = {
 
 
 def java_quote(s: str) -> str:
-    return '"' + s.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n') + '"'
+    # Entries are Java string contents (including literal \\n escapes), so preserve
+    # backslashes exactly and escape only quotes for source-code insertion.
+    return '"' + s.replace('"', '\\"') + '"'
 
 
 def main() -> None:
