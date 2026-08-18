@@ -127,7 +127,10 @@ jobs:
           APK_PATH: ${{ steps.unsigned.outputs.path }}
         shell: bash
         run: |
-          apk_name="MathCrossword-v${{ steps.version.outputs.name }}-github-debug-${{ github.run_number }}.apk"
+          # Keep the release asset name stable so non-technical testers can use one
+          # permanent direct-download URL:
+          # /releases/latest/download/MathCrossword.apk
+          apk_name="MathCrossword.apk"
           cp "$APK_PATH" "$apk_name"
           echo "name=$apk_name" >> "$GITHUB_OUTPUT"
 
@@ -146,7 +149,7 @@ jobs:
           APK_NAME: ${{ steps.apk.outputs.name }}
         shell: bash
         run: |
-          gh release create "$TAG_NAME" "$APK_NAME#MathCrossword GitHub debug APK" \
+          gh release create "$TAG_NAME" "$APK_NAME#MathCrossword Android APK" \
             --repo "$GITHUB_REPOSITORY" \
             --title "MathCrossword v${{ steps.version.outputs.name }} debug build ${{ github.run_number }}" \
             --notes "GitHub distribution for version ${{ steps.version.outputs.name }} (version code ${{ steps.version.outputs.code }}). Self-update is enabled only in this distribution. Deterministic reliability smoke gate passed."
