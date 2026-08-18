@@ -9,6 +9,7 @@ import java.util.Locale;
  * continuing attempt at one puzzle until a terminal outcome is known.
  *
  * These labels are research/export identifiers and stay language-independent.
+ * v1.40 introduces the schema; later versions may connect multiple Visits to one Run.
  */
 final class RunLifecycle {
     static final String SOLVED = "SOLVED";
