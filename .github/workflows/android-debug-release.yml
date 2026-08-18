@@ -1,4 +1,4 @@
-name: Build, verify and publish GitHub debug APK
+name: Build, verify and publish GitHub release APK
 
 on:
   push:
@@ -15,7 +15,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: android-debug-release-${{ github.ref }}
+  group: android-release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -54,28 +54,35 @@ jobs:
           echo "name=$version_name" >> "$GITHUB_OUTPUT"
           echo "code=$version_code" >> "$GITHUB_OUTPUT"
 
-      - name: Build GitHub debug APK
+      - name: Build GitHub release APK
         shell: bash
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleGithubDebug --no-daemon
+          ./gradlew assembleGithubRelease --no-daemon
 
       - name: Reliability smoke gate
         shell: bash
         run: |
           set -euo pipefail
-          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          app_classes="app/build/intermediates/javac/githubRelease/compileGithubReleaseJavaWithJavac/classes"
           test -d "$app_classes"
           mkdir -p "$RUNNER_TEMP/mathcrossword-reliability"
           javac -cp "$app_classes" -d "$RUNNER_TEMP/mathcrossword-reliability" tools/ReliabilityHarness.java
           timeout 12m java -Xmx1536m -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" com.offline.mathcrossword.ReliabilityHarness smoke
 
-      - name: Locate APK
+      - name: Locate non-debug APK
         id: unsigned
         shell: bash
         run: |
-          apk_path="$(find app/build/outputs/apk/github/debug -type f -name '*.apk' | head -n 1)"
+          set -euo pipefail
+          apk_path="$(find app/build/outputs/apk/github/release -type f -name '*.apk' | head -n 1)"
           test -n "$apk_path"
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -n "$aapt_bin"
+          if "$aapt_bin" dump badging "$apk_path" | grep -q 'application-debuggable'; then
+            echo "Refusing to publish a debuggable APK" >&2
+            exit 1
+          fi
           echo "path=$apk_path" >> "$GITHUB_OUTPUT"
 
       - name: Restore persistent signing key
@@ -90,7 +97,7 @@ jobs:
           chmod 600 "$RUNNER_TEMP/mathcrossword-signing.keystore"
           keytool -list -keystore "$RUNNER_TEMP/mathcrossword-signing.keystore" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" > /dev/null
 
-      - name: Sign GitHub APK with persistent key
+      - name: Align and sign GitHub APK with persistent key
         env:
           STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
@@ -99,11 +106,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
-          test -n "$apksigner"
-          zip -q -d "$APK_PATH" 'META-INF/*.SF' 'META-INF/*.RSA' 'META-INF/*.DSA' 'META-INF/*.EC' || true
-          "$apksigner" sign --ks "$RUNNER_TEMP/mathcrossword-signing.keystore" --ks-key-alias "$KEY_ALIAS" --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD --out "$RUNNER_TEMP/app-github-debug-signed.apk" "$APK_PATH"
-          mv "$RUNNER_TEMP/app-github-debug-signed.apk" "$APK_PATH"
+          build_tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          apksigner="$build_tools/apksigner"
+          zipalign="$build_tools/zipalign"
+          test -x "$apksigner"
+          test -x "$zipalign"
+          "$zipalign" -f -p 4 "$APK_PATH" "$RUNNER_TEMP/app-github-release-aligned.apk"
+          "$apksigner" sign \
+            --ks "$RUNNER_TEMP/mathcrossword-signing.keystore" \
+            --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:STORE_PASSWORD \
+            --key-pass env:KEY_PASSWORD \
+            --out "$RUNNER_TEMP/app-github-release-signed.apk" \
+            "$RUNNER_TEMP/app-github-release-aligned.apk"
+          mv "$RUNNER_TEMP/app-github-release-signed.apk" "$APK_PATH"
+          "$zipalign" -c -p 4 "$APK_PATH"
 
       - name: Verify persistent APK signature
         env:
@@ -121,15 +138,12 @@ jobs:
           test -n "$actual_digest"
           test "$actual_digest" = "$expected_digest"
 
-      - name: Prepare release APK
+      - name: Prepare stable release asset
         id: apk
         env:
           APK_PATH: ${{ steps.unsigned.outputs.path }}
         shell: bash
         run: |
-          # Keep the release asset name stable so non-technical testers can use one
-          # permanent direct-download URL:
-          # /releases/latest/download/MathCrossword.apk
           apk_name="MathCrossword.apk"
           cp "$APK_PATH" "$apk_name"
           echo "name=$apk_name" >> "$GITHUB_OUTPUT"
@@ -145,18 +159,21 @@ jobs:
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG_NAME: v${{ steps.version.outputs.name }}-debug.${{ github.run_number }}
+          TAG_NAME: v${{ steps.version.outputs.name }}-github.${{ github.run_number }}
           APK_NAME: ${{ steps.apk.outputs.name }}
         shell: bash
         run: |
           gh release create "$TAG_NAME" "$APK_NAME#MathCrossword Android APK" \
             --repo "$GITHUB_REPOSITORY" \
-            --title "MathCrossword v${{ steps.version.outputs.name }} debug build ${{ github.run_number }}" \
-            --notes "GitHub distribution for version ${{ steps.version.outputs.name }} (version code ${{ steps.version.outputs.code }}). Self-update is enabled only in this distribution. Deterministic reliability smoke gate passed."
+            --title "MathCrossword v${{ steps.version.outputs.name }}" \
+            --notes "Direct Android distribution for version ${{ steps.version.outputs.name }} (version code ${{ steps.version.outputs.code }}). Non-debug APK, persistently signed for in-place GitHub updates. Self-update is enabled only in this distribution. Deterministic reliability smoke gate passed."
 
       - name: Remove temporary signing material
         if: always()
         shell: bash
         run: |
-          rm -f "$RUNNER_TEMP/mathcrossword-signing.keystore" "$RUNNER_TEMP/app-github-debug-signed.apk"
+          rm -f \
+            "$RUNNER_TEMP/mathcrossword-signing.keystore" \
+            "$RUNNER_TEMP/app-github-release-aligned.apk" \
+            "$RUNNER_TEMP/app-github-release-signed.apk"
           rm -rf "$RUNNER_TEMP/mathcrossword-reliability"

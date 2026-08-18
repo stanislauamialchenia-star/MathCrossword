@@ -20,50 +20,104 @@ final class SolutionLibrary {
 
     static final List<Entry> ENTRIES = Arrays.asList(
             new Entry(
-                    "1. Прямой вывод",
-                    "Одно уравнение уже содержит два известных числа. Это базовый ход, но на сложных уровнях он часто только открывает следующий слой.",
+                    UiText.tr("1. Direct deduction", "1. Прямой вывод", "1. Přímý závěr"),
+                    UiText.tr(
+                            "One equation already contains two known numbers. This is the basic move, but on harder levels it often only opens the next layer.",
+                            "Одно уравнение уже содержит два известных числа. Это базовый ход, но на сложных уровнях он часто только открывает следующий слой.",
+                            "Jedna rovnice už obsahuje dvě známá čísla. Je to základní tah, ale na těžších úrovních často jen otevře další vrstvu."),
                     "? + 7 = 19",
-                    "19 − 7 = 12 → в клетке 12. После этого проверь все уравнения, которые пересекают эту клетку."),
+                    UiText.tr(
+                            "19 − 7 = 12 → the cell is 12. Then check every equation that crosses this cell.",
+                            "19 − 7 = 12 → в клетке 12. После этого проверь все уравнения, которые пересекают эту клетку.",
+                            "19 − 7 = 12 → v políčku je 12. Potom zkontroluj všechny rovnice, které se v tomto políčku kříží.")),
             new Entry(
-                    "2. Пересечение ограничений",
-                    "Одна строка допускает несколько вариантов, но соседняя строка сужает их до одного.",
+                    UiText.tr("2. Intersecting constraints", "2. Пересечение ограничений", "2. Průnik omezení"),
+                    UiText.tr(
+                            "One row allows several options, but a neighboring row narrows them to one.",
+                            "Одна строка допускает несколько вариантов, но соседняя строка сужает их до одного.",
+                            "Jeden řádek připouští několik možností, ale sousední řádek je zúží na jedinou."),
                     "A + B = 24\nB × 3 = 21",
-                    "Из второй строки B = 7. Тогда A = 17. Главное — искать клетки, которые участвуют сразу в нескольких уравнениях."),
+                    UiText.tr(
+                            "From the second row B = 7. Then A = 17. Look for cells that participate in several equations at once.",
+                            "Из второй строки B = 7. Тогда A = 17. Главное — искать клетки, которые участвуют сразу в нескольких уравнениях.",
+                            "Z druhého řádku vyplývá B = 7. Potom A = 17. Hledej hlavně políčka, která současně patří do více rovnic.")),
             new Entry(
-                    "3. Кандидаты",
-                    "Если клетка пока не определяется, не угадывай. Запиши все допустимые значения и сокращай список по мере появления информации.",
-                    "Для A подходят {6, 9, 12}",
-                    "Сравни каждое значение со всеми уравнениями клетки. Если 12 делает одно из них невозможным — вычеркни 12, не подставляя его как окончательный ответ."),
+                    UiText.tr("3. Candidates", "3. Кандидаты", "3. Kandidáti"),
+                    UiText.tr(
+                            "If a cell cannot be determined yet, do not guess. Write down all valid values and shrink the list as new information appears.",
+                            "Если клетка пока не определяется, не угадывай. Запиши все допустимые значения и сокращай список по мере появления информации.",
+                            "Pokud zatím nelze políčko určit, nehádej. Zapiš všechny možné hodnoty a seznam zkracuj s přibývajícími informacemi."),
+                    UiText.tr("A can be {6, 9, 12}", "Для A подходят {6, 9, 12}", "Pro A připadají v úvahu {6, 9, 12}"),
+                    UiText.tr(
+                            "Compare each value with every equation touching the cell. If 12 makes one equation impossible, remove 12 without placing it as a final answer.",
+                            "Сравни каждое значение со всеми уравнениями клетки. Если 12 делает одно из них невозможным — вычеркни 12, не подставляя его как окончательный ответ.",
+                            "Porovnej každou hodnotu se všemi rovnicemi daného políčka. Pokud 12 udělá některou rovnici nemožnou, vyřaď 12 bez toho, abys ji vložil jako konečnou odpověď.")),
             new Entry(
-                    "4. Цепочка",
-                    "Иногда важен не самый трудный расчёт, а правильная точка входа. Один вывод открывает следующий, тот — ещё один.",
+                    UiText.tr("4. Chain", "4. Цепочка", "4. Řetězec"),
+                    UiText.tr(
+                            "Sometimes the important part is not the hardest calculation but the right entry point. One deduction opens the next, then another.",
+                            "Иногда важен не самый трудный расчёт, а правильная точка входа. Один вывод открывает следующий, тот — ещё один.",
+                            "Někdy není nejdůležitější nejtěžší výpočet, ale správný vstupní bod. Jeden závěr otevře další a ten zase další."),
                     "A → B → C → D",
-                    "Найди клетку с наименьшим числом кандидатов. Реши её, затем сразу пересмотри связанные клетки. Не пересчитывай всё поле с нуля."),
+                    UiText.tr(
+                            "Find the cell with the fewest candidates. Resolve it, then immediately revisit connected cells. Do not recalculate the whole board from scratch.",
+                            "Найди клетку с наименьшим числом кандидатов. Реши её, затем сразу пересмотри связанные клетки. Не пересчитывай всё поле с нуля.",
+                            "Najdi políčko s nejmenším počtem kandidátů. Vyřeš ho a hned znovu projdi propojená políčka. Nepočítej celé pole znovu od začátku.")),
             new Entry(
-                    "5. Гипотеза и противоречие",
-                    "Когда два варианта остаются равноправными, временно допустимо проверить один из них. Это не слепое угадывание: ветка должна приводить к проверяемым последствиям.",
-                    "A ∈ {6, 9}. Допустим A = 6…",
-                    "Проведи несколько обязательных следствий. Если получаешь деление с остатком, отрицательный результат или отсутствие плитки — ветка невозможна, значит A = 9."),
+                    UiText.tr("5. Hypothesis and contradiction", "5. Гипотеза и противоречие", "5. Hypotéza a rozpor"),
+                    UiText.tr(
+                            "When two options remain equally plausible, test one temporarily. This is not blind guessing: the branch must produce consequences you can verify.",
+                            "Когда два варианта остаются равноправными, временно допустимо проверить один из них. Это не слепое угадывание: ветка должна приводить к проверяемым последствиям.",
+                            "Když zůstanou dvě stejně pravděpodobné možnosti, jednu dočasně otestuj. Není to slepé hádání: větev musí vést k ověřitelným důsledkům."),
+                    UiText.tr("A ∈ {6, 9}. Assume A = 6…", "A ∈ {6, 9}. Допустим A = 6…", "A ∈ {6, 9}. Předpokládej A = 6…"),
+                    UiText.tr(
+                            "Follow several forced consequences. If you get a non-integer division, an impossible negative result or a missing tile, the branch is impossible, so A = 9.",
+                            "Проведи несколько обязательных следствий. Если получаешь деление с остатком, отрицательный результат или отсутствие плитки — ветка невозможна, значит A = 9.",
+                            "Proveď několik nutných důsledků. Pokud dostaneš dělení se zbytkem, nemožný záporný výsledek nebo chybějící dílek, větev je nemožná, takže A = 9.")),
             new Entry(
-                    "6. Сеть и цикл",
-                    "В сетевой задаче нет одной главной строки. Ограничение может пройти по нескольким уравнениям и вернуться к исходной области с новой информацией.",
+                    UiText.tr("6. Network and cycle", "6. Сеть и цикл", "6. Síť a cyklus"),
+                    UiText.tr(
+                            "A network puzzle has no single main row. A constraint can travel through several equations and return to the starting area with new information.",
+                            "В сетевой задаче нет одной главной строки. Ограничение может пройти по нескольким уравнениям и вернуться к исходной области с новой информацией.",
+                            "V síťové úloze není jeden hlavní řádek. Omezení může projít několika rovnicemi a vrátit se do výchozí oblasti s novou informací."),
                     "A — B — C\n|       |\nD — E — F",
-                    "Не пытайся закончить одну строку любой ценой. Отмечай кандидатов в нескольких узлах и ищи, где два независимых пути ограничивают одну и ту же клетку."),
+                    UiText.tr(
+                            "Do not force one row to completion. Track candidates at several nodes and look for places where two independent paths constrain the same cell.",
+                            "Не пытайся закончить одну строку любой ценой. Отмечай кандидатов в нескольких узлах и ищи, где два независимых пути ограничивают одну и ту же клетку.",
+                            "Nesnaž se za každou cenu dokončit jeden řádek. Sleduj kandidáty v několika uzlech a hledej místo, kde dvě nezávislé cesty omezují stejné políčko.")),
             new Entry(
-                    "7. Диагональная связь",
-                    "Диагональное уравнение — такая же полноценная связь, как горизонтальная или вертикальная. Оно часто соединяет области поля, которые визуально кажутся независимыми.",
+                    UiText.tr("7. Diagonal connection", "7. Диагональная связь", "7. Diagonální vazba"),
+                    UiText.tr(
+                            "A diagonal equation is a full constraint just like a horizontal or vertical one. It often connects areas that look independent.",
+                            "Диагональное уравнение — такая же полноценная связь, как горизонтальная или вертикальная. Оно часто соединяет области поля, которые визуально кажутся независимыми.",
+                            "Diagonální rovnice je plnohodnotné omezení stejně jako vodorovná nebo svislá. Často propojuje oblasti, které vypadají nezávisle."),
                     "A  ·  ·\n · B ·\n  ·  · C",
-                    "Сначала проследи всю диагональ от первого числа до результата. Затем проверь, какие её числовые клетки одновременно принадлежат другим уравнениям. На сложных сетях диагональ часто является мостом или замыкает цикл."),
+                    UiText.tr(
+                            "Trace the whole diagonal from the first number to the result. Then check which number cells also belong to other equations. On harder networks the diagonal is often a bridge or closes a cycle.",
+                            "Сначала проследи всю диагональ от первого числа до результата. Затем проверь, какие её числовые клетки одновременно принадлежат другим уравнениям. На сложных сетях диагональ часто является мостом или замыкает цикл.",
+                            "Nejprve projdi celou diagonálu od prvního čísla k výsledku. Potom zkontroluj, která číselná políčka zároveň patří do jiných rovnic. V těžších sítích diagonála často tvoří most nebo uzavírá cyklus.")),
             new Entry(
-                    "8. Обратные операции и степени",
-                    "Сложное выражение часто проще решать назад от результата.",
+                    UiText.tr("8. Reverse operations and powers", "8. Обратные операции и степени", "8. Obrácené operace a mocniny"),
+                    UiText.tr(
+                            "A complicated expression is often easier to solve backwards from the result.",
+                            "Сложное выражение часто проще решать назад от результата.",
+                            "Složitější výraz se často řeší snáz pozpátku od výsledku."),
                     "?³ = 125",
-                    "Ищи число, куб которого равен 125: 5³ = 125. Аналогично для деления: если ? ÷ 6 = 12, то ? = 72."),
+                    UiText.tr(
+                            "Find the number whose cube is 125: 5³ = 125. Likewise for division: if ? ÷ 6 = 12, then ? = 72.",
+                            "Ищи число, куб которого равен 125: 5³ = 125. Аналогично для деления: если ? ÷ 6 = 12, то ? = 72.",
+                            "Najdi číslo, jehož třetí mocnina je 125: 5³ = 125. Stejně u dělení: pokud ? ÷ 6 = 12, pak ? = 72.")),
             new Entry(
-                    "9. Если застрял",
-                    "Цель — не научиться обходить трение перебором, а понять, какой информации тебе не хватает.",
-                    "Поле стоит уже несколько минут",
-                    "1) останови перебор; 2) отметь кандидатов; 3) найди клетки с двумя и более уравнениями; 4) проверь, есть ли короткая цепочка; 5) если нет — выбери одну гипотезу и ищи конкретное противоречие. Если ни один способ не двигает задачу, возможно, препятствие — новая стратегия решения, а не нехватка внимания."));
+                    UiText.tr("9. When you are stuck", "9. Если застрял", "9. Když se zasekneš"),
+                    UiText.tr(
+                            "The goal is not to push through friction by brute force, but to identify what information is missing.",
+                            "Цель — не научиться обходить трение перебором, а понять, какой информации тебе не хватает.",
+                            "Cílem není překonat tření hrubou silou, ale zjistit, jaká informace ti chybí."),
+                    UiText.tr("The board has not moved for several minutes", "Поле стоит уже несколько минут", "Pole se několik minut nehýbe"),
+                    UiText.tr(
+                            "1) stop brute force; 2) mark candidates; 3) find cells shared by two or more equations; 4) look for a short chain; 5) if none exists, choose one hypothesis and seek a concrete contradiction. If none of these moves the puzzle, the obstacle may be a new solving structure rather than lack of attention.",
+                            "1) останови перебор; 2) отметь кандидатов; 3) найди клетки с двумя и более уравнениями; 4) проверь, есть ли короткая цепочка; 5) если нет — выбери одну гипотезу и ищи конкретное противоречие. Если ни один способ не двигает задачу, возможно, препятствие — новая стратегия решения, а не нехватка внимания.",
+                            "1) zastav hrubý pokus-omyl; 2) označ kandidáty; 3) najdi políčka sdílená dvěma nebo více rovnicemi; 4) hledej krátký řetězec; 5) pokud není, zvol jednu hypotézu a hledej konkrétní rozpor. Pokud nic z toho úlohu neposune, překážkou může být nový typ řešení, ne nedostatek pozornosti.")));
 
     private SolutionLibrary() { }
 }

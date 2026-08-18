@@ -300,95 +300,95 @@ final class SessionTracker {
 
         String mode = row.optString("mode", "");
         int level = row.optInt("level", 0);
-        String where = mode.startsWith("PATH") && level > 0 ? ("уровень " + level) : "свободная игра";
+        String where = mode.startsWith("PATH") && level > 0 ? (UiText.tr("level ", "уровень ", "úroveň ") + level) : UiText.tr("free play", "свободная игра", "volná hra");
         String strategyName = row.optString("strategy", SolutionStrategy.MIXED.name());
         String strategy = strategyName;
         try { strategy = SolutionStrategy.valueOf(strategyName).label; }
         catch (RuntimeException ignored) { }
 
         out.append(where).append(" · ").append(strategy)
-                .append(" · ").append(row.optBoolean("solved", false) ? "решено" : "не завершено")
-                .append("\nАктивное время: ").append(reportTime(row.optLong("activeMs", 0L)))
-                .append(" · событий: ").append(row.optInt("eventCount", 0));
+                .append(" · ").append(row.optBoolean("solved", false) ? UiText.tr("solved", "решено", "vyřešeno") : UiText.tr("unfinished", "не завершено", "nedokončeno"))
+                .append(UiText.tr("\nActive time: ", "\nАктивное время: ", "\nAktivní čas: ")).append(reportTime(row.optLong("activeMs", 0L)))
+                .append(UiText.tr(" · events: ", " · событий: ", " · událostí: ")).append(row.optInt("eventCount", 0));
         if (row.has("graphNodes")) {
-            out.append("\nГраф: μ=").append(row.optInt("graphCycleRank", 0))
-                    .append(" · мосты ").append(row.optInt("graphBridges", 0))
-                    .append(" · точки сочленения ").append(row.optInt("graphArticulationPoints", 0))
-                    .append(" · скрытые узлы-сочленения ").append(row.optInt("graphHiddenArticulations", 0))
-                    .append(" · ветвления ").append(row.optInt("graphBranchNodes", 0))
-                    .append(" · диаметр ").append(row.optInt("graphDiameter", 0));
+            out.append(UiText.tr("\nGraph: μ=", "\nГраф: μ=", "\nGraf: μ=")).append(row.optInt("graphCycleRank", 0))
+                    .append(UiText.tr(" · bridges ", " · мосты ", " · mosty ")).append(row.optInt("graphBridges", 0))
+                    .append(UiText.tr(" · articulation points ", " · точки сочленения ", " · artikulační body ")).append(row.optInt("graphArticulationPoints", 0))
+                    .append(UiText.tr(" · hidden articulations ", " · скрытые узлы-сочленения ", " · skryté artikulace ")).append(row.optInt("graphHiddenArticulations", 0))
+                    .append(UiText.tr(" · branch nodes ", " · ветвления ", " · větvení ")).append(row.optInt("graphBranchNodes", 0))
+                    .append(UiText.tr(" · diameter ", " · диаметр ", " · průměr ")).append(row.optInt("graphDiameter", 0));
         }
 
-        out.append("\n\nСигналы прохождения")
-                .append("\nПаузы: продуктивные ").append(row.optInt("productivePauses", 0))
-                .append(" · тупиковые ").append(row.optInt("deadEndPauses", 0))
-                .append("\nПроверки гипотез: ").append(row.optInt("hypothesisEpisodes", 0))
-                .append(" · быстрые каскады: ").append(row.optInt("rapidCascades", 0));
+        out.append(UiText.tr("\n\nPlay signals", "\n\nСигналы прохождения", "\n\nSignály průchodu"))
+                .append(UiText.tr("\nPauses: productive ", "\nПаузы: продуктивные ", "\nPauzy: produktivní ")).append(row.optInt("productivePauses", 0))
+                .append(UiText.tr(" · dead-end ", " · тупиковые ", " · slepé ")).append(row.optInt("deadEndPauses", 0))
+                .append(UiText.tr("\nHypothesis checks: ", "\nПроверки гипотез: ", "\nOvěření hypotéz: ")).append(row.optInt("hypothesisEpisodes", 0))
+                .append(UiText.tr(" · rapid cascades: ", " · быстрые каскады: ", " · rychlé kaskády: ")).append(row.optInt("rapidCascades", 0));
 
         int commitments = row.optInt("candidateCommitments", 0);
         if (commitments > 0) {
-            out.append("\nКандидат → решение: ").append(commitments)
-                    .append(" · в среднем ").append(reportTime(row.optLong("avgCandidateCommitmentMs", 0L)));
+            out.append(UiText.tr("\nCandidate → decision: ", "\nКандидат → решение: ", "\nKandidát → rozhodnutí: ")).append(commitments)
+                    .append(UiText.tr(" · average ", " · в среднем ", " · průměr ")).append(reportTime(row.optLong("avgCandidateCommitmentMs", 0L)));
         }
         int recoveries = row.optInt("recoveryEpisodes", 0);
         if (recoveries > 0) {
-            out.append("\nВосстановления после отмены/ошибки/намёка: ").append(recoveries)
-                    .append(" · в среднем ")
+            out.append(UiText.tr("\nRecoveries after undo/error/hint: ", "\nВосстановления после отмены/ошибки/намёка: ", "\nObnovení po zpět/chybě/nápovědě: ")).append(recoveries)
+                    .append(UiText.tr(" · average ", " · в среднем ", " · průměr "))
                     .append(String.format(java.util.Locale.US, "%.1f", row.optDouble("avgRecoveryActions", 0.0)))
-                    .append(" действия");
+                    .append(UiText.tr(" actions", " действия", " akcí"));
         }
         int switches = row.optInt("candidateCellSwitches", 0);
         int revisits = row.optInt("candidateCellRevisits", 0);
         if (switches > 0 || revisits > 0) {
-            out.append("\nКандидаты: переходов между клетками ").append(switches)
-                    .append(" · возвратов ").append(revisits)
-                    .append(" · максимум в клетке ").append(row.optInt("maxCandidatesInOneCell", 0));
+            out.append(UiText.tr("\nCandidates: cell switches ", "\nКандидаты: переходов между клетками ", "\nKandidáti: přechody mezi buňkami ")).append(switches)
+                    .append(UiText.tr(" · revisits ", " · возвратов ", " · návratů ")).append(revisits)
+                    .append(UiText.tr(" · max in one cell ", " · максимум в клетке ", " · maximum v buňce ")).append(row.optInt("maxCandidatesInOneCell", 0));
         }
 
         JSONObject routeComparison = row.optJSONObject("routeComparison");
         if (routeComparison != null && routeComparison.optBoolean("available", false)) {
-            out.append("\n\nМаршрут HumanSolver ↔ прохождение")
-                    .append("\nСогласование: ")
+            out.append(UiText.tr("\n\nHumanSolver route ↔ play", "\n\nМаршрут HumanSolver ↔ прохождение", "\n\nTrasa HumanSolver ↔ průchod"))
+                    .append(UiText.tr("\nAgreement: ", "\nСогласование: ", "\nShoda: "))
                     .append(String.format(java.util.Locale.US, "%.0f%%", routeComparison.optDouble("agreementPct", 0.0)))
-                    .append(" · начало ")
+                    .append(UiText.tr(" · opening ", " · начало ", " · začátek "))
                     .append(String.format(java.util.Locale.US, "%.0f%%", routeComparison.optDouble("earlyAgreementPct", 0.0)))
-                    .append(" · порядок ")
+                    .append(UiText.tr(" · order ", " · порядок ", " · pořadí "))
                     .append(String.format(java.util.Locale.US, "%.0f%%", routeComparison.optDouble("orderAgreementPct", 0.0)));
             double probePct = routeComparison.optDouble("probeReachedEarlyPct", -1.0);
-            if (probePct >= 0.0) out.append(" · pivot вовремя ")
+            if (probePct >= 0.0) out.append(UiText.tr(" · pivot reached early ", " · pivot вовремя ", " · pivot dosažen včas "))
                     .append(String.format(java.util.Locale.US, "%.0f%%", probePct));
-            out.append("\nМодель: ").append(HumanRouteComparator.describeModel(row.optJSONArray("modelRoute"), 10));
-            out.append("\nПрохождение: ").append(HumanRouteComparator.describeActual(routeComparison, 14));
+            out.append(UiText.tr("\nModel: ", "\nМодель: ", "\nModel: ")).append(HumanRouteComparator.describeModel(row.optJSONArray("modelRoute"), 10));
+            out.append(UiText.tr("\nPlay: ", "\nПрохождение: ", "\nPrůchod: ")).append(HumanRouteComparator.describeActual(routeComparison, 14));
         }
 
-        out.append("\n\nСигналы для проверки модели");
+        out.append(UiText.tr("\n\nSignals for model review", "\n\nСигналы для проверки модели", "\n\nSignály pro kontrolu modelu"));
         boolean signal = false;
         int hidden = Math.max(0, row.optInt("hidden", 0));
         int modelCascade = Math.max(0, row.optInt("maxForcedCascade", 0));
         double cascadeFraction = hidden == 0 ? 0.0 : modelCascade / (double) hidden;
         int rapid = row.optInt("rapidCascades", 0);
         if (cascadeFraction < 0.35 && rapid > 0) {
-            out.append("\n• Прохождение ускорилось сильнее, чем ожидала модель каскада — проверить альтернативный путь решения.");
+            out.append(UiText.tr("\n• Play accelerated more than the cascade model expected — inspect an alternative solve path.", "\n• Прохождение ускорилось сильнее, чем ожидала модель каскада — проверить альтернативный путь решения.", "\n• Průchod zrychlil více, než očekával model kaskády — prověř alternativní cestu řešení."));
             signal = true;
         } else if (cascadeFraction >= 0.55 && rapid == 0 && row.optBoolean("solved", false)) {
-            out.append("\n• Модель ожидала сильный каскад, но в реальном прохождении ускорения не видно — проверить оценку forced-cascade.");
+            out.append(UiText.tr("\n• The model expected a strong cascade, but real play did not accelerate — review the forced-cascade estimate.", "\n• Модель ожидала сильный каскад, но в реальном прохождении ускорения не видно — проверить оценку forced-cascade.", "\n• Model očekával silnou kaskádu, ale skutečný průchod nezrychlil — zkontroluj odhad forced-cascade."));
             signal = true;
         } else if (cascadeFraction >= 0.55 && rapid > 0) {
-            out.append("\n• Модель и прохождение согласуются: после ключевого шага возник быстрый каскад.");
+            out.append(UiText.tr("\n• Model and play agree: a rapid cascade followed the key step.", "\n• Модель и прохождение согласуются: после ключевого шага возник быстрый каскад.", "\n• Model a průchod souhlasí: po klíčovém kroku vznikla rychlá kaskáda."));
             signal = true;
         }
 
         int hypotheses = row.optInt("hypothesisEpisodes", 0);
         int goodPivots = row.optInt("branchGoodPivotCount", 0);
         if (hypotheses > 0 && goodPivots == 0) {
-            out.append("\n• Игрок проверял гипотезы, хотя генератор не отметил сильных pivot-точек — возможная слепая зона BranchQualityAnalyzer.");
+            out.append(UiText.tr("\n• The player tested hypotheses although the generator marked no strong pivots — possible BranchQualityAnalyzer blind spot.", "\n• Игрок проверял гипотезы, хотя генератор не отметил сильных pivot-точек — возможная слепая зона BranchQualityAnalyzer.", "\n• Hráč ověřoval hypotézy, přestože generátor neoznačil silné pivoty — možná slepá skvrna BranchQualityAnalyzer."));
             signal = true;
         } else if (row.optBoolean("solved", false) && hypotheses == 0 && goodPivots > 0) {
-            out.append("\n• Генератор ожидал точки гипотезы, но задача решилась без зафиксированной проверки гипотез — возможен другой маршрут.");
+            out.append(UiText.tr("\n• The generator expected hypothesis pivots, but the puzzle was solved without a recorded hypothesis check — another route may exist.", "\n• Генератор ожидал точки гипотезы, но задача решилась без зафиксированной проверки гипотез — возможен другой маршрут.", "\n• Generátor očekával body hypotézy, ale hlavolam byl vyřešen bez zaznamenaného ověření hypotézy — může existovat jiná cesta."));
             signal = true;
         }
         if (revisits >= 3) {
-            out.append("\n• Частые возвраты к уже исследованным клеткам — проверить, это содержательный узел задачи или визуальная/интерфейсная неоднозначность.");
+            out.append(UiText.tr("\n• Frequent returns to explored cells — check whether this is a meaningful puzzle hub or a visual/interface ambiguity.", "\n• Частые возвраты к уже исследованным клеткам — проверить, это содержательный узел задачи или визуальная/интерфейсная неоднозначность.", "\n• Časté návraty k již prozkoumaným buňkám — ověř, zda jde o důležitý uzel hlavolamu, nebo vizuální/interface nejasnost."));
             signal = true;
         }
         if (routeComparison != null && routeComparison.optBoolean("available", false)) {
@@ -396,29 +396,29 @@ final class SessionTracker {
             int firstModelStep = routeComparison.optInt("firstModelStep", -1);
             boolean routeSolved = row.optBoolean("solved", false);
             if (routeSolved && routeComparison.optBoolean("strongDivergence", false)) {
-                out.append("\n• Задача решена по порядку, слабо похожему на маршрут HumanSolver — сильный кандидат на альтернативный путь решения.");
+                out.append(UiText.tr("\n• The puzzle was solved in an order unlike the HumanSolver route — strong candidate for an alternative solve path.", "\n• Задача решена по порядку, слабо похожему на маршрут HumanSolver — сильный кандидат на альтернативный путь решения.", "\n• Hlavolam byl vyřešen v pořadí málo podobném trase HumanSolver — silný kandidát na alternativní cestu řešení."));
                 signal = true;
             }
             if (routeComparison.optBoolean("alternateEntry", false)) {
-                out.append("\n• Первые содержательные действия вошли в задачу не через ранние шаги HumanSolver")
-                        .append(firstModelStep >= 0 ? (" (первое совпадение: шаг модели " + (firstModelStep + 1) + ").") : ".");
+                out.append(UiText.tr("\n• The first meaningful actions entered the puzzle outside HumanSolver's early steps", "\n• Первые содержательные действия вошли в задачу не через ранние шаги HumanSolver", "\n• První smysluplné akce vstoupily do hlavolamu mimo rané kroky HumanSolver"))
+                        .append(firstModelStep >= 0 ? (UiText.tr(" (first match: model step ", " (первое совпадение: шаг модели ", " (první shoda: krok modelu ") + (firstModelStep + 1) + ").") : ".");
                 signal = true;
             }
             if (routeComparison.optBoolean("alternateOrder", false) && routeAgreement >= 45.0) {
-                out.append("\n• Игрок использовал знакомые модели узлы, но в заметно другом порядке — проверить независимые фронты и порядок дедукций.");
+                out.append(UiText.tr("\n• The player used familiar model nodes in a notably different order — inspect independent fronts and deduction order.", "\n• Игрок использовал знакомые модели узлы, но в заметно другом порядке — проверить независимые фронты и порядок дедукций.", "\n• Hráč použil známé uzly modelu v výrazně jiném pořadí — prověř nezávislé fronty a pořadí dedukcí."));
                 signal = true;
             }
             if (routeAgreement >= 78.0 && !routeComparison.optBoolean("alternateEntry", false)) {
-                out.append("\n• Порядок прохождения хорошо согласуется с текущим маршрутом HumanSolver.");
+                out.append(UiText.tr("\n• Play order agrees well with the current HumanSolver route.", "\n• Порядок прохождения хорошо согласуется с текущим маршрутом HumanSolver.", "\n• Pořadí průchodu dobře odpovídá současné trase HumanSolver."));
                 signal = true;
             }
         }
-        if (!signal) out.append("\n• Явного расхождения между текущими структурными и поведенческими сигналами не найдено.");
+        if (!signal) out.append(UiText.tr("\n• No clear mismatch between current structural and behavioral signals was found.", "\n• Явного расхождения между текущими структурными и поведенческими сигналами не найдено.", "\n• Nebyl nalezen jasný rozpor mezi současnými strukturálními a behaviorálními signály."));
 
         JSONArray moves = row.optJSONArray("semanticMoves");
-        out.append("\n\nХод решения");
+        out.append(UiText.tr("\n\nSolve trace", "\n\nХод решения", "\n\nPrůběh řešení"));
         if (moves == null || moves.length() == 0) {
-            out.append("\nНет семантических ходов в этой сессии.");
+            out.append(UiText.tr("\nNo semantic moves in this session.", "\nНет семантических ходов в этой сессии.", "\nV této relaci nejsou žádné sémantické tahy."));
         } else {
             int limit = Math.min(120, moves.length());
             for (int i = 0; i < limit; i++) {
@@ -429,9 +429,9 @@ final class SessionTracker {
                         .append("[").append(reportTime(m.optLong("tMs", 0L))).append("] ")
                         .append(m.optString("notation", m.optString("type", "")));
             }
-            if (moves.length() > limit) out.append("\n… ещё ").append(moves.length() - limit).append(" ходов");
+            if (moves.length() > limit) out.append(UiText.tr("\n… ", "\n… ещё ", "\n… ještě ")).append(moves.length() - limit).append(UiText.tr(" more moves", " ходов", " tahů"));
         }
-        out.append("\n\nЭто след взаимодействия с задачей, а не буквальная запись мыслей человека.");
+        out.append(UiText.tr("\n\nThis is a trace of interaction with the puzzle, not a literal record of a person's thoughts.", "\n\nЭто след взаимодействия с задачей, а не буквальная запись мыслей человека.", "\n\nToto je stopa interakce s hlavolamem, nikoli doslovný záznam myšlenek člověka."));
         return out.toString();
     }
 

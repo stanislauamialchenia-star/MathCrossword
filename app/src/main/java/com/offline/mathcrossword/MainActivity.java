@@ -167,7 +167,7 @@ public class MainActivity extends Activity {
         final RectF homePrivacyRect = new RectF();
         final RectF analysisLastTraceRect = new RectF();
         final RectF analysisExportRect = new RectF();
-        String updateStatus = "обновление не проверено";
+        String updateStatus = UiText.tr("update not checked", "обновление не проверено", "aktualizace nezkontrolována");
         boolean updateChecking = false;
         final RectF topHomeRect = new RectF();
         final RectF resetRect = new RectF();
@@ -273,7 +273,7 @@ public class MainActivity extends Activity {
                     if (token != generationToken) return;
                     generating = false;
                     if (result == null) {
-                        Toast.makeText(getContext(), "Не удалось собрать уровень — попробуй ещё раз", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getContext(), UiText.tr("Could not build this level — try again", "Не удалось собрать уровень — попробуй ещё раз", "Úroveň se nepodařilo vytvořit — zkus to znovu"), Toast.LENGTH_SHORT).show();
                         invalidate();
                         return;
                     }
@@ -382,7 +382,7 @@ public class MainActivity extends Activity {
                     if (token != generationToken) return;
                     generating = false;
                     if (result == null) {
-                        Toast.makeText(getContext(), "Не нашёл достаточно сильную головоломку — нажми ещё раз", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getContext(), UiText.tr("Could not find a strong enough puzzle — try again", "Не нашёл достаточно сильную головоломку — нажми ещё раз", "Nepodařilo se najít dostatečně silný hlavolam — zkus to znovu"), Toast.LENGTH_SHORT).show();
                         invalidate();
                         return;
                     }
@@ -459,9 +459,9 @@ public class MainActivity extends Activity {
             paint.setTextAlign(Paint.Align.CENTER);
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             paint.setTextSize(dp(29));
-            c.drawText("Математический", w / 2f, y, paint);
+            c.drawText(UiText.tr("Math", "Математический", "Matematická"), w / 2f, y, paint);
             paint.setTextSize(dp(27));
-            c.drawText("кроссворд", w / 2f, y + dp(34), paint);
+            c.drawText(UiText.tr("Crossword", "кроссворд", "křížovka"), w / 2f, y + dp(34), paint);
 
             // Keep the home screen quiet: product/update metadata lives in a small footer,
             // not as another primary action competing with play.
@@ -475,11 +475,11 @@ public class MainActivity extends Activity {
             homeLibraryRect.set(side, homeFreeRect.bottom + gap, w - side, homeFreeRect.bottom + gap + buttonH);
             homeAnalysisRect.set(side, homeLibraryRect.bottom + gap, w - side, homeLibraryRect.bottom + gap + buttonH);
 
-            drawBigButton(c, homeContinueRect, generating ? "Генерирую уровень " + progressLevel + "…" : "Продолжить — уровень " + progressLevel, true);
-            drawBigButton(c, homeLevelsRect, "Выбрать уровень", false);
-            drawBigButton(c, homeFreeRect, "Свободная игра", false);
-            drawBigButton(c, homeLibraryRect, "Библиотека решений", false);
-            drawBigButton(c, homeAnalysisRect, "Анализ прохождений", false);
+            drawBigButton(c, homeContinueRect, generating ? UiText.tr("Generating level ", "Генерирую уровень ", "Generuji úroveň ") + progressLevel + "…" : UiText.tr("Continue — level ", "Продолжить — уровень ", "Pokračovat — úroveň ") + progressLevel, true);
+            drawBigButton(c, homeLevelsRect, UiText.tr("Choose level", "Выбрать уровень", "Vybrat úroveň"), false);
+            drawBigButton(c, homeFreeRect, UiText.tr("Free Play", "Свободная игра", "Volná hra"), false);
+            drawBigButton(c, homeLibraryRect, UiText.tr("Solution Library", "Библиотека решений", "Knihovna řešení"), false);
+            drawBigButton(c, homeAnalysisRect, UiText.tr("Play Analysis", "Анализ прохождений", "Analýza průchodů"), false);
 
             float footerY = h - bottomInset - dp(34);
             float footerCenterX = w / 2f;
@@ -505,18 +505,18 @@ public class MainActivity extends Activity {
             paint.setTextSize(dp(11.2f));
             paint.setTextAlign(Paint.Align.CENTER);
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
-            c.drawText("Конфиденциальность", footerCenterX, footerY - dp(31), paint);
+            c.drawText(UiText.tr("Privacy", "Конфиденциальность", "Soukromí"), footerCenterX, footerY - dp(31), paint);
 
             paint.setColor(Color.rgb(108, 119, 110));
             paint.setTextSize(dp(11.8f));
             paint.setTextAlign(Paint.Align.CENTER);
             String versionLine = "v" + installedVersionName() + " (" + installedVersionCode() + ") · "
-                    + DistributionConfig.channelLabel() + " · офлайн · без рекламы";
-            if (DistributionConfig.selfUpdateEnabled() && !"обновление не проверено".equals(updateStatus))
+                    + DistributionConfig.channelLabel() + UiText.tr(" · offline · no ads", " · офлайн · без рекламы", " · offline · bez reklam");
+            if (DistributionConfig.selfUpdateEnabled() && !UiText.tr("update not checked", "обновление не проверено", "aktualizace nezkontrolována").equals(updateStatus))
                 versionLine += " · " + updateStatus;
             c.drawText(versionLine, footerCenterX, footerY - dp(7), paint);
             paint.setTextSize(dp(10.8f));
-            c.drawText("данные и история решения хранятся локально", footerCenterX, footerY + dp(11), paint);
+            c.drawText(UiText.tr("data and solve history stay on this device", "данные и история решения хранятся локально", "data a historie řešení zůstávají v zařízení"), footerCenterX, footerY + dp(11), paint);
         }
 
         void drawLevels(Canvas c) {
@@ -535,12 +535,12 @@ public class MainActivity extends Activity {
             paint.setTextAlign(Paint.Align.CENTER);
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             paint.setTextSize(dp(22));
-            c.drawText("Уровни " + first + "–" + last, w / 2f, top + dp(32), paint);
+            c.drawText(UiText.tr("Levels ", "Уровни ", "Úrovně ") + first + "–" + last, w / 2f, top + dp(32), paint);
 
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
             paint.setTextSize(dp(12.5f));
             paint.setColor(Color.rgb(95, 106, 97));
-            c.drawText("Прогресс: уровень " + progressLevel + " · переигрывание прогресс не сбрасывает",
+            c.drawText(UiText.tr("Progress: level ", "Прогресс: уровень ", "Postup: úroveň ") + progressLevel + UiText.tr(" · replay does not reset progress", " · переигрывание прогресс не сбрасывает", " · opakování nesmaže postup"),
                     w / 2f, top + dp(57), paint);
 
             float side = dp(18);
@@ -576,7 +576,7 @@ public class MainActivity extends Activity {
             levelsPrevPageRect.set(side, navTop, w / 2f - dp(6), navTop + dp(46));
             levelsNextPageRect.set(w / 2f + dp(6), navTop, w - side, navTop + dp(46));
             drawBigButton(c, levelsPrevPageRect, levelPage > 0 ? "← 100" : "—", false);
-            drawBigButton(c, levelsNextPageRect, levelPage < maxPage ? "+100 →" : "Следующие закрыты", false);
+            drawBigButton(c, levelsNextPageRect, levelPage < maxPage ? "+100 →" : UiText.tr("Next locked", "Следующие закрыты", "Další uzamčeny"), false);
         }
 
         int maxUnlockedLevelPage() {
@@ -594,7 +594,7 @@ public class MainActivity extends Activity {
             paint.setTextAlign(Paint.Align.CENTER);
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             paint.setTextSize(dp(23));
-            c.drawText("Библиотека решений", w / 2f, top + dp(33), paint);
+            c.drawText(UiText.tr("Solution Library", "Библиотека решений", "Knihovna řešení"), w / 2f, top + dp(33), paint);
 
             SolutionLibrary.Entry entry = SolutionLibrary.ENTRIES.get(libraryEntryIndex);
             float side = dp(22);
@@ -613,7 +613,7 @@ public class MainActivity extends Activity {
             paint.setColor(ink);
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             paint.setTextSize(dp(16));
-            c.drawText("Пример", side, y + dp(22), paint);
+            c.drawText(UiText.tr("Example", "Пример", "Příklad"), side, y + dp(22), paint);
             paint.setTypeface(android.graphics.Typeface.MONOSPACE);
             paint.setTextSize(dp(14));
             paint.setColor(Color.rgb(35, 48, 38));
@@ -622,7 +622,7 @@ public class MainActivity extends Activity {
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             paint.setTextSize(dp(15.5f));
             paint.setColor(ink);
-            c.drawText("Как действовать", side, y + dp(23), paint);
+            c.drawText(UiText.tr("How to proceed", "Как действовать", "Jak postupovat"), side, y + dp(23), paint);
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
             paint.setTextSize(dp(14));
             paint.setColor(Color.rgb(75, 84, 76));
@@ -631,8 +631,8 @@ public class MainActivity extends Activity {
             float navTop = Math.min(getHeight() - bottomInset - dp(70), Math.max(y + dp(22), top + dp(610)));
             libraryPrevRect.set(side, navTop, w / 2f - dp(6), navTop + dp(50));
             libraryNextRect.set(w / 2f + dp(6), navTop, w - side, navTop + dp(50));
-            drawBigButton(c, libraryPrevRect, "← Предыдущий", false);
-            drawBigButton(c, libraryNextRect, "Следующий →", false);
+            drawBigButton(c, libraryPrevRect, UiText.tr("← Previous", "← Предыдущий", "← Předchozí"), false);
+            drawBigButton(c, libraryNextRect, UiText.tr("Next →", "Следующий →", "Další →"), false);
 
             paint.setTextAlign(Paint.Align.CENTER);
             paint.setTextSize(dp(12));
@@ -652,7 +652,7 @@ public class MainActivity extends Activity {
             paint.setTextAlign(Paint.Align.CENTER);
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             paint.setTextSize(dp(23));
-            c.drawText("Анализ прохождений", w / 2f, top + dp(33), paint);
+            c.drawText(UiText.tr("Play Analysis", "Анализ прохождений", "Analýza průchodů"), w / 2f, top + dp(33), paint);
 
             SessionTracker.AnalysisSnapshot a = tracker.analyze();
             float side = dp(23);
@@ -662,37 +662,37 @@ public class MainActivity extends Activity {
                 paint.setTypeface(android.graphics.Typeface.DEFAULT);
                 paint.setTextSize(dp(16));
                 paint.setColor(Color.rgb(75, 85, 77));
-                drawWrappedText(c, "Пока данных нет. Заверши или покинь несколько головоломок — здесь появится краткий итог. Таймер учитывает только активное время: сворачивание приложения не считается.",
+                drawWrappedText(c, UiText.tr("No data yet. Finish or leave a few puzzles and a short summary will appear here. The timer counts active play only; time with the app in the background is excluded.", "Пока данных нет. Заверши или покинь несколько головоломок — здесь появится краткий итог. Таймер учитывает только активное время: сворачивание приложения не считается.", "Zatím nejsou žádná data. Dokonči nebo opusť několik hlavolamů a objeví se zde stručný přehled. Časovač počítá jen aktivní hraní; čas na pozadí se nezapočítává."),
                         side, y, w - side * 2, dp(23));
                 return;
             }
 
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             paint.setTextSize(dp(17));
-            c.drawText("Краткий итог", side, y, paint);
+            c.drawText(UiText.tr("Summary", "Краткий итог", "Souhrn"), side, y, paint);
             y += dp(31);
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
             paint.setTextSize(dp(15));
             paint.setColor(Color.rgb(55, 67, 58));
-            c.drawText("Сессий: " + a.sessions + "   Решено: " + a.solved, side, y, paint); y += dp(24);
-            c.drawText("Среднее время решённой: " + formatDuration(a.avgSolvedMs), side, y, paint); y += dp(24);
-            c.drawText("Среднее событий: " + String.format(Locale.US, "%.1f", a.avgEvents), side, y, paint); y += dp(24);
-            c.drawText("До первого действия: " + formatDuration(a.avgFirstActionMs), side, y, paint); y += dp(24);
-            c.drawText("Средняя длинная пауза: " + formatDuration(a.avgLongestPauseMs), side, y, paint); y += dp(24);
-            c.drawText("Ходы: " + a.placements + "   Undo: " + a.undoCount + "   Кандидаты: " + a.candidateEdits, side, y, paint); y += dp(24);
-            c.drawText("Наводящие намёки: " + a.hintCount, side, y, paint); y += dp(24);
-            c.drawText("Паузы: продуктивные " + a.productivePauses + " · тупиковые " + a.deadEndPauses, side, y, paint); y += dp(24);
-            c.drawText("Сигналы проверки гипотез: " + a.hypothesisEpisodes, side, y, paint); y += dp(24);
-            c.drawText("Быстрые каскады действий: " + a.rapidCascades, side, y, paint); y += dp(24);
-            String candidateFlowLine = "Кандидаты: переходы между клетками " + a.candidateCellSwitches
-                    + " · возвраты " + a.candidateCellRevisits;
+            c.drawText(UiText.tr("Sessions: ", "Сессий: ", "Relací: ") + a.sessions + UiText.tr("   Solved: ", "   Решено: ", "   Vyřešeno: ") + a.solved, side, y, paint); y += dp(24);
+            c.drawText(UiText.tr("Average solved time: ", "Среднее время решённой: ", "Průměrný čas vyřešení: ") + formatDuration(a.avgSolvedMs), side, y, paint); y += dp(24);
+            c.drawText(UiText.tr("Average events: ", "Среднее событий: ", "Průměr událostí: ") + String.format(Locale.US, "%.1f", a.avgEvents), side, y, paint); y += dp(24);
+            c.drawText(UiText.tr("Time to first action: ", "До первого действия: ", "Do první akce: ") + formatDuration(a.avgFirstActionMs), side, y, paint); y += dp(24);
+            c.drawText(UiText.tr("Average long pause: ", "Средняя длинная пауза: ", "Průměrná dlouhá pauza: ") + formatDuration(a.avgLongestPauseMs), side, y, paint); y += dp(24);
+            c.drawText(UiText.tr("Moves: ", "Ходы: ", "Tahy: ") + a.placements + "   Undo: " + a.undoCount + UiText.tr("   Candidates: ", "   Кандидаты: ", "   Kandidáti: ") + a.candidateEdits, side, y, paint); y += dp(24);
+            c.drawText(UiText.tr("Guided hints: ", "Наводящие намёки: ", "Naváděcí nápovědy: ") + a.hintCount, side, y, paint); y += dp(24);
+            c.drawText(UiText.tr("Pauses: productive ", "Паузы: продуктивные ", "Pauzy: produktivní ") + a.productivePauses + UiText.tr(" · dead-end ", " · тупиковые ", " · slepé ") + a.deadEndPauses, side, y, paint); y += dp(24);
+            c.drawText(UiText.tr("Hypothesis-check signals: ", "Сигналы проверки гипотез: ", "Signály ověřování hypotéz: ") + a.hypothesisEpisodes, side, y, paint); y += dp(24);
+            c.drawText(UiText.tr("Rapid action cascades: ", "Быстрые каскады действий: ", "Rychlé kaskády akcí: ") + a.rapidCascades, side, y, paint); y += dp(24);
+            String candidateFlowLine = UiText.tr("Candidates: cell switches ", "Кандидаты: переходы между клетками ", "Kandidáti: přechody mezi buňkami ") + a.candidateCellSwitches
+                    + UiText.tr(" · revisits ", " · возвраты ", " · návraty ") + a.candidateCellRevisits;
             y = drawWrappedText(c, candidateFlowLine, side, y, w - side * 2, dp(20));
             y += dp(4);
 
             if (a.routeComparedSessions > 0) {
-                String routeSummaryLine = "Маршруты: " + a.routeComparedSessions + " сравн. · согласование "
+                String routeSummaryLine = UiText.tr("Routes: ", "Маршруты: ", "Trasy: ") + a.routeComparedSessions + UiText.tr(" compared · agreement ", " сравн. · согласование ", " porovn. · shoda ")
                         + String.format(Locale.US, "%.0f%%", a.avgRouteAgreementPct)
-                        + " · сильных расхождений " + a.routeStrongDivergences;
+                        + UiText.tr(" · strong divergences ", " · сильных расхождений ", " · výrazné odchylky ") + a.routeStrongDivergences;
                 y = drawWrappedText(c, routeSummaryLine, side, y, w - side * 2, dp(20));
                 y += dp(4);
             }
@@ -700,34 +700,34 @@ public class MainActivity extends Activity {
             paint.setColor(ink);
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             paint.setTextSize(dp(15.5f));
-            c.drawText("Калибровка сложности", side, y, paint); y += dp(23);
+            c.drawText(UiText.tr("Difficulty calibration", "Калибровка сложности", "Kalibrace obtížnosti"), side, y, paint); y += dp(23);
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
             paint.setTextSize(dp(13.2f));
             paint.setColor(Color.rgb(68, 80, 70));
             if (!a.calibrationReady) {
                 int need = Math.max(0, DifficultyCalibrator.MIN_SOLVED - a.calibrationSessions);
-                c.drawText("Нужно ещё решённых прохождений: " + need, side, y, paint); y += dp(21);
+                c.drawText(UiText.tr("More solved runs needed: ", "Нужно ещё решённых прохождений: ", "Je potřeba dalších vyřešených průchodů: ") + need, side, y, paint); y += dp(21);
             } else {
-                String scope = a.calibrationGeneratorVersion > 0 ? (" · v" + a.calibrationGeneratorVersion) : " · история";
-                c.drawText("Прогноз ±1: " + String.format(Locale.US, "%.0f%%", a.calibrationWithinOnePct) + scope, side, y, paint); y += dp(21);
-                String tendency = a.calibrationMeanError > 0.35 ? "чаще недооценивает трудность"
-                        : (a.calibrationMeanError < -0.35 ? "чаще переоценивает трудность" : "в среднем близок к прохождению");
-                c.drawText("Модель: " + tendency, side, y, paint); y += dp(21);
+                String scope = a.calibrationGeneratorVersion > 0 ? (" · v" + a.calibrationGeneratorVersion) : UiText.tr(" · history", " · история", " · historie");
+                c.drawText(UiText.tr("Prediction ±1: ", "Прогноз ±1: ", "Predikce ±1: ") + String.format(Locale.US, "%.0f%%", a.calibrationWithinOnePct) + scope, side, y, paint); y += dp(21);
+                String tendency = a.calibrationMeanError > 0.35 ? UiText.tr("usually underestimates difficulty", "чаще недооценивает трудность", "častěji podhodnocuje obtížnost")
+                        : (a.calibrationMeanError < -0.35 ? UiText.tr("usually overestimates difficulty", "чаще переоценивает трудность", "častěji nadhodnocuje obtížnost") : UiText.tr("usually close to observed play", "в среднем близок к прохождению", "v průměru odpovídá skutečnému průchodu"));
+                c.drawText(UiText.tr("Model: ", "Модель: ", "Model: ") + tendency, side, y, paint); y += dp(21);
                 if (a.lastPredictedBand > 0 && a.lastObservedBand > 0) {
-                    c.drawText("Последняя: прогноз L" + a.lastPredictedBand + " → стоимость " + a.lastObservedBand + "/10", side, y, paint); y += dp(21);
+                    c.drawText(UiText.tr("Latest: predicted L", "Последняя: прогноз L", "Poslední: predikce L") + a.lastPredictedBand + UiText.tr(" → observed cost ", " → стоимость ", " → pozorovaná náročnost ") + a.lastObservedBand + "/10", side, y, paint); y += dp(21);
                 }
                 if (Math.abs(a.recentObservedCostChangePct) >= 8.0) {
                     String sign = a.recentObservedCostChangePct > 0 ? "+" : "";
-                    c.drawText("Последние 10: " + sign + String.format(Locale.US, "%.0f%%", a.recentObservedCostChangePct) + " к предыдущим", side, y, paint); y += dp(21);
+                    c.drawText(UiText.tr("Latest 10: ", "Последние 10: ", "Posledních 10: ") + sign + String.format(Locale.US, "%.0f%%", a.recentObservedCostChangePct) + UiText.tr(" vs previous", " к предыдущим", " oproti předchozím"), side, y, paint); y += dp(21);
                 }
             }
             y += dp(5);
             if (a.kernelSessions > 0) {
-                c.drawText("Задачи с ядром гипотезы: " + a.kernelSessions + " · глубокие " + a.deepKernelSessions, side, y, paint); y += dp(24);
+                c.drawText(UiText.tr("Puzzles with a hypothesis kernel: ", "Задачи с ядром гипотезы: ", "Hlavolamy s jádrem hypotézy: ") + a.kernelSessions + UiText.tr(" · deep ", " · глубокие ", " · hluboké ") + a.deepKernelSessions, side, y, paint); y += dp(24);
             }
-            c.drawText("Сбросы: " + a.resetCount, side, y, paint); y += dp(24);
+            c.drawText(UiText.tr("Resets: ", "Сбросы: ", "Restarty: ") + a.resetCount, side, y, paint); y += dp(24);
             if (a.strategyFallbacks > 0) {
-                c.drawText("Fallback генератора: " + a.strategyFallbacks + " из " + a.sessions, side, y, paint); y += dp(24);
+                c.drawText(UiText.tr("Generator fallback: ", "Fallback генератора: ", "Fallback generátoru: ") + a.strategyFallbacks + UiText.tr(" of ", " из ", " z ") + a.sessions, side, y, paint); y += dp(24);
             }
             y += dp(10);
 
@@ -735,7 +735,7 @@ public class MainActivity extends Activity {
                 paint.setColor(ink);
                 paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
                 paint.setTextSize(dp(17));
-                c.drawText("По стратегиям решения", side, y, paint);
+                c.drawText(UiText.tr("By solving structure", "По стратегиям решения", "Podle struktury řešení"), side, y, paint);
                 y += dp(28);
                 paint.setTypeface(android.graphics.Typeface.DEFAULT);
                 paint.setTextSize(dp(13.2f));
@@ -744,9 +744,9 @@ public class MainActivity extends Activity {
                     double undoPer = st.sessions == 0 ? 0.0 : st.undoCount / (double) st.sessions;
                     double candPer = st.sessions == 0 ? 0.0 : st.candidateEdits / (double) st.sessions;
                     double hypPer = st.sessions == 0 ? 0.0 : st.hypothesisEpisodes / (double) st.sessions;
-                    String line = strategyLabel(st.strategy) + ": " + st.sessions + " сесс. · "
+                    String line = strategyLabel(st.strategy) + ": " + st.sessions + UiText.tr(" sessions · ", " сесс. · ", " relací · ")
                             + formatDuration(st.avgSolvedMs) + " · U "
-                            + String.format(Locale.US, "%.1f", undoPer) + " · Г "
+                            + String.format(Locale.US, "%.1f", undoPer) + UiText.tr(" · H ", " · Г ", " · H ")
                             + String.format(Locale.US, "%.1f", hypPer);
                     paint.setColor(Color.rgb(63, 77, 66));
                     c.drawText(line, side, y, paint);
@@ -761,58 +761,58 @@ public class MainActivity extends Activity {
                 paint.setColor(ink);
                 paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
                 paint.setTextSize(dp(16));
-                c.drawText("Последняя траектория", side, y, paint);
+                c.drawText(UiText.tr("Latest trajectory", "Последняя траектория", "Poslední trajektorie"), side, y, paint);
                 paint.setTextAlign(Paint.Align.RIGHT);
                 paint.setTypeface(android.graphics.Typeface.DEFAULT);
                 paint.setTextSize(dp(12.5f));
                 paint.setColor(Color.rgb(82, 100, 85));
-                c.drawText("подробно ›", w - side, y, paint);
+                c.drawText(UiText.tr("details ›", "подробно ›", "podrobně ›"), w - side, y, paint);
                 paint.setTextAlign(Paint.Align.LEFT);
                 y += dp(24);
                 paint.setTypeface(android.graphics.Typeface.DEFAULT);
                 paint.setTextSize(dp(12.8f));
                 paint.setColor(Color.rgb(72, 84, 74));
-                String traceLine = "паузы +" + last.productivePauses + "/−" + last.deadEndPauses
-                        + " · проверки гипотез " + last.hypothesisEpisodes
-                        + (last.hintStage > 0 ? (" · намёк " + last.hintStage) : " · без намёков");
+                String traceLine = UiText.tr("pauses +", "паузы +", "pauzy +") + last.productivePauses + "/−" + last.deadEndPauses
+                        + UiText.tr(" · hypothesis checks ", " · проверки гипотез ", " · ověření hypotéz ") + last.hypothesisEpisodes
+                        + (last.hintStage > 0 ? (UiText.tr(" · hint ", " · намёк ", " · nápověda ") + last.hintStage) : UiText.tr(" · no hints", " · без намёков", " · bez nápověd"));
                 c.drawText(traceLine, side, y, paint);
                 y += dp(21);
                 if (last.candidateCellSwitches > 0 || last.candidateCellRevisits > 0) {
-                    c.drawText("кандидаты: переходов " + last.candidateCellSwitches
-                            + " · возвратов " + last.candidateCellRevisits
-                            + " · максимум в клетке " + last.maxCandidatesInOneCell, side, y, paint);
+                    c.drawText(UiText.tr("candidates: switches ", "кандидаты: переходов ", "kandidáti: přechody ") + last.candidateCellSwitches
+                            + UiText.tr(" · revisits ", " · возвратов ", " · návratů ") + last.candidateCellRevisits
+                            + UiText.tr(" · max in one cell ", " · максимум в клетке ", " · maximum v buňce ") + last.maxCandidatesInOneCell, side, y, paint);
                     y += dp(21);
                 }
                 if (last.routeCompared) {
-                    String routeLine = "маршрут: согласование "
+                    String routeLine = UiText.tr("route: agreement ", "маршрут: согласование ", "trasa: shoda ")
                             + String.format(Locale.US, "%.0f%%", last.routeAgreementPct)
-                            + " · начало " + String.format(Locale.US, "%.0f%%", last.routeEarlyAgreementPct)
-                            + " · порядок " + String.format(Locale.US, "%.0f%%", last.routeOrderAgreementPct);
+                            + UiText.tr(" · opening ", " · начало ", " · začátek ") + String.format(Locale.US, "%.0f%%", last.routeEarlyAgreementPct)
+                            + UiText.tr(" · order ", " · порядок ", " · pořadí ") + String.format(Locale.US, "%.0f%%", last.routeOrderAgreementPct);
                     c.drawText(routeLine, side, y, paint);
                     y += dp(21);
                 }
                 if (last.hidden > 0 && last.maxForcedCascade > 0) {
-                    c.drawText("модель каскада: до " + last.maxForcedCascade + " из " + last.hidden + " после ключевого вывода", side, y, paint);
+                    c.drawText(UiText.tr("cascade model: up to ", "модель каскада: до ", "model kaskády: až ") + last.maxForcedCascade + UiText.tr(" of ", " из ", " z ") + last.hidden + UiText.tr(" after the key deduction", " после ключевого вывода", " po klíčovém závěru"), side, y, paint);
                     y += dp(21);
                 }
                 if (last.kernelFamily != null && !"none".equals(last.kernelFamily)
                         && !"unprofiled".equals(last.kernelFamily)) {
-                    c.drawText("ядро задачи: " + kernelFamilyLabel(last.kernelFamily), side, y, paint);
+                    c.drawText(UiText.tr("puzzle kernel: ", "ядро задачи: ", "jádro hlavolamu: ") + kernelFamilyLabel(last.kernelFamily), side, y, paint);
                     y += dp(21);
                 }
                 if (last.contextualDecoys > 0) {
-                    String decoyLine = "контекстные ложные варианты: " + last.contextualDecoys;
-                    if (last.resourceConflictDecoys > 0) decoyLine += " · конфликт плиток " + last.resourceConflictDecoys;
+                    String decoyLine = UiText.tr("contextual false candidates: ", "контекстные ложные варианты: ", "kontextové falešné možnosti: ") + last.contextualDecoys;
+                    if (last.resourceConflictDecoys > 0) decoyLine += UiText.tr(" · tile conflict ", " · конфликт плиток ", " · konflikt dlaždic ") + last.resourceConflictDecoys;
                     c.drawText(decoyLine, side, y, paint);
                     y += dp(21);
                 }
                 if (last.branchGoodPivots > 0) {
-                    c.drawText("точки гипотезы: " + last.branchGoodPivots
-                            + " · жизнеспособных ложных веток " + last.branchFalseBranches, side, y, paint);
+                    c.drawText(UiText.tr("hypothesis pivots: ", "точки гипотезы: ", "body hypotézy: ") + last.branchGoodPivots
+                            + UiText.tr(" · viable false branches ", " · жизнеспособных ложных веток ", " · životaschopné falešné větve ") + last.branchFalseBranches, side, y, paint);
                     y += dp(21);
                 }
                 if (last.reasoningFronts >= 2) {
-                    c.drawText("структура: " + last.reasoningFronts + " рабочих фронта(ов)", side, y, paint);
+                    c.drawText(UiText.tr("structure: ", "структура: ", "struktura: ") + last.reasoningFronts + UiText.tr(" active reasoning fronts", " рабочих фронта(ов)", " aktivních front uvažování"), side, y, paint);
                     y += dp(21);
                 }
                 y += dp(7);
@@ -822,17 +822,17 @@ public class MainActivity extends Activity {
             paint.setColor(ink);
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             paint.setTextSize(dp(17));
-            c.drawText("Последние прохождения", side, y, paint);
+            c.drawText(UiText.tr("Recent runs", "Последние прохождения", "Poslední průchody"), side, y, paint);
             y += dp(29);
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
             paint.setTextSize(dp(13.5f));
             for (SessionTracker.SessionSummary r : a.recent) {
                 if (y > getHeight() - bottomInset - dp(96)) break;
-                String where = "PATH_REPLAY".equals(r.mode) ? ("↺ ур." + r.level) : ("PATH_TEST".equals(r.mode) ? ("тест ур." + r.level) : ("PATH".equals(r.mode) ? ("ур." + r.level) : strategyLabel(r.strategy)));
-                String signal = r.hypothesisEpisodes > 0 ? (" · Г" + r.hypothesisEpisodes) : "";
-                if (r.hintStage > 0) signal += " · Н" + r.hintStage;
+                String where = "PATH_REPLAY".equals(r.mode) ? (UiText.tr("↺ lvl ", "↺ ур.", "↺ úr. ") + r.level) : ("PATH_TEST".equals(r.mode) ? (UiText.tr("test lvl ", "тест ур.", "test úr. ") + r.level) : ("PATH".equals(r.mode) ? (UiText.tr("lvl ", "ур.", "úr. ") + r.level) : strategyLabel(r.strategy)));
+                String signal = r.hypothesisEpisodes > 0 ? (UiText.tr(" · H", " · Г", " · H") + r.hypothesisEpisodes) : "";
+                if (r.hintStage > 0) signal += UiText.tr(" · Ht", " · Н", " · N") + r.hintStage;
                 String line = (r.solved ? "✓ " : "• ") + where
-                        + "  Л" + r.logic + "→" + (r.ratedLogic > 0 ? r.ratedLogic : "?") + "/В" + r.calc
+                        + UiText.tr("  L", "  Л", "  L") + r.logic + "→" + (r.ratedLogic > 0 ? r.ratedLogic : "?") + UiText.tr("/C", "/В", "/V") + r.calc
                         + "  " + formatDuration(r.activeMs)
                         + signal;
                 paint.setColor(r.solved ? Color.rgb(45, 118, 59) : Color.rgb(105, 92, 72));
@@ -842,19 +842,19 @@ public class MainActivity extends Activity {
 
             float exportBottom = getHeight() - bottomInset - dp(10);
             analysisExportRect.set(side, exportBottom - dp(44), w - side, exportBottom);
-            drawToolButton(c, analysisExportRect, "Экспорт исследовательских данных", true, false);
+            drawToolButton(c, analysisExportRect, UiText.tr("Export research data", "Экспорт исследовательских данных", "Exportovat výzkumná data"), true, false);
 
             paint.setColor(Color.rgb(100, 111, 102));
             paint.setTextSize(dp(11.2f));
             paint.setTextAlign(Paint.Align.CENTER);
-            c.drawText("ZIP: metadata + sessions + summary · отправка только после твоего действия",
+            c.drawText(UiText.tr("ZIP: metadata + sessions + summary · shared only after your action", "ZIP: metadata + sessions + summary · отправка только после твоего действия", "ZIP: metadata + sessions + summary · sdílení pouze po tvé akci"),
                     w / 2f, analysisExportRect.top - dp(8), paint);
         }
 
         void beginResearchExport() {
             SessionTracker.AnalysisSnapshot snapshot = tracker.analyze();
             if (snapshot.sessions <= 0) {
-                Toast.makeText(getContext(), "Пока нечего экспортировать", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), UiText.tr("Nothing to export yet", "Пока нечего экспортировать", "Zatím není co exportovat"), Toast.LENGTH_SHORT).show();
                 return;
             }
             Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
@@ -864,7 +864,7 @@ public class MainActivity extends Activity {
             try {
                 ((Activity) getContext()).startActivityForResult(intent, REQUEST_RESEARCH_EXPORT);
             } catch (RuntimeException ex) {
-                Toast.makeText(getContext(), "Не удалось открыть выбор файла", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), UiText.tr("Could not open file picker", "Не удалось открыть выбор файла", "Výběr souboru se nepodařilo otevřít"), Toast.LENGTH_SHORT).show();
             }
         }
 
@@ -878,29 +878,29 @@ public class MainActivity extends Activity {
                     if (out == null) throw new java.io.IOException("openOutputStream returned null");
                     result = ResearchExporter.write(getContext(), out);
                 }
-                Toast.makeText(getContext(), "Экспортировано сессий: " + result.sessions, Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), UiText.tr("Exported sessions: ", "Экспортировано сессий: ", "Exportované relace: ") + result.sessions, Toast.LENGTH_SHORT).show();
 
                 Intent share = new Intent(Intent.ACTION_SEND);
                 share.setType("application/zip");
                 share.putExtra(Intent.EXTRA_STREAM, uri);
                 share.setClipData(android.content.ClipData.newRawUri("MathCrossword research export", uri));
                 share.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                ((Activity) getContext()).startActivity(Intent.createChooser(share, "Поделиться исследовательскими данными"));
+                ((Activity) getContext()).startActivity(Intent.createChooser(share, UiText.tr("Share research data", "Поделиться исследовательскими данными", "Sdílet výzkumná data")));
             } catch (Exception ex) {
-                Toast.makeText(getContext(), "Не удалось собрать исследовательский ZIP", Toast.LENGTH_LONG).show();
+                Toast.makeText(getContext(), UiText.tr("Could not create research ZIP", "Не удалось собрать исследовательский ZIP", "Výzkumný ZIP se nepodařilo vytvořit"), Toast.LENGTH_LONG).show();
             }
         }
 
         String strategyLabel(String name) {
             try { return SolutionStrategy.valueOf(name).label; }
-            catch (RuntimeException ex) { return "Свободная"; }
+            catch (RuntimeException ex) { return UiText.tr("Free", "Свободная", "Volná"); }
         }
 
         String kernelFamilyLabel(String name) {
-            if ("single-pivot".equals(name)) return "одна опорная гипотеза";
-            if ("two-stage".equals(name)) return "двухступенчатая гипотеза";
-            if ("deep-branch".equals(name)) return "глубокая ложная ветка";
-            if ("multi-pivot".equals(name)) return "несколько точек гипотезы";
+            if ("single-pivot".equals(name)) return UiText.tr("single pivot hypothesis", "одна опорная гипотеза", "jedna opěrná hypotéza");
+            if ("two-stage".equals(name)) return UiText.tr("two-stage hypothesis", "двухступенчатая гипотеза", "dvoustupňová hypotéza");
+            if ("deep-branch".equals(name)) return UiText.tr("deep false branch", "глубокая ложная ветка", "hluboká falešná větev");
+            if ("multi-pivot".equals(name)) return UiText.tr("multiple hypothesis pivots", "несколько точек гипотезы", "více bodů hypotézy");
             return name == null ? "—" : name;
         }
 
@@ -909,7 +909,7 @@ public class MainActivity extends Activity {
             long total = ms / 1000L;
             long min = total / 60L;
             long sec = total % 60L;
-            if (min >= 60) return (min / 60) + "ч " + (min % 60) + "м";
+            if (min >= 60) return (min / 60) + UiText.tr("h ", "ч ", "h ") + (min % 60) + UiText.tr("m", "м", "m");
             return min + ":" + (sec < 10 ? "0" : "") + sec;
         }
 
@@ -966,21 +966,21 @@ public class MainActivity extends Activity {
             paint.setTextAlign(Paint.Align.CENTER);
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             paint.setTextSize(dp(24));
-            c.drawText("Свободная игра", w / 2f, top + dp(33), paint);
+            c.drawText(UiText.tr("Free Play", "Свободная игра", "Volná hra"), w / 2f, top + dp(33), paint);
 
             float y = top + dp(76);
-            y = drawTenChoiceRow(c, "Логика", logicRects, freeLogic - 1, y);
-            y = drawTenChoiceRow(c, "Вычисления", calcRects, freeCalc - 1, y + dp(4));
-            y = drawChoiceRow(c, "Размер поля", new String[]{"S", "M", "L"}, sizeRects, freeSize, y + dp(6));
-            y = drawChoiceRow(c, "Числа до", new String[]{"20", "100", "500", "1000"}, maxRects, freeMaxIndex, y + dp(6));
-            y = drawChoiceRow(c, "Стратегия решения", new String[]{"Дед.", "Цепь", "Гип.", "Сеть", "Микс"},
+            y = drawTenChoiceRow(c, UiText.tr("Logic", "Логика", "Logika"), logicRects, freeLogic - 1, y);
+            y = drawTenChoiceRow(c, UiText.tr("Calculation", "Вычисления", "Výpočty"), calcRects, freeCalc - 1, y + dp(4));
+            y = drawChoiceRow(c, UiText.tr("Board size", "Размер поля", "Velikost pole"), new String[]{"S", "M", "L"}, sizeRects, freeSize, y + dp(6));
+            y = drawChoiceRow(c, UiText.tr("Numbers up to", "Числа до", "Čísla do"), new String[]{"20", "100", "500", "1000"}, maxRects, freeMaxIndex, y + dp(6));
+            y = drawChoiceRow(c, UiText.tr("Solving structure", "Стратегия решения", "Struktura řešení"), new String[]{UiText.tr("Ded.", "Дед.", "Ded."), UiText.tr("Chain", "Цепь", "Řetěz"), UiText.tr("Hyp.", "Гип.", "Hyp."), UiText.tr("Net", "Сеть", "Síť"), UiText.tr("Mixed", "Микс", "Mix")},
                     strategyRects, freeStrategyIndex, y + dp(6));
 
             paint.setColor(ink);
             paint.setTextAlign(Paint.Align.LEFT);
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             paint.setTextSize(dp(16));
-            c.drawText("Операции", dp(22), y + dp(8), paint);
+            c.drawText(UiText.tr("Operations", "Операции", "Operace"), dp(22), y + dp(8), paint);
             float buttonY = y + dp(24);
             String[] opLabels = {"+", "−", "×", "÷", "^"};
             char[] opChars = {'+', '-', '×', '÷', '^'};
@@ -994,15 +994,15 @@ public class MainActivity extends Activity {
             }
 
             freeGenerateRect.set(dp(28), buttonY + dp(73), w - dp(28), buttonY + dp(135));
-            drawBigButton(c, freeGenerateRect, generating ? "Генерирую…" : "Сгенерировать", !generating);
+            drawBigButton(c, freeGenerateRect, generating ? UiText.tr("Generating…", "Генерирую…", "Generuji…") : UiText.tr("Generate", "Сгенерировать", "Vygenerovat"), !generating);
 
             paint.setColor(Color.rgb(100, 112, 102));
             paint.setTextAlign(Paint.Align.CENTER);
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
             paint.setTextSize(dp(12.5f));
-            c.drawText("Стратегия меняет структуру рассуждения, а не только форму поля", w / 2f,
+            c.drawText(UiText.tr("The solving structure changes the reasoning, not just the board shape", "Стратегия меняет структуру рассуждения, а не только форму поля", "Struktura řešení mění způsob uvažování, ne jen tvar pole"), w / 2f,
                     freeGenerateRect.bottom + dp(25), paint);
-            c.drawText("Логика и вычисления остаются независимыми шкалами", w / 2f,
+            c.drawText(UiText.tr("Logic and calculation remain independent scales", "Логика и вычисления остаются независимыми шкалами", "Logika a výpočty zůstávají nezávislé škály"), w / 2f,
                     freeGenerateRect.bottom + dp(44), paint);
         }
 
@@ -1170,8 +1170,9 @@ public class MainActivity extends Activity {
             paint.setTextSize(dp(17));
             Paint.FontMetrics fm = paint.getFontMetrics();
             float ty = centerY - (fm.ascent + fm.descent) / 2f;
-            c.drawText(mode == GameMode.PATH ? "Уровень " + level
-                    : puzzle.solutionStrategy.label + " · Л" + puzzle.displayLogicLevel + "/В" + puzzle.displayCalcLevel,
+            c.drawText(mode == GameMode.PATH ? UiText.tr("Level ", "Уровень ", "Úroveň ") + level
+                    : puzzle.solutionStrategy.label + UiText.tr(" · L", " · Л", " · L") + puzzle.displayLogicLevel
+                    + UiText.tr("/C", "/В", "/V") + puzzle.displayCalcLevel,
                     w / 2f, ty, paint);
 
             paint.setStrokeWidth(dp(1));
@@ -1217,16 +1218,19 @@ public class MainActivity extends Activity {
 
         void showGameMenu() {
             if (puzzle == null) return;
-            String info = String.format(Locale.US, "Логика %d (%.1f) · вычисления %d (%.1f)\n%s · скрыто клеток: %d\nВерсия %s (%d)",
+            String info = UiText.format(
+                    "Logic %d (%.1f) · calculation %d (%.1f)\n%s · hidden cells: %d\nVersion %s (%d)",
+                    "Логика %d (%.1f) · вычисления %d (%.1f)\n%s · скрыто клеток: %d\nВерсия %s (%d)",
+                    "Logika %d (%.1f) · výpočty %d (%.1f)\n%s · skrytých buněk: %d\nVerze %s (%d)",
                     puzzle.displayLogicLevel, puzzle.logicScore, puzzle.displayCalcLevel, puzzle.calcScore,
                     puzzle.solutionStrategy.label, puzzle.hidden.size(), installedVersionName(), installedVersionCode());
-            String focusLabel = focusMode ? "Показать панели" : "Режим фокуса";
+            String focusLabel = focusMode ? UiText.tr("Show panels", "Показать панели", "Zobrazit panely") : UiText.tr("Focus mode", "Режим фокуса", "Režim soustředění");
             boolean drawerHidden = candidateDrawerHeight <= dp(40) + bottomInset;
-            String drawerLabel = drawerHidden ? "Показать кандидаты" : "Скрыть кандидаты";
+            String drawerLabel = drawerHidden ? UiText.tr("Show candidates", "Показать кандидаты", "Zobrazit kandidáty") : UiText.tr("Hide candidates", "Скрыть кандидаты", "Skrýt kandidáty");
             new AlertDialog.Builder(getContext())
-                    .setTitle(mode == GameMode.PATH ? "Уровень " + level : "Головоломка")
+                    .setTitle(mode == GameMode.PATH ? UiText.tr("Level ", "Уровень ", "Úroveň ") + level : UiText.tr("Puzzle", "Головоломка", "Hlavolam"))
                     .setMessage(info)
-                    .setItems(new String[]{focusLabel, drawerLabel, "Перезапустить", "Закрыть"}, (dialog, which) -> {
+                    .setItems(new String[]{focusLabel, drawerLabel, UiText.tr("Restart", "Перезапустить", "Restartovat"), UiText.tr("Close", "Закрыть", "Zavřít")}, (dialog, which) -> {
                         if (which == 0) {
                             if (!focusMode && candidateDrawerHeight > dp(40) + bottomInset) lastExpandedDrawerHeight = candidateDrawerHeight;
                             focusMode = !focusMode;
@@ -1303,9 +1307,9 @@ public class MainActivity extends Activity {
             undoRect.set(side, y, side + each, y + h);
             candidateRect.set(undoRect.right + gap, y, undoRect.right + gap + each, y + h);
             hintRect.set(candidateRect.right + gap, y, w - side, y + h);
-            drawToolButton(c, undoRect, "↶ Отмена", !undoStack.isEmpty(), false);
-            drawToolButton(c, candidateRect, "✎ Канд.", true, candidateMode);
-            drawToolButton(c, hintRect, "? Намёк", true, false);
+            drawToolButton(c, undoRect, UiText.tr("↶ Undo", "↶ Отмена", "↶ Zpět"), !undoStack.isEmpty(), false);
+            drawToolButton(c, candidateRect, UiText.tr("✎ Cand.", "✎ Канд.", "✎ Kand."), true, candidateMode);
+            drawToolButton(c, hintRect, UiText.tr("? Hint", "? Намёк", "? Nápověda"), true, false);
         }
 
         void drawToolButton(Canvas c, RectF r, String label, boolean enabled, boolean active) {
@@ -1611,7 +1615,7 @@ public class MainActivity extends Activity {
             paint.setTextAlign(Paint.Align.CENTER);
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             paint.setTextSize(dp(16.5f));
-            c.drawText("Готово ✓", w / 2f, sheetTop + dp(38), paint);
+            c.drawText(UiText.tr("Solved ✓", "Готово ✓", "Hotovo ✓"), w / 2f, sheetTop + dp(38), paint);
 
             // Keep completion action obvious but less visually dominant than the board.
             float side = dp(38);
@@ -1621,8 +1625,8 @@ public class MainActivity extends Activity {
             paint.setColor(Color.WHITE);
             paint.setTextSize(dp(17));
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-            String labelText = generating ? "Генерирую…"
-                    : (mode == GameMode.PATH ? "Следующий уровень  →" : "Новая головоломка  →");
+            String labelText = generating ? UiText.tr("Generating…", "Генерирую…", "Generuji…")
+                    : (mode == GameMode.PATH ? UiText.tr("Next level  →", "Следующий уровень  →", "Další úroveň  →") : UiText.tr("New puzzle  →", "Новая головоломка  →", "Nový hlavolam  →"));
             Paint.FontMetrics fm = paint.getFontMetrics();
             c.drawText(labelText, w / 2f, nextLevelRect.centerY() - (fm.ascent + fm.descent) / 2f, paint);
         }
@@ -1810,9 +1814,9 @@ public class MainActivity extends Activity {
                         char op = opChars[i];
                         if (freeOps.contains(op)) {
                             if (freeOps.size() == 1) {
-                                Toast.makeText(getContext(), "Оставь хотя бы одну операцию", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(getContext(), UiText.tr("Keep at least one operation", "Оставь хотя бы одну операцию", "Ponech alespoň jednu operaci"), Toast.LENGTH_SHORT).show();
                             } else if (op != '^' && freeOps.contains('^') && freeOps.size() == 2) {
-                                Toast.makeText(getContext(), "Степени пока работают в смешанном режиме — оставь ещё одну базовую операцию", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(getContext(), UiText.tr("Powers currently work in mixed mode — keep one more basic operation", "Степени пока работают в смешанном режиме — оставь ещё одну базовую операцию", "Mocniny zatím fungují ve smíšeném režimu — ponech ještě jednu základní operaci"), Toast.LENGTH_SHORT).show();
                             } else {
                                 freeOps.remove(op);
                             }
@@ -1964,11 +1968,11 @@ public class MainActivity extends Activity {
             scroll.addView(text);
 
             AlertDialog.Builder builder = new AlertDialog.Builder(getContext())
-                    .setTitle("Намёк " + (shownStage + 1) + "/3")
+                    .setTitle(UiText.tr("Hint ", "Намёк ", "Nápověda ") + (shownStage + 1) + "/3")
                     .setView(scroll)
-                    .setNegativeButton("Закрыть", null);
+                    .setNegativeButton(UiText.tr("Close", "Закрыть", "Zavřít"), null);
             if (shownStage < 2) {
-                builder.setPositiveButton("Глубже →", (dialog, which) -> showGuidedHint());
+                builder.setPositiveButton(UiText.tr("Deeper →", "Глубже →", "Hlouběji →"), (dialog, which) -> showGuidedHint());
             }
             builder.show();
         }
@@ -1988,16 +1992,16 @@ public class MainActivity extends Activity {
             scroll.addView(text);
 
             new AlertDialog.Builder(getContext())
-                    .setTitle("Конфиденциальность")
+                    .setTitle(UiText.tr("Privacy", "Конфиденциальность", "Soukromí"))
                     .setView(scroll)
-                    .setNegativeButton("Закрыть", null)
+                    .setNegativeButton(UiText.tr("Close", "Закрыть", "Zavřít"), null)
                     .show();
         }
 
         void showLastTrajectoryDialog() {
             String report = tracker.latestTrajectoryReport();
             if (report == null || report.isEmpty()) {
-                Toast.makeText(getContext(), "Пока нет завершённых сессий", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), UiText.tr("No completed sessions yet", "Пока нет завершённых сессий", "Zatím nejsou žádné dokončené relace"), Toast.LENGTH_SHORT).show();
                 return;
             }
             TextView text = new TextView(getContext());
@@ -2014,9 +2018,9 @@ public class MainActivity extends Activity {
             scroll.addView(text);
 
             new AlertDialog.Builder(getContext())
-                    .setTitle("Ход решения")
+                    .setTitle(UiText.tr("Solve path", "Ход решения", "Průběh řešení"))
                     .setView(scroll)
-                    .setNegativeButton("Закрыть", null)
+                    .setNegativeButton(UiText.tr("Close", "Закрыть", "Zavřít"), null)
                     .show();
         }
 
@@ -2024,9 +2028,9 @@ public class MainActivity extends Activity {
             try {
                 android.content.pm.PackageInfo info = getContext().getPackageManager()
                         .getPackageInfo(getContext().getPackageName(), 0);
-                return info.versionName == null ? "1.36" : info.versionName;
+                return info.versionName == null ? "1.37" : info.versionName;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return "1.36";
+                return "1.37";
             }
         }
 
@@ -2037,7 +2041,7 @@ public class MainActivity extends Activity {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return info.getLongVersionCode();
                 return info.versionCode;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return 36L;
+                return 37L;
             }
         }
 
@@ -2045,25 +2049,25 @@ public class MainActivity extends Activity {
             if (!DistributionConfig.selfUpdateEnabled()) return;
             try {
                 DownloadManager manager = (DownloadManager) getContext().getSystemService(Context.DOWNLOAD_SERVICE);
-                if (manager == null) throw new IllegalStateException("DownloadManager недоступен");
+                if (manager == null) throw new IllegalStateException(UiText.tr("DownloadManager unavailable", "DownloadManager недоступен", "DownloadManager není dostupný"));
                 String fileName = "MathCrossword-v" + version + ".apk";
                 DownloadManager.Request request = new DownloadManager.Request(Uri.parse(downloadUrl));
                 request.setTitle("MathCrossword " + version);
-                request.setDescription("Загрузка обновления");
+                request.setDescription(UiText.tr("Downloading update", "Загрузка обновления", "Stahování aktualizace"));
                 request.setMimeType("application/vnd.android.package-archive");
                 request.setAllowedOverMetered(true);
                 request.setAllowedOverRoaming(true);
                 request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
                 request.setDestinationInExternalFilesDir(getContext(), Environment.DIRECTORY_DOWNLOADS, fileName);
                 long id = manager.enqueue(request);
-                updateStatus = "скачиваю " + version;
+                updateStatus = UiText.tr("downloading ", "скачиваю ", "stahuji ") + version;
                 invalidate();
-                Toast.makeText(getContext(), "Обновление скачивается внутри приложения", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), UiText.tr("The update is downloading inside the app", "Обновление скачивается внутри приложения", "Aktualizace se stahuje přímo v aplikaci"), Toast.LENGTH_SHORT).show();
                 waitForUpdateDownload(manager, id, version);
             } catch (RuntimeException ex) {
-                updateStatus = "ошибка загрузки";
+                updateStatus = UiText.tr("download error", "ошибка загрузки", "chyba stahování");
                 invalidate();
-                Toast.makeText(getContext(), "Не удалось начать загрузку: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(getContext(), UiText.tr("Could not start download: ", "Не удалось начать загрузку: ", "Stahování se nepodařilo spustit: ") + ex.getMessage(), Toast.LENGTH_LONG).show();
             }
         }
 
@@ -2080,7 +2084,7 @@ public class MainActivity extends Activity {
                                 post(() -> {
                                     pendingInstallUri = uri;
                                     pendingInstallVersion = version;
-                                    updateStatus = "скачано " + version;
+                                    updateStatus = UiText.tr("downloaded ", "скачано ", "staženo ") + version;
                                     invalidate();
                                     maybeInstallPendingUpdate();
                                 });
@@ -2088,9 +2092,9 @@ public class MainActivity extends Activity {
                             }
                             if (status == DownloadManager.STATUS_FAILED) {
                                 post(() -> {
-                                    updateStatus = "ошибка загрузки";
+                                    updateStatus = UiText.tr("download error", "ошибка загрузки", "chyba stahování");
                                     invalidate();
-                                    Toast.makeText(getContext(), "Android не смог скачать обновление", Toast.LENGTH_LONG).show();
+                                    Toast.makeText(getContext(), UiText.tr("Android could not download the update", "Android не смог скачать обновление", "Android nemohl stáhnout aktualizaci"), Toast.LENGTH_LONG).show();
                                 });
                                 return;
                             }
@@ -2110,15 +2114,15 @@ public class MainActivity extends Activity {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                     && !getContext().getPackageManager().canRequestPackageInstalls()) {
                 new AlertDialog.Builder(getContext())
-                        .setTitle("Разрешить обновления")
-                        .setMessage("Android один раз попросит разрешить MathCrossword устанавливать скачанные обновления. После этого вернись в игру — установка продолжится сама.")
-                        .setPositiveButton("Разрешить", (d, which) -> {
+                        .setTitle(UiText.tr("Allow updates", "Разрешить обновления", "Povolit aktualizace"))
+                        .setMessage(UiText.tr("Android will ask once to let MathCrossword install downloaded updates. Then return to the game and installation will continue automatically.", "Android один раз попросит разрешить MathCrossword устанавливать скачанные обновления. После этого вернись в игру — установка продолжится сама.", "Android jednou požádá o povolení, aby MathCrossword mohl instalovat stažené aktualizace. Potom se vrať do hry a instalace bude automaticky pokračovat."))
+                        .setPositiveButton(UiText.tr("Allow", "Разрешить", "Povolit"), (d, which) -> {
                             Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                                     Uri.parse("package:" + getContext().getPackageName()));
                             settings.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                             getContext().startActivity(settings);
                         })
-                        .setNegativeButton("Позже", null)
+                        .setNegativeButton(UiText.tr("Later", "Позже", "Později"), null)
                         .show();
                 return;
             }
@@ -2128,7 +2132,7 @@ public class MainActivity extends Activity {
                 install.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 getContext().startActivity(install);
             } catch (RuntimeException ex) {
-                Toast.makeText(getContext(), "APK скачан, но установщик не открылся", Toast.LENGTH_LONG).show();
+                Toast.makeText(getContext(), UiText.tr("APK downloaded, but the installer did not open", "APK скачан, но установщик не открылся", "APK je stažené, ale instalátor se neotevřel"), Toast.LENGTH_LONG).show();
             }
         }
 
@@ -2136,32 +2140,32 @@ public class MainActivity extends Activity {
             if (!DistributionConfig.selfUpdateEnabled()) return;
             if (updateChecking) return;
             updateChecking = true;
-            updateStatus = "проверяю…";
+            updateStatus = UiText.tr("checking…", "проверяю…", "kontroluji…");
             invalidate();
             UpdateChecker.check(installedVersionName(), new UpdateChecker.Callback() {
                 @Override public void onResult(String latestVersion, String downloadUrl, boolean newer) {
                     post(() -> {
                         updateChecking = false;
-                        updateStatus = newer ? "доступна " + latestVersion : "актуальная";
+                        updateStatus = newer ? UiText.tr("available ", "доступна ", "dostupná ") + latestVersion : UiText.tr("up to date", "актуальная", "aktuální");
                         invalidate();
                         AlertDialog.Builder dialog = new AlertDialog.Builder(getContext())
-                                .setTitle(newer ? "Есть обновление" : "Обновление не требуется")
-                                .setMessage("Установлена: " + installedVersionName() + " (" + installedVersionCode() + ")\n"
-                                        + "Последняя: " + latestVersion);
+                                .setTitle(newer ? UiText.tr("Update available", "Есть обновление", "Je dostupná aktualizace") : UiText.tr("No update needed", "Обновление не требуется", "Aktualizace není potřeba"))
+                                .setMessage(UiText.tr("Installed: ", "Установлена: ", "Nainstalováno: ") + installedVersionName() + " (" + installedVersionCode() + ")\n"
+                                        + UiText.tr("Latest: ", "Последняя: ", "Nejnovější: ") + latestVersion);
                         if (newer && downloadUrl != null) {
-                            dialog.setPositiveButton("Скачать", (d, which) ->
+                            dialog.setPositiveButton(UiText.tr("Download", "Скачать", "Stáhnout"), (d, which) ->
                                     startUpdateDownload(latestVersion, downloadUrl));
                         }
-                        dialog.setNegativeButton("Закрыть", null).show();
+                        dialog.setNegativeButton(UiText.tr("Close", "Закрыть", "Zavřít"), null).show();
                     });
                 }
 
                 @Override public void onError(String message) {
                     post(() -> {
                         updateChecking = false;
-                        updateStatus = "ошибка проверки";
+                        updateStatus = UiText.tr("check error", "ошибка проверки", "chyba kontroly");
                         invalidate();
-                        Toast.makeText(getContext(), "Не удалось проверить обновление: " + message, Toast.LENGTH_LONG).show();
+                        Toast.makeText(getContext(), UiText.tr("Could not check for updates: ", "Не удалось проверить обновление: ", "Aktualizace se nepodařilo zkontrolovat: ") + message, Toast.LENGTH_LONG).show();
                     });
                 }
             });
