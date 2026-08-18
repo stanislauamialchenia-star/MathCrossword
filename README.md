@@ -2,9 +2,25 @@
 
 **MathCrossword** is an offline Android math-logic puzzle and a research playground for studying how generated reasoning structures are solved.
 
-Current development line: **v22**.
+## Download for Android
 
-[Download the latest release](https://github.com/stanislauamialchenia-star/MathCrossword/releases/latest)
+**[Download MathCrossword.apk](https://github.com/stanislauamialchenia-star/MathCrossword/releases/latest/download/MathCrossword.apk)**
+
+That link always points to the APK attached to the newest GitHub release. You do not need a GitHub account and you do not need to understand the repository.
+
+If the direct download does not open, use the [latest release page](https://github.com/stanislauamialchenia-star/MathCrossword/releases/latest) and choose **MathCrossword.apk** under the release assets.
+
+### First install on Android
+
+Android may warn you because MathCrossword is installed directly instead of through Google Play. On the first install you may need to allow your browser or file manager to **install unknown apps / install from this source**.
+
+1. Download `MathCrossword.apk`.
+2. Open the downloaded file.
+3. If Android asks, allow installation from the app that opened the APK (for example Chrome or Files).
+4. Install MathCrossword.
+5. You can disable that source permission again afterwards if you want.
+
+GitHub builds are signed with a persistent project key, so future GitHub APK releases can update an existing GitHub installation without uninstalling the game.
 
 ## What the game is
 
@@ -47,20 +63,20 @@ Generated puzzles can target different reasoning structures:
 
 These names describe puzzle structure and solving affordances, not psychological player types.
 
-## v22 — smooth difficulty scale
+## Difficulty model
 
-v22 expands the visible Logic and Calculation scales from 1–5 to **1–10** while keeping continuous internal scores (`logicScore` / `calcScore`) from 1.0 to 10.0.
+The visible Logic and Calculation scales run from **1–10** while the generator also keeps continuous internal scores (`logicScore` / `calcScore`) from 1.0 to 10.0.
 
-Key changes:
+The current model includes:
 
-- smoother progression between neighboring difficulty levels;
-- continuous anti-collapse tuning instead of a hard switch at one Path level;
+- smooth progression between neighboring difficulty levels;
+- continuous anti-collapse tuning rather than one hard switch;
 - independent arithmetic growth across ten Calculation levels;
-- a longer expert-range Path curve for hundreds or thousands of generated levels;
+- a long expert-range Path curve;
 - bounded retry budgets at the highest difficulty levels instead of hiding generator weakness behind unlimited search;
-- play traces preserve both public difficulty bands and continuous scores for later calibration.
+- play traces that preserve both public difficulty bands and continuous scores for later calibration.
 
-See [`V22_SMOOTH_DIFFICULTY.md`](V22_SMOOTH_DIFFICULTY.md) for the detailed model and regression points.
+See [`V22_SMOOTH_DIFFICULTY.md`](V22_SMOOTH_DIFFICULTY.md) for the original 1–10 difficulty-model milestone. Later Android versions continue to build on that generator line.
 
 ## Generator philosophy
 
@@ -98,17 +114,15 @@ Play telemetry is intended for local research and generator calibration. Raw `pl
 
 The goal is to record observable interaction behavior — placements, candidate edits, focus changes, pauses, retries and structural traversal — without claiming to reconstruct a player's private thoughts.
 
-## Install on Android
+## Languages
 
-For testers, the easiest path is the Releases page:
+The external-player localization target is:
 
-1. Open the [latest release](https://github.com/stanislauamialchenia-star/MathCrossword/releases/latest).
-2. Download the `.apk` file.
-3. Open it on the Android device.
-4. If Android asks, allow installation from that source.
-5. Install the app.
+- English — fallback;
+- Russian;
+- Czech.
 
-Future APK updates can be distributed through the same Releases page.
+The implementation is tracked in [issue #16](https://github.com/stanislauamialchenia-star/MathCrossword/issues/16). Internal telemetry identifiers, generator family IDs and research field names remain language-independent.
 
 ## Repository map
 
@@ -127,7 +141,7 @@ Useful technical and research documents:
 - [`V18_CALIBRATION_AND_CASCADE.md`](V18_CALIBRATION_AND_CASCADE.md) — calibration and cascade resilience;
 - [`V19_LEVELS_AND_DECOYS.md`](V19_LEVELS_AND_DECOYS.md) — level replay and deceptive decoys;
 - [`V20_JUBILEE.md`](V20_JUBILEE.md) — hard-Path performance baseline;
-- [`V22_SMOOTH_DIFFICULTY.md`](V22_SMOOTH_DIFFICULTY.md) — current 1–10 difficulty model.
+- [`V22_SMOOTH_DIFFICULTY.md`](V22_SMOOTH_DIFFICULTY.md) — 1–10 difficulty-model milestone.
 
 ## Project status
 
