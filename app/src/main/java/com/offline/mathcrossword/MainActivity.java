@@ -164,6 +164,7 @@ public class MainActivity extends Activity {
         final RectF homeLibraryRect = new RectF();
         final RectF homeAnalysisRect = new RectF();
         final RectF homeUpdateRect = new RectF();
+        final RectF homeLanguageRect = new RectF();
         final RectF homePrivacyRect = new RectF();
         final RectF analysisLastTraceRect = new RectF();
         final RectF analysisExportRect = new RectF();
@@ -206,6 +207,10 @@ public class MainActivity extends Activity {
             super(context);
             setLayerType(View.LAYER_TYPE_SOFTWARE, null);
             prefs = context.getSharedPreferences("progress", Context.MODE_PRIVATE);
+            UiText.setLanguageOverride(prefs.getString("language_override", "system"));
+            SolutionStrategy.refreshAllLocalizedText();
+            SolutionLibrary.refreshLocalizedEntries();
+            updateStatus = UiText.tr("update not checked", "обновление не проверено", "aktualizace nezkontrolována");
             tracker = new SessionTracker(context);
             progressLevel = Math.max(1, prefs.getInt("currentLevel", 1));
             level = progressLevel;
@@ -462,6 +467,19 @@ public class MainActivity extends Activity {
             c.drawText(UiText.tr("Math", "Математический", "Matematická"), w / 2f, y, paint);
             paint.setTextSize(dp(27));
             c.drawText(UiText.tr("Crossword", "кроссворд", "křížovka"), w / 2f, y + dp(34), paint);
+
+            // Compact language badge. A/XX means automatic system language; tapping opens the chooser.
+            homeLanguageRect.set(w - dp(82), topInset + dp(18), w - dp(18), topInset + dp(54));
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.argb(118, 255, 255, 255));
+            c.drawRoundRect(homeLanguageRect, dp(12), dp(12), paint);
+            paint.setColor(ink);
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(12.5f));
+            Paint.FontMetrics languageFm = paint.getFontMetrics();
+            c.drawText(UiText.badge(), homeLanguageRect.centerX(),
+                    homeLanguageRect.centerY() - (languageFm.ascent + languageFm.descent) / 2f, paint);
 
             // Keep the home screen quiet: product/update metadata lives in a small footer,
             // not as another primary action competing with play.
@@ -1761,6 +1779,7 @@ public class MainActivity extends Activity {
                 else if (homeFreeRect.contains(x, y)) { screen = Screen.FREE_SETUP; invalidate(); }
                 else if (homeLibraryRect.contains(x, y)) { screen = Screen.LIBRARY; invalidate(); }
                 else if (homeAnalysisRect.contains(x, y)) { screen = Screen.ANALYSIS; invalidate(); }
+                else if (homeLanguageRect.contains(x, y)) { showLanguageDialog(); }
                 else if (homePrivacyRect.contains(x, y)) { showPrivacyDialog(); }
                 else if (DistributionConfig.selfUpdateEnabled() && homeUpdateRect.contains(x, y)) { checkForUpdate(); }
                 return true;
@@ -1977,6 +1996,33 @@ public class MainActivity extends Activity {
             builder.show();
         }
 
+        void showLanguageDialog() {
+            final String[] codes = {"system", "en", "ru", "cs"};
+            final String[] labels = {
+                    UiText.tr("System language", "Язык системы", "Jazyk systému"),
+                    "English",
+                    "Русский",
+                    "Čeština"
+            };
+            int checked = 0;
+            String current = UiText.languageOverride();
+            for (int i = 0; i < codes.length; i++) if (codes[i].equals(current)) checked = i;
+
+            new AlertDialog.Builder(getContext())
+                    .setTitle(UiText.tr("Language", "Язык", "Jazyk"))
+                    .setSingleChoiceItems(labels, checked, (dialog, which) -> {
+                        UiText.setLanguageOverride(codes[which]);
+                        prefs.edit().putString("language_override", codes[which]).apply();
+                        SolutionStrategy.refreshAllLocalizedText();
+                        SolutionLibrary.refreshLocalizedEntries();
+                        updateStatus = UiText.tr("update not checked", "обновление не проверено", "aktualizace nezkontrolována");
+                        dialog.dismiss();
+                        invalidate();
+                    })
+                    .setNegativeButton(UiText.tr("Close", "Закрыть", "Zavřít"), null)
+                    .show();
+        }
+
         void showPrivacyDialog() {
             TextView text = new TextView(getContext());
             int pad = (int) dp(20);
@@ -2028,9 +2074,9 @@ public class MainActivity extends Activity {
             try {
                 android.content.pm.PackageInfo info = getContext().getPackageManager()
                         .getPackageInfo(getContext().getPackageName(), 0);
-                return info.versionName == null ? "1.37" : info.versionName;
+                return info.versionName == null ? "1.38" : info.versionName;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return "1.37";
+                return "1.38";
             }
         }
 
@@ -2041,7 +2087,7 @@ public class MainActivity extends Activity {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return info.getLongVersionCode();
                 return info.versionCode;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return 37L;
+                return 38L;
             }
         }
 

@@ -18,7 +18,10 @@ final class SolutionLibrary {
         }
     }
 
-    static final List<Entry> ENTRIES = Arrays.asList(
+    static List<Entry> ENTRIES = buildEntries();
+
+    private static List<Entry> buildEntries() {
+        return Arrays.asList(
             new Entry(
                     UiText.tr("1. Direct deduction", "1. Прямой вывод", "1. Přímý závěr"),
                     UiText.tr(
@@ -118,6 +121,11 @@ final class SolutionLibrary {
                             "1) stop brute force; 2) mark candidates; 3) find cells shared by two or more equations; 4) look for a short chain; 5) if none exists, choose one hypothesis and seek a concrete contradiction. If none of these moves the puzzle, the obstacle may be a new solving structure rather than lack of attention.",
                             "1) останови перебор; 2) отметь кандидатов; 3) найди клетки с двумя и более уравнениями; 4) проверь, есть ли короткая цепочка; 5) если нет — выбери одну гипотезу и ищи конкретное противоречие. Если ни один способ не двигает задачу, возможно, препятствие — новая стратегия решения, а не нехватка внимания.",
                             "1) zastav hrubý pokus-omyl; 2) označ kandidáty; 3) najdi políčka sdílená dvěma nebo více rovnicemi; 4) hledej krátký řetězec; 5) pokud není, zvol jednu hypotézu a hledej konkrétní rozpor. Pokud nic z toho úlohu neposune, překážkou může být nový typ řešení, ne nedostatek pozornosti.")));
+    }
+
+    static void refreshLocalizedEntries() {
+        ENTRIES = buildEntries();
+    }
 
     private SolutionLibrary() { }
 }
