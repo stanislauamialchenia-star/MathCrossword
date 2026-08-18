@@ -9,13 +9,33 @@ import java.util.Locale;
  * English is the fallback for every unsupported locale.
  */
 final class UiText {
+    private static String languageOverride = "system";
+
     private UiText() { }
 
+    static void setLanguageOverride(String value) {
+        if ("en".equals(value) || "ru".equals(value) || "cs".equals(value)) {
+            languageOverride = value;
+        } else {
+            languageOverride = "system";
+        }
+    }
+
+    static String languageOverride() {
+        return languageOverride;
+    }
+
     static String language() {
+        if (!"system".equals(languageOverride)) return languageOverride;
         String language = Locale.getDefault().getLanguage();
         if ("ru".equals(language)) return "ru";
         if ("cs".equals(language) || "cz".equals(language)) return "cs";
         return "en";
+    }
+
+    // Compact home-screen language button, e.g. EN ▾ / RU ▾ / CS ▾.
+    static String badge() {
+        return language().toUpperCase(Locale.ROOT) + " ▾";
     }
 
     static String tr(String english, String russian, String czech) {

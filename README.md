@@ -15,7 +15,7 @@ If the direct download does not open, use the [latest release page](https://gith
 Android may warn you because MathCrossword is installed directly instead of through Google Play. On the first install you may need to allow your browser or file manager to **install unknown apps / install from this source**.
 
 1. Download `MathCrossword.apk`.
-2. Open the downloaded file.
+2. Open the downloaded file. If Android only saves it and does not open the installer, open **Downloads / Downloaded files** and tap `MathCrossword.apk` there.
 3. If Android asks, allow installation from the app that opened the APK (for example Chrome or Files).
 4. Install MathCrossword.
 5. You can disable that source permission again afterwards if you want.
@@ -116,13 +116,13 @@ The goal is to record observable interaction behavior — placements, candidate 
 
 ## Languages
 
-The external-player localization target is:
+MathCrossword supports:
 
 - English — fallback;
 - Russian;
 - Czech.
 
-The implementation is tracked in [issue #16](https://github.com/stanislauamialchenia-star/MathCrossword/issues/16). Internal telemetry identifiers, generator family IDs and research field names remain language-independent.
+By default the app follows the phone language. Starting with v1.38, the home screen also has a compact language button that lets the player choose **System / English / Русский / Čeština** manually. Internal telemetry identifiers, generator family IDs and research field names remain language-independent.
 
 ## Repository map
 
