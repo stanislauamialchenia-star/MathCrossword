@@ -109,6 +109,8 @@ public class MainActivity extends Activity {
         int selectedTileId = -1;
         Pos selectedCell = null;
         boolean solved = false;
+        // True only while an unfinished in-memory board is parked on Home.
+        boolean resumablePuzzle = false;
         boolean candidateMode = false;
         int hintStage = 0;
         boolean focusMode = false;
@@ -240,7 +242,10 @@ public class MainActivity extends Activity {
             if (screen != Screen.HOME) {
                 generationToken++;
                 generating = false;
-                if (screen == Screen.GAME && tracker.hasOpenSession() && !solved) tracker.finish(false, "home");
+                if (screen == Screen.GAME && tracker.hasOpenSession() && !solved) {
+                    tracker.finish(false, "home");
+                    resumablePuzzle = puzzle != null;
+                }
                 screen = Screen.HOME;
                 selectedCell = null;
                 selectedTileId = -1;
@@ -249,6 +254,23 @@ public class MainActivity extends Activity {
                 return true;
             }
             return false;
+        }
+
+        void resumeCurrentPuzzle() {
+            if (!resumablePuzzle || puzzle == null || solved) {
+                resumablePuzzle = false;
+                loadPathLevel(progressLevel);
+                return;
+            }
+            generationToken++;
+            generating = false;
+            selectedCell = null;
+            selectedTileId = -1;
+            candidateMode = false;
+            screen = Screen.GAME;
+            startTrackerForCurrentPuzzle();
+            resumablePuzzle = false;
+            invalidate();
         }
 
         void loadPathLevel(int newLevel) {
@@ -291,6 +313,7 @@ public class MainActivity extends Activity {
             level = Math.max(1, newLevel);
             mode = GameMode.PATH;
             puzzle = ready;
+            resumablePuzzle = false;
             selectedTileId = -1;
             selectedCell = null;
             solved = false;
@@ -300,32 +323,8 @@ public class MainActivity extends Activity {
             undoStack.clear();
             resetBoardViewport();
             screen = Screen.GAME;
-            String sessionMode = LevelAccess.sessionMode(level, progressLevel);
-            tracker.start(sessionMode, level, puzzle.seed, puzzle.displayLogicLevel, puzzle.displayCalcLevel, puzzle.logicScore, puzzle.calcScore,
-                    puzzle.solutionStrategy.name(), puzzle.hidden.size(), puzzle.equations.size(),
-                    puzzle.ratedDisplayLogic, puzzle.reasoningSteps, puzzle.reasoningDepth,
-                    puzzle.basicForced, puzzle.basicRemaining, puzzle.maxForcedCascade,
-                    puzzle.maxResolvedAfterOneCell, puzzle.maxResolvedFractionAfterOneCell,
-                    puzzle.vulnerableSingleCells, puzzle.maxResolvedAfterOneEquation, puzzle.maxResolvedFractionAfterOneEquation,
-                    puzzle.generatorVersion,
-                    puzzle.generationStage, puzzle.strategyTargetMatched, puzzle.generationStrategy.name(),
-                    puzzle.generatorConstructor, puzzle.generatorFamily,
-                    puzzle.deceptiveDecoyCount, puzzle.deceptiveDecoySupportMax,
-                    puzzle.contextualDecoyCount, puzzle.resourceConflictDecoyCount, puzzle.contextualDecoyConstraintSupportMax,
-                    puzzle.contextualDecoyDepthMax, puzzle.contextualDecoyInformationGainMax,
-                    puzzle.branchPivotCount, puzzle.branchGoodPivotCount, puzzle.branchSeriousFalseBranches,
-                    puzzle.branchDepth2RefutableBranches, puzzle.branchDepth2SurvivingBranches,
-                    puzzle.branchMaxWidth, puzzle.branchMaxInformationGain,
-                    puzzle.reasoningFronts, puzzle.reasoningFrontBalance, puzzle.reasoningLargestFrontFraction,
-                    puzzle.reasoningFrontBottleneckDegree,
-                    puzzle.contradictionKernel, puzzle.contradictionKernelAddedDecoy, puzzle.contradictionKernelDepth,
-                    puzzle.contradictionKernelFamily, puzzle.contradictionKernelBranches, puzzle.contradictionKernelPivots,
-                    puzzle.contradictionKernelDepth2Branches, puzzle.contradictionKernelDepth3Branches,
-                    puzzle.contradictionKernelDeepBranches, puzzle.contradictionKernelMaxRemaining,
-                    puzzle.generationStageTimings,
-                    puzzle.generationMillis, puzzle.generationAttempts,
-                    puzzle.generationRejects, puzzle.generationRejectSummary, GraphAnalyzer.analyze(puzzle));
-            tracker.setModelRoute(HumanRouteComparator.modelRoute(puzzle));
+            resumablePuzzle = false;
+            startTrackerForCurrentPuzzle();
             invalidate();
             prefetchPathLevel(level + 1);
         }
@@ -393,6 +392,7 @@ public class MainActivity extends Activity {
                     }
                     lastFreeSeed = resultSeed;
                     puzzle = result;
+                    resumablePuzzle = false;
                     selectedTileId = -1;
                     selectedCell = null;
                     solved = false;
@@ -400,31 +400,8 @@ public class MainActivity extends Activity {
                     candidateNotes.clear();
                     undoStack.clear();
                     screen = Screen.GAME;
-                    tracker.start("FREE", 0, puzzle.seed, puzzle.displayLogicLevel, puzzle.displayCalcLevel, puzzle.logicScore, puzzle.calcScore,
-                            puzzle.solutionStrategy.name(), puzzle.hidden.size(), puzzle.equations.size(),
-                            puzzle.ratedDisplayLogic, puzzle.reasoningSteps, puzzle.reasoningDepth,
-                            puzzle.basicForced, puzzle.basicRemaining, puzzle.maxForcedCascade,
-                    puzzle.maxResolvedAfterOneCell, puzzle.maxResolvedFractionAfterOneCell,
-                    puzzle.vulnerableSingleCells, puzzle.maxResolvedAfterOneEquation, puzzle.maxResolvedFractionAfterOneEquation,
-                    puzzle.generatorVersion,
-                            puzzle.generationStage, puzzle.strategyTargetMatched, puzzle.generationStrategy.name(),
-                            puzzle.generatorConstructor, puzzle.generatorFamily,
-                    puzzle.deceptiveDecoyCount, puzzle.deceptiveDecoySupportMax,
-                    puzzle.contextualDecoyCount, puzzle.resourceConflictDecoyCount, puzzle.contextualDecoyConstraintSupportMax,
-                    puzzle.contextualDecoyDepthMax, puzzle.contextualDecoyInformationGainMax,
-                    puzzle.branchPivotCount, puzzle.branchGoodPivotCount, puzzle.branchSeriousFalseBranches,
-                    puzzle.branchDepth2RefutableBranches, puzzle.branchDepth2SurvivingBranches,
-                    puzzle.branchMaxWidth, puzzle.branchMaxInformationGain,
-                    puzzle.reasoningFronts, puzzle.reasoningFrontBalance, puzzle.reasoningLargestFrontFraction,
-                    puzzle.reasoningFrontBottleneckDegree,
-                    puzzle.contradictionKernel, puzzle.contradictionKernelAddedDecoy, puzzle.contradictionKernelDepth,
-                    puzzle.contradictionKernelFamily, puzzle.contradictionKernelBranches, puzzle.contradictionKernelPivots,
-                    puzzle.contradictionKernelDepth2Branches, puzzle.contradictionKernelDepth3Branches,
-                    puzzle.contradictionKernelDeepBranches, puzzle.contradictionKernelMaxRemaining,
-                    puzzle.generationStageTimings,
-                            puzzle.generationMillis, puzzle.generationAttempts,
-                            puzzle.generationRejects, puzzle.generationRejectSummary, GraphAnalyzer.analyze(puzzle));
-            tracker.setModelRoute(HumanRouteComparator.modelRoute(puzzle));
+                    resumablePuzzle = false;
+                    startTrackerForCurrentPuzzle();
                     invalidate();
                 });
             }, "mathcrossword-generator").start();
@@ -493,7 +470,17 @@ public class MainActivity extends Activity {
             homeLibraryRect.set(side, homeFreeRect.bottom + gap, w - side, homeFreeRect.bottom + gap + buttonH);
             homeAnalysisRect.set(side, homeLibraryRect.bottom + gap, w - side, homeLibraryRect.bottom + gap + buttonH);
 
-            drawBigButton(c, homeContinueRect, generating ? UiText.tr("Generating level ", "Генерирую уровень ", "Generuji úroveň ") + progressLevel + "…" : UiText.tr("Continue — level ", "Продолжить — уровень ", "Pokračovat — úroveň ") + progressLevel, true);
+            String continueLabel;
+            if (generating) {
+                continueLabel = UiText.tr("Generating level ", "Генерирую уровень ", "Generuji úroveň ") + progressLevel + "…";
+            } else if (resumablePuzzle && puzzle != null && !solved) {
+                continueLabel = mode == GameMode.PATH
+                        ? UiText.tr("Continue puzzle — level ", "Продолжить задачу — уровень ", "Pokračovat v hlavolamu — úroveň ") + level
+                        : UiText.tr("Continue Free Play", "Продолжить свободную игру", "Pokračovat ve volné hře");
+            } else {
+                continueLabel = UiText.tr("Continue — level ", "Продолжить — уровень ", "Pokračovat — úroveň ") + progressLevel;
+            }
+            drawBigButton(c, homeContinueRect, continueLabel, true);
             drawBigButton(c, homeLevelsRect, UiText.tr("Choose level", "Выбрать уровень", "Vybrat úroveň"), false);
             drawBigButton(c, homeFreeRect, UiText.tr("Free Play", "Свободная игра", "Volná hra"), false);
             drawBigButton(c, homeLibraryRect, UiText.tr("Solution Library", "Библиотека решений", "Knihovna řešení"), false);
@@ -1279,12 +1266,15 @@ public class MainActivity extends Activity {
             if (mode == GameMode.PATH) loadPathLevel(level);
             else {
                 resetCurrentPuzzle();
-                startTrackerForCurrentFreePuzzle();
+                resumablePuzzle = false;
+                startTrackerForCurrentPuzzle();
             }
         }
 
-        void startTrackerForCurrentFreePuzzle() {
-            tracker.start("FREE", 0, puzzle.seed, puzzle.displayLogicLevel, puzzle.displayCalcLevel, puzzle.logicScore, puzzle.calcScore,
+        void startTrackerForCurrentPuzzle() {
+            String sessionMode = mode == GameMode.PATH ? LevelAccess.sessionMode(level, progressLevel) : "FREE";
+            int sessionLevel = mode == GameMode.PATH ? level : 0;
+            tracker.start(sessionMode, sessionLevel, puzzle.seed, puzzle.displayLogicLevel, puzzle.displayCalcLevel, puzzle.logicScore, puzzle.calcScore,
                     puzzle.solutionStrategy.name(), puzzle.hidden.size(), puzzle.equations.size(),
                     puzzle.ratedDisplayLogic, puzzle.reasoningSteps, puzzle.reasoningDepth,
                     puzzle.basicForced, puzzle.basicRemaining, puzzle.maxForcedCascade,
@@ -1775,7 +1765,10 @@ public class MainActivity extends Activity {
 
             if (screen == Screen.HOME) {
                 if (generating) return true;
-                if (homeContinueRect.contains(x, y)) loadPathLevel(progressLevel);
+                if (homeContinueRect.contains(x, y)) {
+                    if (resumablePuzzle && puzzle != null && !solved) resumeCurrentPuzzle();
+                    else loadPathLevel(progressLevel);
+                }
                 else if (homeLevelsRect.contains(x, y)) { levelPage = Math.min(maxUnlockedLevelPage(), Math.max(0, (Math.max(1, level) - 1) / 100)); screen = Screen.LEVELS; invalidate(); }
                 else if (homeFreeRect.contains(x, y)) { screen = Screen.FREE_SETUP; invalidate(); }
                 else if (homeLibraryRect.contains(x, y)) { screen = Screen.LIBRARY; invalidate(); }
@@ -1856,7 +1849,10 @@ public class MainActivity extends Activity {
                 return true;
             }
             if (!focusMode && topHomeRect.contains(x, y)) {
-                if (tracker.hasOpenSession() && !solved) tracker.finish(false, "home");
+                if (tracker.hasOpenSession() && !solved) {
+                    tracker.finish(false, "home");
+                    resumablePuzzle = puzzle != null;
+                }
                 screen = Screen.HOME; invalidate(); return true;
             }
             if ((!focusMode && menuRect.contains(x, y)) || (focusMode && focusMenuRect.contains(x, y))) {
@@ -2075,9 +2071,9 @@ public class MainActivity extends Activity {
             try {
                 android.content.pm.PackageInfo info = getContext().getPackageManager()
                         .getPackageInfo(getContext().getPackageName(), 0);
-                return info.versionName == null ? "1.40" : info.versionName;
+                return info.versionName == null ? "1.41" : info.versionName;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return "1.40";
+                return "1.41";
             }
         }
 
@@ -2088,7 +2084,7 @@ public class MainActivity extends Activity {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return info.getLongVersionCode();
                 return info.versionCode;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return 40L;
+                return 41L;
             }
         }
 
@@ -2304,6 +2300,7 @@ public class MainActivity extends Activity {
                 }
             }
             solved = true;
+            resumablePuzzle = false;
             if (!wasSolved && mode == GameMode.PATH && level == progressLevel) {
                 progressLevel = level + 1;
                 prefs.edit().putInt("currentLevel", progressLevel).apply();

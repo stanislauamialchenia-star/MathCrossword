@@ -29,6 +29,11 @@ final class SessionTracker {
     private static final int MAX_SESSIONS = 500;
     private final File historyFile;
     private OpenSession open;
+    // One in-memory resumable run is enough for the current Home -> Continue path.
+    // Process-death persistence is intentionally a later stage.
+    private String resumableRunId;
+    private String resumablePuzzleId;
+    private int resumableVisitIndex;
 
     SessionTracker(Context context) {
         historyFile = new File(context.getFilesDir(), "play_history.jsonl");
@@ -36,6 +41,10 @@ final class SessionTracker {
 
     synchronized boolean hasOpenSession() {
         return open != null;
+    }
+
+    synchronized boolean hasResumableRun() {
+        return resumableRunId != null && resumablePuzzleId != null;
     }
 
     synchronized void start(String mode, int level, long seed, int logic, int calc,
@@ -62,6 +71,11 @@ final class SessionTracker {
                             String generationStageTimings, long generationMillis, int generationAttempts, int generationRejects,
                             String generationRejectSummary, GraphAnalyzer.Metrics graph) {
         if (open != null) finish(false, "replaced");
+        String nextPuzzleId = RunLifecycle.puzzleId(mode, level, seed, generatorVersion);
+        boolean reopened = resumableRunId != null && nextPuzzleId.equals(resumablePuzzleId);
+        String existingRunId = reopened ? resumableRunId : null;
+        int nextVisitIndex = reopened ? resumableVisitIndex + 1 : 1;
+        if (!reopened) clearResumableRun();
         open = new OpenSession(mode, level, seed, logic, calc, logicScore, calcScore, strategy, hidden, equations,
                 ratedLogic, predictedSteps, predictedDepth, basicForced, basicRemaining, maxForcedCascade,
                 maxResolvedAfterOneCell, maxResolvedFractionAfterOneCell, vulnerableSingleCells,
@@ -77,7 +91,8 @@ final class SessionTracker {
                 contradictionKernelDepth2Branches, contradictionKernelDepth3Branches, contradictionKernelDeepBranches,
                 contradictionKernelMaxRemaining,
                 generationStageTimings, generationMillis, generationAttempts, generationRejects,
-                generationRejectSummary, graph);
+                generationRejectSummary, graph, existingRunId, nextVisitIndex, reopened);
+        if (reopened) clearResumableRun();
     }
 
     synchronized void resume() {
@@ -98,9 +113,27 @@ final class SessionTracker {
 
     synchronized void finish(boolean solved, String reason) {
         if (open == null) return;
-        JSONObject json = open.finish(solved, reason);
+        OpenSession closing = open;
+        JSONObject json = closing.finish(solved, reason);
+        if (!solved && "home".equals(reason)) {
+            resumableRunId = closing.runId;
+            resumablePuzzleId = closing.puzzleId;
+            resumableVisitIndex = closing.visitIndex;
+        } else if (closing.runId.equals(resumableRunId)) {
+            clearResumableRun();
+        }
         open = null;
         append(json);
+    }
+
+    synchronized void discardResumableRun() {
+        clearResumableRun();
+    }
+
+    private void clearResumableRun() {
+        resumableRunId = null;
+        resumablePuzzleId = null;
+        resumableVisitIndex = 0;
     }
 
     synchronized AnalysisSnapshot analyze() {
@@ -626,8 +659,9 @@ final class SessionTracker {
 
     private static final class OpenSession {
         final String id = UUID.randomUUID().toString(); // legacy sessionId / stored visit row id
-        final String runId = UUID.randomUUID().toString();
+        final String runId;
         final String visitId = UUID.randomUUID().toString();
+        final int visitIndex;
         final long startedAtEpochMs = System.currentTimeMillis();
         final String puzzleId;
         final String mode;
@@ -737,7 +771,10 @@ final class SessionTracker {
                     int contradictionKernelDepth2Branches, int contradictionKernelDepth3Branches, int contradictionKernelDeepBranches,
                     int contradictionKernelMaxRemaining,
                     String generationStageTimings, long generationMillis, int generationAttempts,
-                    int generationRejects, String generationRejectSummary, GraphAnalyzer.Metrics graph) {
+                    int generationRejects, String generationRejectSummary, GraphAnalyzer.Metrics graph,
+                    String existingRunId, int visitIndex, boolean reopened) {
+            this.runId = existingRunId == null ? UUID.randomUUID().toString() : existingRunId;
+            this.visitIndex = Math.max(1, visitIndex);
             this.mode = mode;
             this.level = level;
             this.seed = seed;
@@ -812,7 +849,7 @@ final class SessionTracker {
             this.graphDiameter = graph == null ? 0 : graph.diameter;
             this.graphMaxDegree = graph == null ? 0 : graph.maxDegree;
             this.graphAverageDegree = graph == null ? 0.0 : graph.averageDegree;
-            lifecycleEvent("PUZZLE_OPENED", null);
+            lifecycleEvent(reopened ? "PUZZLE_REOPENED" : "PUZZLE_OPENED", null);
             resume();
         }
 
@@ -885,7 +922,7 @@ final class SessionTracker {
                 root.put("visitId", visitId);
                 root.put("runId", runId);
                 root.put("puzzleId", puzzleId);
-                root.put("visitIndex", 1);
+                root.put("visitIndex", visitIndex);
                 root.put("visitOutcome", RunLifecycle.visitOutcome(solved, reason));
                 root.put("runOutcome", runOutcome);
                 root.put("startedAtEpochMs", startedAtEpochMs);
