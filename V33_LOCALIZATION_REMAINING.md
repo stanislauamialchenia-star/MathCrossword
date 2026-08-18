@@ -5,4 +5,4 @@ Safe localization pass changed **0** code occurrences in `MainActivity.java`.
 Russian text inside `UiText.tr(...)` / `UiText.format(...)` is intentional and is not listed below.
 The remaining raw literals should be translated deliberately or kept only if they are internal research text.
 
-- line 782: `" · возвратов "`
+No unwrapped Cyrillic Java string literals remain in `MainActivity.java`.

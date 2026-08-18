@@ -429,7 +429,7 @@ final class SessionTracker {
                         .append("[").append(reportTime(m.optLong("tMs", 0L))).append("] ")
                         .append(m.optString("notation", m.optString("type", "")));
             }
-            if (moves.length() > limit) out.append("\n… ещё ").append(moves.length() - limit).append(UiText.tr(" more moves", " ходов", " tahů"));
+            if (moves.length() > limit) out.append(UiText.tr("\n… ", "\n… ещё ", "\n… ještě ")).append(moves.length() - limit).append(UiText.tr(" more moves", " ходов", " tahů"));
         }
         out.append(UiText.tr("\n\nThis is a trace of interaction with the puzzle, not a literal record of a person's thoughts.", "\n\nЭто след взаимодействия с задачей, а не буквальная запись мыслей человека.", "\n\nToto je stopa interakce s hlavolamem, nikoli doslovný záznam myšlenek člověka."));
         return out.toString();
