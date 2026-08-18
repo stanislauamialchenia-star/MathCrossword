@@ -1,4 +1,4 @@
-name: Localize MainActivity safely
+name: Localize player UI safely
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
       - agent/first-run-player-layer
     paths:
       - tools/localize_main_activity.py
+      - tools/localize_session_tracker.py
       - .github/workflows/localize-main-ui.yml
   workflow_dispatch:
 
@@ -40,8 +41,12 @@ jobs:
             "$sdkmanager_bin" "platforms;android-36" "build-tools;36.0.0"
           fi
 
-      - name: Apply exact localization migration
-        run: python3 tools/localize_main_activity.py
+      - name: Apply exact localization migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/localize_main_activity.py
+          python3 tools/localize_session_tracker.py
 
       - name: Compile both distribution variants
         shell: bash
@@ -53,12 +58,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if git diff --quiet -- app/src/main/java/com/offline/mathcrossword/MainActivity.java V33_LOCALIZATION_REMAINING.md; then
+          paths=(
+            app/src/main/java/com/offline/mathcrossword/MainActivity.java
+            app/src/main/java/com/offline/mathcrossword/SessionTracker.java
+            V33_LOCALIZATION_REMAINING.md
+            V33_TRAJECTORY_LOCALIZATION_REMAINING.md
+          )
+          if git diff --quiet -- "${paths[@]}"; then
             echo "No generated localization changes to commit."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/src/main/java/com/offline/mathcrossword/MainActivity.java V33_LOCALIZATION_REMAINING.md
-          git commit -m "Localize primary MainActivity player path"
+          git add "${paths[@]}"
+          git commit -m "Localize player-facing analysis and trajectory text"
           git push origin HEAD:agent/first-run-player-layer
