@@ -19,12 +19,13 @@ import java.util.Set;
  * output is only a model-vs-interaction comparison used to find blind spots.
  */
 final class HumanRouteComparator {
-    static final int VERSION = 1;
+    static final int VERSION = 2;
     private static final int MAX_MODEL_STEPS = 48;
 
     private HumanRouteComparator() { }
 
     static JSONArray modelRoute(Puzzle p) {
+        GraphTelemetryContext.capture(p);
         JSONArray out = new JSONArray();
         if (p == null || p.hidden.isEmpty()) return out;
 
@@ -78,6 +79,8 @@ final class HumanRouteComparator {
         JSONObject out = new JSONObject();
         try {
             out.put("version", VERSION);
+            out.put("graphTraversalVersion", GraphTraversalTelemetry.VERSION);
+            out.put("graphTraversal", GraphTelemetryContext.consume(events));
             int modelSteps = modelRoute == null ? 0 : modelRoute.length();
             JSONArray actual = actualDecisionRoute(events);
             out.put("modelSteps", modelSteps);
