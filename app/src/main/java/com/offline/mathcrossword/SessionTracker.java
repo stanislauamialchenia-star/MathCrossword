@@ -300,49 +300,49 @@ final class SessionTracker {
 
         String mode = row.optString("mode", "");
         int level = row.optInt("level", 0);
-        String where = mode.startsWith("PATH") && level > 0 ? ("уровень " + level) : "свободная игра";
+        String where = mode.startsWith("PATH") && level > 0 ? (UiText.tr("level ", "уровень ", "úroveň ") + level) : UiText.tr("free play", "свободная игра", "volná hra");
         String strategyName = row.optString("strategy", SolutionStrategy.MIXED.name());
         String strategy = strategyName;
         try { strategy = SolutionStrategy.valueOf(strategyName).label; }
         catch (RuntimeException ignored) { }
 
         out.append(where).append(" · ").append(strategy)
-                .append(" · ").append(row.optBoolean("solved", false) ? "решено" : "не завершено")
+                .append(" · ").append(row.optBoolean("solved", false) ? UiText.tr("solved", "решено", "vyřešeno") : UiText.tr("unfinished", "не завершено", "nedokončeno"))
                 .append("\nАктивное время: ").append(reportTime(row.optLong("activeMs", 0L)))
-                .append(" · событий: ").append(row.optInt("eventCount", 0));
+                .append(UiText.tr(" · events: ", " · событий: ", " · událostí: ")).append(row.optInt("eventCount", 0));
         if (row.has("graphNodes")) {
             out.append("\nГраф: μ=").append(row.optInt("graphCycleRank", 0))
-                    .append(" · мосты ").append(row.optInt("graphBridges", 0))
-                    .append(" · точки сочленения ").append(row.optInt("graphArticulationPoints", 0))
-                    .append(" · скрытые узлы-сочленения ").append(row.optInt("graphHiddenArticulations", 0))
-                    .append(" · ветвления ").append(row.optInt("graphBranchNodes", 0))
-                    .append(" · диаметр ").append(row.optInt("graphDiameter", 0));
+                    .append(UiText.tr(" · bridges ", " · мосты ", " · mosty ")).append(row.optInt("graphBridges", 0))
+                    .append(UiText.tr(" · articulation points ", " · точки сочленения ", " · artikulační body ")).append(row.optInt("graphArticulationPoints", 0))
+                    .append(UiText.tr(" · hidden articulations ", " · скрытые узлы-сочленения ", " · skryté artikulace ")).append(row.optInt("graphHiddenArticulations", 0))
+                    .append(UiText.tr(" · branch nodes ", " · ветвления ", " · větvení ")).append(row.optInt("graphBranchNodes", 0))
+                    .append(UiText.tr(" · diameter ", " · диаметр ", " · průměr ")).append(row.optInt("graphDiameter", 0));
         }
 
         out.append("\n\nСигналы прохождения")
                 .append("\nПаузы: продуктивные ").append(row.optInt("productivePauses", 0))
-                .append(" · тупиковые ").append(row.optInt("deadEndPauses", 0))
+                .append(UiText.tr(" · dead-end ", " · тупиковые ", " · slepé ")).append(row.optInt("deadEndPauses", 0))
                 .append("\nПроверки гипотез: ").append(row.optInt("hypothesisEpisodes", 0))
-                .append(" · быстрые каскады: ").append(row.optInt("rapidCascades", 0));
+                .append(UiText.tr(" · rapid cascades: ", " · быстрые каскады: ", " · rychlé kaskády: ")).append(row.optInt("rapidCascades", 0));
 
         int commitments = row.optInt("candidateCommitments", 0);
         if (commitments > 0) {
             out.append("\nКандидат → решение: ").append(commitments)
-                    .append(" · в среднем ").append(reportTime(row.optLong("avgCandidateCommitmentMs", 0L)));
+                    .append(UiText.tr(" · average ", " · в среднем ", " · průměr ")).append(reportTime(row.optLong("avgCandidateCommitmentMs", 0L)));
         }
         int recoveries = row.optInt("recoveryEpisodes", 0);
         if (recoveries > 0) {
             out.append("\nВосстановления после отмены/ошибки/намёка: ").append(recoveries)
-                    .append(" · в среднем ")
+                    .append(UiText.tr(" · average ", " · в среднем ", " · průměr "))
                     .append(String.format(java.util.Locale.US, "%.1f", row.optDouble("avgRecoveryActions", 0.0)))
-                    .append(" действия");
+                    .append(UiText.tr(" actions", " действия", " akcí"));
         }
         int switches = row.optInt("candidateCellSwitches", 0);
         int revisits = row.optInt("candidateCellRevisits", 0);
         if (switches > 0 || revisits > 0) {
             out.append("\nКандидаты: переходов между клетками ").append(switches)
-                    .append(" · возвратов ").append(revisits)
-                    .append(" · максимум в клетке ").append(row.optInt("maxCandidatesInOneCell", 0));
+                    .append(UiText.tr(" · revisits ", " · возвратов ", " · návratů ")).append(revisits)
+                    .append(UiText.tr(" · max in one cell ", " · максимум в клетке ", " · maximum v buňce ")).append(row.optInt("maxCandidatesInOneCell", 0));
         }
 
         JSONObject routeComparison = row.optJSONObject("routeComparison");
@@ -350,12 +350,12 @@ final class SessionTracker {
             out.append("\n\nМаршрут HumanSolver ↔ прохождение")
                     .append("\nСогласование: ")
                     .append(String.format(java.util.Locale.US, "%.0f%%", routeComparison.optDouble("agreementPct", 0.0)))
-                    .append(" · начало ")
+                    .append(UiText.tr(" · opening ", " · начало ", " · začátek "))
                     .append(String.format(java.util.Locale.US, "%.0f%%", routeComparison.optDouble("earlyAgreementPct", 0.0)))
-                    .append(" · порядок ")
+                    .append(UiText.tr(" · order ", " · порядок ", " · pořadí "))
                     .append(String.format(java.util.Locale.US, "%.0f%%", routeComparison.optDouble("orderAgreementPct", 0.0)));
             double probePct = routeComparison.optDouble("probeReachedEarlyPct", -1.0);
-            if (probePct >= 0.0) out.append(" · pivot вовремя ")
+            if (probePct >= 0.0) out.append(UiText.tr(" · pivot reached early ", " · pivot вовремя ", " · pivot dosažen včas "))
                     .append(String.format(java.util.Locale.US, "%.0f%%", probePct));
             out.append("\nМодель: ").append(HumanRouteComparator.describeModel(row.optJSONArray("modelRoute"), 10));
             out.append("\nПрохождение: ").append(HumanRouteComparator.describeActual(routeComparison, 14));
@@ -401,7 +401,7 @@ final class SessionTracker {
             }
             if (routeComparison.optBoolean("alternateEntry", false)) {
                 out.append("\n• Первые содержательные действия вошли в задачу не через ранние шаги HumanSolver")
-                        .append(firstModelStep >= 0 ? (" (первое совпадение: шаг модели " + (firstModelStep + 1) + ").") : ".");
+                        .append(firstModelStep >= 0 ? (UiText.tr(" (first match: model step ", " (первое совпадение: шаг модели ", " (první shoda: krok modelu ") + (firstModelStep + 1) + ").") : ".");
                 signal = true;
             }
             if (routeComparison.optBoolean("alternateOrder", false) && routeAgreement >= 45.0) {
@@ -429,7 +429,7 @@ final class SessionTracker {
                         .append("[").append(reportTime(m.optLong("tMs", 0L))).append("] ")
                         .append(m.optString("notation", m.optString("type", "")));
             }
-            if (moves.length() > limit) out.append("\n… ещё ").append(moves.length() - limit).append(" ходов");
+            if (moves.length() > limit) out.append("\n… ещё ").append(moves.length() - limit).append(UiText.tr(" more moves", " ходов", " tahů"));
         }
         out.append("\n\nЭто след взаимодействия с задачей, а не буквальная запись мыслей человека.");
         return out.toString();
