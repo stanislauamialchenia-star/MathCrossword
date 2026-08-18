@@ -1,160 +1,136 @@
-# MathCrossword v22
+# MathCrossword
 
-## v22 — плавная шкала сложности
+**MathCrossword** is an offline Android math-logic puzzle and a research playground for studying how generated reasoning structures are solved.
 
-- Пользовательские шкалы **Логика** и **Вычисления** расширены с 1–5 до **1–10**.
-- Внутри Path хранится непрерывная оценка `logicScore` / `calcScore` (1.0–10.0), поэтому переходы между уровнями можно делать постепенно, а не одним скачком между старым Logic 3 и Logic 4.
-- Пять зрелых внутренних capability-tier генератора сохранены как опорные режимы. Это позволяет не переписывать рабочие Chain/Network/Hypothesis-конструкторы только ради новой шкалы.
-- Первая сотня Path теперь проходит примерно от Logic 1 до Logic 6, особенно подробно растягивая область Logic 4–6, где игра переходит от почти автоматического решения к нескольким фронтам, кандидатам и гипотезам.
-- Anti-collapse gate больше не включается магически на 70-м уровне: его строгость растёт непрерывно вместе с `logicScore`.
-- **Вычисления 1–10 — настоящая шкала**, а не новые подписи: постепенно растут допустимые числа, умножение/деление, частные и степени.
-- В Свободной игре Логика/Вычисления выбираются от 1 до 10; кнопки показаны двумя рядами 1–5 и 6–10, чтобы не делать их слишком мелкими на телефоне.
-- `DifficultyCalibrator` теперь сравнивает прогноз и наблюдаемую стоимость в десяти диапазонах, а play trace сохраняет также непрерывные `logicScore` / `calcScore`.
-- Для верхней границы Free Play сохранён bounded-подход: MIXED Logic 9–10 получает немного больший, но конечный бюджет попыток; Logic 10 не маскируется бесконечным перебором.
-- После примерно 600-го уровня Path не превращается в бесконечную лестницу «каждый следующий обязательно тяжелее»: используется волна внутри экспертного диапазона, чтобы сохранять разнообразие при 1000+ уровнях.
+Current development line: **v22**.
 
-Контрольный harness по нескольким фиксированным точкам первой сотни показывает постепенное изменение anti-collapse: примерно L40 → public Logic 4, L60 → 5, L80 → 6. Это regression-диагностика генератора, а не утверждение о субъективной сложности для всех игроков.
+[Download the latest release](https://github.com/stanislauamialchenia-star/MathCrossword/releases/latest)
 
-Подробности: `V22_SMOOTH_DIFFICULTY.md`.
+## What the game is
 
+MathCrossword generates arithmetic crossword-style boards where some values are hidden and must be reconstructed from intersecting equations and the available number tiles.
 
-## v21 — качественная неопределённость
+The project is designed to work:
 
-- Hard PATH теперь профилирует не только каскады, но и **качество ветвления**: компактные точки гипотезы, локально жизнеспособные ложные ветки и слишком широкие области перебора.
-- Добавлен `ContextualDecoyAnalyzer`: он находит лишние плитки, которые действительно подходят клетке сразу под несколькими локальными ограничениями, но глобально ведут в ложную ветку.
-- Отдельно распознаётся **resource-conflict decoy**: лишняя копия числа, которое правильно в другой части поля, но правдоподобно подходит сюда. Такая ошибка проявляется не мгновенно, а через конфликт распределения плиток.
-- `MultiFrontResilienceAnalyzer` измеряет, оставляет ли задача несколько рабочих областей. Семейство `mixed-two-front` теперь проверяется на фактическое наличие двух фронтов, а не только на имя конструктора.
-- Намёк в MIXED умеет объяснить соответствующий приём: конфликт плиток, переход на второй фронт или проверка контекстного ложного кандидата — без автоматической постановки ответа.
-- В локальный play trace пишутся `contextualDecoyCount`, `resourceConflictDecoyCount`, параметры branch-quality и multi-front структуры. Раздел анализа показывает эти признаки для последнего прохождения.
-- В диапазоне 70–84 на контрольных seed контекстные ложные варианты обнаружены в 10/15 уровней, полезные точки гипотезы — в 10/15, два рабочих фронта — в 8/15. Это диагностическая выборка, не универсальная оценка всех уровней.
+- offline;
+- without ads;
+- without an account;
+- without a required server;
+- with deterministic seeds and reproducible generator behavior.
 
-Главный принцип v21: **не делать неопределённость шире — делать её содержательнее**. Хороший ложный кандидат должен дать причину построить гипотезу, а не заставить механически перебирать длинный список чисел.
+## Game modes
 
+### Path
 
-## v20 — юбилейный performance baseline
-- Hard Path (70+) теперь имеет отдельный `pathMode` внутри генератора: поиск hidden-mask оптимизируется под устойчивость к каскаду, а не под общий MIXED score.
-- Дорогой `CascadeResilienceAnalyzer` больше не запускается на каждом промежуточном hidden-кандидате Path; подробный профиль считается для победившей задачи.
-- Плохие Path-кандидаты отбрасываются **до** дополнительных deceptive-decoys и повторного полного анализа.
-- `DeceptiveDecoyBuilder` сначала ранжирует дешёво проверенные ложные значения и только потом тратит bounded lookahead на сильнейшие кандидаты.
-- Deceptive-decoys теперь добавляются безопасно: если очередной ложный кандидат ухудшает Logic/cascade-профиль, он откатывается, а хорошая базовая задача сохраняется.
-- `TileBankBuilder` хранит provenance equation-derived candidates и больше не проверяет каждый такой value против каждой скрытой клетки.
-- PATH теперь тоже заполняет `generationAttempts`, `generationRejects` и `generationStageTimings`, поэтому медленные уровни можно профилировать по реальным play traces.
-- На контрольных уровнях 70/75/80/85/90/95/100 среднее время генерации в harness снизилось примерно с **4.29 s (v19 reference)** до **0.96 s (v20)**; это около **4.5×** на этой небольшой контрольной выборке. Качество anti-cascade gate сохранено.
-- Подробности: `V20_JUBILEE.md`.
+A long progression of generated levels. The first 100 levels gradually move from simple logical reconstruction toward puzzles with several reasoning fronts, candidate management and hypothesis testing.
 
+After the early progression, the Path continues into a wider expert range instead of becoming an endless monotonic difficulty ladder.
 
-## v19 highlights
-- Добавлен экран `Выбрать уровень`: 1–100 доступны на первой странице, следующие блоки по 100 открываются после прохождения предыдущего блока.
-- Прогресс и выбранный для переигрывания уровень разделены: replay/test не откатывают и не перескакивают основной Path.
-- Уровень 70 теперь уже Logic 4; hard Path больше не имеет аварийного отката в Logic 3.
-- Усилен анти-каскадный gate по реально достижимым ходам `HumanSolver`, а произвольный truth-reveal остаётся только диагностикой.
-- Добавлен `DeceptiveDecoyBuilder`: до 2–3 дополнительных ложных плиток, которые локально выглядят допустимыми, переживают немедленную проверку, но не принадлежат истинным скрытым значениям и не создают второе решение.
-- История различает `PATH`, `PATH_REPLAY`, `PATH_TEST`; replay/test не смешиваются с first-pass `DifficultyCalibrator`.
-- Подробности: `V19_LEVELS_AND_DECOYS.md`.
+### Free Play
 
+Free Play lets the player choose two independent dimensions:
 
-## v18 highlights
-- Исправлен конкретный Path-регресс: около 80-го уровня поле больше не должно проходить acceptance, если базовый HumanSolver автоматически вынуждает почти все клетки.
-- Уровни 71–100 переведены в реальный Logic 4 и проходят повторную проверку `LogicAnalyzer + HumanSolver`.
-- Добавлен `CascadeResilienceAnalyzer`; основной hard gate — реальный `maxForcedCascade` после логически полученного шага.
-- Добавлено семейство `mixed-two-front`, которое строит два независимых фронта рассуждения вместо одного легко схлопывающегося дерева.
-- Добавлен прозрачный локальный `DifficultyCalibrator`: прогноз движка сравнивается с фактической стоимостью решения по play trace, без ML.
-- Экран анализа показывает калибровку сложности и быстрые каскады действий; основное поле игры не получает новых обязательных контролов.
-- Подробности и контрольные прогоны: `V18_CALIBRATION_AND_CASCADE.md`.
+- **Logic: 1–10**
+- **Calculation: 1–10**
 
+This makes it possible to separate structural reasoning difficulty from arithmetic difficulty.
 
-v17 продолжает внутреннюю исследовательскую ветку. Внешняя игра почти не раздувается: основной слой — **форма ложных гипотез + анализ реальной траектории решения**.
+## Reasoning modes
 
-## v17 highlights
-- `ContradictionKernelAnalyzer` описывает форму ложных, но локально жизнеспособных веток Hypothesis L5: число веток/точек входа и семейства `single-pivot`, `two-stage`, `deep-branch`, `multi-pivot`.
-- Профилирование строго ограничено по бюджету и выполняется после выбора победившей задачи; exact solver остаётся отдельным источником математической истины.
-- `PlayTraceAnalyzer` выводит локальные сигналы процесса: продуктивные/тупиковые паузы, эпизоды проверки гипотез, переход от кандидатов к решению, восстановление после отката и быстрые каскады.
-- Экран `Анализ прохождений` показывает компактный итог этих сигналов и последнюю траекторию без превращения игры в dashboard.
-- Намёки Hypothesis теперь могут учитывать форму kernel и подталкивать к подходящему способу проверки, не раскрывая ответ.
-- Подробности и контрольные цифры: `V17_ANALYSIS.md`.
+Generated puzzles can target different reasoning structures:
 
-Офлайн математическая головоломка для Android: без рекламы, аккаунта и обязательного сервера.
+- **Deduction** — local constraints progressively force values;
+- **Chain** — discovering a useful entry point unlocks a dependency chain;
+- **Hypothesis** — locally plausible alternatives must be tested and rejected;
+- **Network** — several interconnected constraints interact at once;
+- **Mixed** — combines multiple structures and reasoning fronts.
 
-## Фокус v14
+These names describe puzzle structure and solving affordances, not psychological player types.
 
-- Диагонали перестали быть случайной вариацией формы: новый `DiagonalPolicy` оставляет их только там, где они реально замыкают полезную связь.
-- Обычная/Path геометрия теперь ортогональная; Chain и Network используют диагональный fallback только в отдельных конструктивных семействах.
-- Добавлен `ConstructiveHypothesisBuilder` с семьями `hypothesis-fork` и `hypothesis-diamond`; в production он включён для Logic 4.
-- Hypothesis больше не наследует Network-предположение «сложность требует циклов»: branch/contradiction оценивает собственный evaluator/HumanSolver.
-- После построения полного банка плиток выполняется финальная точная проверка единственности решения (`FINAL_UNIQUENESS`).
-- Полигон отдельно фиксирует провал финальной уникальности, чтобы decoy-bank не мог незаметно превратить корректный hidden-mask в многорешённую задачу.
+## v22 — smooth difficulty scale
 
-Подробности и контрольные замеры: `V14_OPTIMIZATION.md`.
+v22 expands the visible Logic and Calculation scales from 1–5 to **1–10** while keeping continuous internal scores (`logicScore` / `calcScore`) from 1.0 to 10.0.
 
-Версия почти не расширяет внешний интерфейс. Основная работа ушла внутрь движка:
+Key changes:
 
-- исправлено обрезание длинных наводящих подсказок;
-- диагональные уравнения поддерживаются как структурный инструмент;
-- появился абстрактный `ReasoningGraph` до этапа арифметики;
-- CHAIN и NETWORK получили семейства конструктивных грамматик;
-- оценка CHAIN/NETWORK вынесена в отдельные `StrategyEvaluator`;
-- полигон измеряет время отдельных стадий генерации;
-- `generatorFamily` и stage timings сохраняются в локальной истории.
+- smoother progression between neighboring difficulty levels;
+- continuous anti-collapse tuning instead of a hard switch at one Path level;
+- independent arithmetic growth across ten Calculation levels;
+- a longer expert-range Path curve for hundreds or thousands of generated levels;
+- bounded retry budgets at the highest difficulty levels instead of hiding generator weakness behind unlimited search;
+- play traces preserve both public difficulty bands and continuous scores for later calibration.
 
-Подробности: `V11_ARCHITECTURE.md`.
+See [`V22_SMOOTH_DIFFICULTY.md`](V22_SMOOTH_DIFFICULTY.md) for the detailed model and regression points.
 
-## Стратегии решения
+## Generator philosophy
 
-В Свободной игре: **Дедукция / Цепочка / Гипотеза / Сеть / Микс**. Это стратегии и структуры конкретной задачи, не психологические типы человека.
+MathCrossword does not rely only on random geometry plus a final difficulty score. The project increasingly separates:
 
-## Наводящие подсказки
+1. **construction** of a desired reasoning structure;
+2. **mathematical validation** and uniqueness checking;
+3. **difficulty / reasoning evaluation**;
+4. **human play telemetry and calibration**.
 
-Кнопка `? Намёк` имеет прогрессивную глубину. Теперь текст показывается полностью в прокручиваемой карточке:
+CHAIN, NETWORK and HYPOTHESIS already have dedicated constructive families in addition to generic fallback generation.
 
-1. направление внимания;
-2. сужение кандидатов;
-3. логический эксперимент / глубокий намёк.
+The generator intentionally uses bounded search. If a requested structure cannot be produced reliably inside its budget, that failure is treated as useful engineering and research information rather than hidden behind unbounded retries.
 
-Подсказка не ставит плитку автоматически. После содержательного хода глубина снова сбрасывается.
+## Solving and analysis
 
-## Диагонали
+The project contains both exact mathematical validation and human-oriented analysis tools.
 
-Движок по-прежнему умеет диагональные уравнения, но v14 больше не использует их ради визуального разнообразия. Обычные поля ортогональны. Диагональ сохраняется только как конструктивный мост/замыкание в тех семействах, где без неё теряется полезная структура ограничений.
+Current research areas include:
 
-## Движок
+- opening collapse vs. productive reasoning cascades;
+- candidate-domain width and low-uncertainty entry points;
+- branching quality and false-but-plausible candidates;
+- multiple simultaneous reasoning fronts;
+- concrete reasoning graphs and player traversal;
+- replay / visit lifecycle semantics;
+- difficulty calibration from real play traces;
+- coverage of a multidimensional reasoning space rather than one scalar difficulty number.
 
-Android-независимая часть включает:
+Open GitHub issues are used as the active research backlog.
 
-- `PuzzleModel`
-- `GameConfig`
-- `ReasoningGraph`
-- `PuzzleGenerator`
-- `TileBankBuilder`
-- `ContradictionKernelBuilder`
-- `ConstructiveChainBuilder`
-- `ConstructiveNetworkBuilder`
-- `ConstructiveHypothesisBuilder`
-- `DiagonalPolicy`
-- `GeneratorPolicy`
-- `StrategyEvaluator`
-- `SolutionCounter`
-- `HumanSolver`
-- `LogicAnalyzer`
-- `HintEngine`
+## Play traces and privacy
 
-Android остаётся в основном оболочкой (`MainActivity`) и локальным хранилищем play trace (`SessionTracker`).
+Play telemetry is intended for local research and generator calibration. Raw `play_history.jsonl` data is kept local/private by default and should not be committed to the repository.
 
-## Полигон
+The goal is to record observable interaction behavior — placements, candidate edits, focus changes, pauses, retries and structural traversal — without claiming to reconstruct a player's private thoughts.
 
-Windows:
+## Install on Android
 
-`tools\\run_generator_harness.bat`
+For testers, the easiest path is the Releases page:
 
-Linux/macOS:
+1. Open the [latest release](https://github.com/stanislauamialchenia-star/MathCrossword/releases/latest).
+2. Download the `.apk` file.
+3. Open it on the Android device.
+4. If Android asks, allow installation from that source.
+5. Install the app.
 
-`tools/run_generator_harness.sh`
+Future APK updates can be distributed through the same Releases page.
 
-Полигон выводит CSV: успешность/уникальность, сложность, причины отказов, семейства конструкторов, число диагональных уравнений и время стадий генерации.
+## Repository map
 
-## Локальные данные
+Useful technical and research documents:
 
-Сохраняются последние 500 прохождений. Среди данных: активное время, паузы, действия, кандидаты, Undo, подсказки, seed, стратегия, версия/семейство генератора, стоимость и причины генерации. Никакой отправки наружу нет.
+- [`CONSTRUCTIVE_GENERATORS.md`](CONSTRUCTIVE_GENERATORS.md) — constructive generator families;
+- [`GENERATOR_BASELINES.md`](GENERATOR_BASELINES.md) — generator baselines and reproducibility;
+- [`GITHUB_SETUP.md`](GITHUB_SETUP.md) — repository/versioning workflow;
+- [`PLAYTRACE_FORMAT.md`](PLAYTRACE_FORMAT.md) — play-trace format;
+- [`RESEARCH_FRAMEWORK.md`](RESEARCH_FRAMEWORK.md) — research framing;
+- [`STATISTICS_SCHEMA.md`](STATISTICS_SCHEMA.md) — statistics schema;
+- [`TECHNICAL_AUDIT.md`](TECHNICAL_AUDIT.md) — technical audit;
+- [`V11_ARCHITECTURE.md`](V11_ARCHITECTURE.md) — reasoning graph and constructor architecture;
+- [`V14_OPTIMIZATION.md`](V14_OPTIMIZATION.md) — structural diagonals and hypothesis frontier;
+- [`V17_ANALYSIS.md`](V17_ANALYSIS.md) — play-trace analysis;
+- [`V18_CALIBRATION_AND_CASCADE.md`](V18_CALIBRATION_AND_CASCADE.md) — calibration and cascade resilience;
+- [`V19_LEVELS_AND_DECOYS.md`](V19_LEVELS_AND_DECOYS.md) — level replay and deceptive decoys;
+- [`V20_JUBILEE.md`](V20_JUBILEE.md) — hard-Path performance baseline;
+- [`V22_SMOOTH_DIFFICULTY.md`](V22_SMOOTH_DIFFICULTY.md) — current 1–10 difficulty model.
 
-## Запуск
+## Project status
 
-Открой в Android Studio папку `MathCrossword_v22`, где непосредственно лежат `app`, `build.gradle`, `settings.gradle`. Package name остаётся `com.offline.mathcrossword`, поэтому обновление ставится поверх предыдущей версии.
+MathCrossword is an actively evolving experimental project. Generator behavior, telemetry and research models may change between versions, so important generator states are preserved as versioned baselines instead of silently overwritten.
+
+The repository is public so the code, experiments and reasoning behind generator changes can be inspected and reproduced.
