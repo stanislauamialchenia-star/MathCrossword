@@ -7,6 +7,7 @@ on:
     paths:
       - tools/localize_main_activity.py
       - tools/localize_session_tracker.py
+      - tools/finalize_external_player_layer.py
       - .github/workflows/localize-main-ui.yml
       - .github/workflows/android-debug-release.yml
   workflow_dispatch:
@@ -48,6 +49,7 @@ jobs:
           set -euo pipefail
           python3 tools/localize_main_activity.py
           python3 tools/localize_session_tracker.py
+          python3 tools/finalize_external_player_layer.py
 
       - name: Build release distribution and compile Play variant
         shell: bash
@@ -95,5 +97,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "${paths[@]}"
-          git commit -m "Localize player-facing analysis and trajectory text"
+          git commit -m "Finalize localized external-player build"
           git push origin HEAD:agent/first-run-player-layer
