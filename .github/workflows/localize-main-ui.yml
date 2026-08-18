@@ -8,6 +8,7 @@ on:
       - tools/localize_main_activity.py
       - tools/localize_session_tracker.py
       - .github/workflows/localize-main-ui.yml
+      - .github/workflows/android-debug-release.yml
   workflow_dispatch:
 
 permissions:
@@ -16,7 +17,7 @@ permissions:
 jobs:
   migrate:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
       - name: Check out localization branch
@@ -48,13 +49,36 @@ jobs:
           python3 tools/localize_main_activity.py
           python3 tools/localize_session_tracker.py
 
-      - name: Compile both distribution variants
+      - name: Build release distribution and compile Play variant
         shell: bash
         run: |
           chmod +x ./gradlew
-          ./gradlew :app:compileGithubDebugJavaWithJavac :app:compilePlayDebugJavaWithJavac --no-daemon
+          ./gradlew :app:assembleGithubRelease :app:compilePlayDebugJavaWithJavac --no-daemon
 
-      - name: Commit only after successful compilation
+      - name: Verify GitHub release is non-debug
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk_path="$(find app/build/outputs/apk/github/release -type f -name '*.apk' | head -n 1)"
+          test -n "$apk_path"
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -n "$aapt_bin"
+          if "$aapt_bin" dump badging "$apk_path" | grep -q 'application-debuggable'; then
+            echo "githubRelease is unexpectedly debuggable" >&2
+            exit 1
+          fi
+
+      - name: Reliability smoke gate on release classes
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/githubRelease/compileGithubReleaseJavaWithJavac/classes"
+          test -d "$app_classes"
+          mkdir -p "$RUNNER_TEMP/mathcrossword-reliability"
+          javac -cp "$app_classes" -d "$RUNNER_TEMP/mathcrossword-reliability" tools/ReliabilityHarness.java
+          timeout 12m java -Xmx1536m -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" com.offline.mathcrossword.ReliabilityHarness smoke
+
+      - name: Commit only after successful release validation
         shell: bash
         run: |
           set -euo pipefail
