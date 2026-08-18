@@ -2,7 +2,8 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TARGET = ROOT / "app/src/main/java/com/offline/mathcrossword/MainActivity.java"
+MAIN = ROOT / "app/src/main/java/com/offline/mathcrossword/MainActivity.java"
+TRACKER = ROOT / "app/src/main/java/com/offline/mathcrossword/SessionTracker.java"
 
 
 def replace_exact(source: str, old: str, new: str, label: str) -> tuple[str, int]:
@@ -15,10 +16,11 @@ def replace_exact(source: str, old: str, new: str, label: str) -> tuple[str, int
 
 
 def main() -> None:
-    source = TARGET.read_text(encoding="utf-8")
+    main_source = MAIN.read_text(encoding="utf-8")
+    tracker_source = TRACKER.read_text(encoding="utf-8")
     changed = 0
 
-    replacements = [
+    main_replacements = [
         (
             '                    + " · возвратов " + last.candidateCellRevisits\n',
             '                    + UiText.tr(" · revisits ", " · возвратов ", " · návratů ") + last.candidateCellRevisits\n',
@@ -41,11 +43,20 @@ def main() -> None:
         ),
     ]
 
-    for old, new, label in replacements:
-        source, n = replace_exact(source, old, new, label)
+    for old, new, label in main_replacements:
+        main_source, n = replace_exact(main_source, old, new, label)
         changed += n
 
-    TARGET.write_text(source, encoding="utf-8")
+    tracker_source, n = replace_exact(
+        tracker_source,
+        '            if (moves.length() > limit) out.append("\\n… ещё ").append(moves.length() - limit).append(UiText.tr(" more moves", " ходов", " tahů"));\n',
+        '            if (moves.length() > limit) out.append(UiText.tr("\\n… ", "\\n… ещё ", "\\n… ještě ")).append(moves.length() - limit).append(UiText.tr(" more moves", " ходов", " tahů"));\n',
+        "trajectory overflow label",
+    )
+    changed += n
+
+    MAIN.write_text(main_source, encoding="utf-8")
+    TRACKER.write_text(tracker_source, encoding="utf-8")
     print(f"final external-player cleanup changes: {changed}")
 
 
