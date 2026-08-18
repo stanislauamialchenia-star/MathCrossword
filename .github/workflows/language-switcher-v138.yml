@@ -1,0 +1,93 @@
+name: Apply language switcher v1.38
+
+on:
+  push:
+    branches:
+      - agent/language-switcher-v138
+    paths:
+      - tools/add_language_switcher.py
+      - app/src/main/java/com/offline/mathcrossword/UiText.java
+      - app/src/main/java/com/offline/mathcrossword/SolutionStrategy.java
+      - .github/workflows/language-switcher-v138.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v5
+        with:
+          ref: agent/language-switcher-v138
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Ensure Android API 36
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f "$ANDROID_HOME/platforms/android-36/android.jar" ]; then
+            sdkmanager_bin="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+            test -n "$sdkmanager_bin"
+            "$sdkmanager_bin" "platforms;android-36" "build-tools;36.0.0"
+          fi
+
+      - name: Apply exact migration
+        run: python3 tools/add_language_switcher.py
+
+      - name: Compile and validate both channels
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:assembleGithubRelease :app:compilePlayDebugJavaWithJavac --no-daemon
+
+      - name: Verify GitHub release is non-debug
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk_path="$(find app/build/outputs/apk/github/release -type f -name '*.apk' | head -n 1)"
+          test -n "$apk_path"
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -n "$aapt_bin"
+          if "$aapt_bin" dump badging "$apk_path" | grep -q 'application-debuggable'; then
+            echo "githubRelease is unexpectedly debuggable" >&2
+            exit 1
+          fi
+
+      - name: Run reliability smoke gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/githubRelease/compileGithubReleaseJavaWithJavac/classes"
+          mkdir -p "$RUNNER_TEMP/mathcrossword-reliability"
+          javac -cp "$app_classes" -d "$RUNNER_TEMP/mathcrossword-reliability" tools/ReliabilityHarness.java
+          timeout 12m java -Xmx1536m -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" com.offline.mathcrossword.ReliabilityHarness smoke
+
+      - name: Commit generated production files
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            app/build.gradle
+            app/src/main/java/com/offline/mathcrossword/MainActivity.java
+            app/src/main/java/com/offline/mathcrossword/SolutionLibrary.java
+          )
+          if git diff --quiet -- "${files[@]}"; then
+            echo "No generated changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${files[@]}"
+          git commit -m "Add persistent language switcher"
+          git push origin HEAD:agent/language-switcher-v138
