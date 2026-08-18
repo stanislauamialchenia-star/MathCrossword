@@ -33,10 +33,9 @@ final class UiText {
         return "en";
     }
 
-    // Compact label used by the home-screen language button.
+    // Compact home-screen language button, e.g. EN ▾ / RU ▾ / CS ▾.
     static String badge() {
-        String code = language().toUpperCase(Locale.ROOT);
-        return "system".equals(languageOverride) ? "A/" + code : code;
+        return language().toUpperCase(Locale.ROOT) + " ▾";
     }
 
     static String tr(String english, String russian, String czech) {
