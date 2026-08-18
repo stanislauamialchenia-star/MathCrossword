@@ -8,8 +8,7 @@ import java.util.Locale;
  * A Visit is one foreground interaction window. A PuzzleRun is the player's
  * continuing attempt at one puzzle until a terminal outcome is known.
  *
- * This helper deliberately keeps lifecycle labels language-independent because
- * they are research/export identifiers, not player-facing text.
+ * These labels are research/export identifiers and stay language-independent.
  */
 final class RunLifecycle {
     static final String SOLVED = "SOLVED";
@@ -23,7 +22,7 @@ final class RunLifecycle {
 
     static String outcome(boolean solved, String finishReason) {
         if (solved) return SOLVED;
-        String reason = finishReason == null ? "" : finishReason.toLowerCase(Locale.ROOT);
+        String reason = normalizedReason(finishReason);
         switch (reason) {
             case "give_up":
             case "giveup":
@@ -48,6 +47,44 @@ final class RunLifecycle {
         }
     }
 
+    static String visitOutcome(boolean solved, String finishReason) {
+        if (solved) return "SOLVED";
+        String reason = normalizedReason(finishReason);
+        switch (reason) {
+            case "home": return "HOME_EXIT";
+            case "background":
+            case "pause": return "APP_BACKGROUND";
+            case "replaced":
+            case "superseded": return "REPLACED";
+            case "give_up":
+            case "giveup": return "GIVE_UP";
+            case "restart":
+            case "restarted":
+            case "reset": return "RESTARTED";
+            case "skip":
+            case "skipped": return "SKIPPED";
+            default: return "UNKNOWN";
+        }
+    }
+
+    static String lifecycleEvent(boolean solved, String finishReason) {
+        if (solved) return "SOLVED";
+        String reason = normalizedReason(finishReason);
+        switch (reason) {
+            case "home": return "HOME_EXIT";
+            case "give_up":
+            case "giveup": return "GIVE_UP";
+            case "restart":
+            case "restarted":
+            case "reset": return "RESTARTED";
+            case "skip":
+            case "skipped": return "SKIPPED";
+            case "replaced":
+            case "superseded": return "RUN_SUPERSEDED";
+            default: return "VISIT_FINISHED";
+        }
+    }
+
     static boolean isSolved(String outcome) {
         return SOLVED.equals(outcome);
     }
@@ -61,8 +98,8 @@ final class RunLifecycle {
     }
 
     static boolean isExplicitDifficultyOutcome(String outcome) {
-        // An in-progress/home-exit visit must never be interpreted as a failed solve.
-        // ABANDONED is also ambiguous: replacement can be a product/navigation choice.
+        // Home/background/in-progress visits must never become failed solves.
+        // Replacement is also ambiguous: it can be simple navigation.
         return SOLVED.equals(outcome) || GIVE_UP.equals(outcome);
     }
 
@@ -84,5 +121,9 @@ final class RunLifecycle {
     static String puzzleId(String mode, int level, long seed, int generatorVersion) {
         String safeMode = mode == null ? "" : mode;
         return safeMode + ":" + level + ":" + seed + ":g" + generatorVersion;
+    }
+
+    private static String normalizedReason(String finishReason) {
+        return finishReason == null ? "" : finishReason.toLowerCase(Locale.ROOT);
     }
 }
