@@ -779,7 +779,7 @@ public class MainActivity extends Activity {
                 y += dp(21);
                 if (last.candidateCellSwitches > 0 || last.candidateCellRevisits > 0) {
                     c.drawText(UiText.tr("candidates: switches ", "кандидаты: переходов ", "kandidáti: přechody ") + last.candidateCellSwitches
-                            + " · возвратов " + last.candidateCellRevisits
+                            + UiText.tr(" · revisits ", " · возвратов ", " · návratů ") + last.candidateCellRevisits
                             + UiText.tr(" · max in one cell ", " · максимум в клетке ", " · maximum v buňce ") + last.maxCandidatesInOneCell, side, y, paint);
                     y += dp(21);
                 }
@@ -2028,9 +2028,9 @@ public class MainActivity extends Activity {
             try {
                 android.content.pm.PackageInfo info = getContext().getPackageManager()
                         .getPackageInfo(getContext().getPackageName(), 0);
-                return info.versionName == null ? "1.36" : info.versionName;
+                return info.versionName == null ? "1.37" : info.versionName;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return "1.36";
+                return "1.37";
             }
         }
 
@@ -2041,7 +2041,7 @@ public class MainActivity extends Activity {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return info.getLongVersionCode();
                 return info.versionCode;
             } catch (android.content.pm.PackageManager.NameNotFoundException ex) {
-                return 36L;
+                return 37L;
             }
         }
 

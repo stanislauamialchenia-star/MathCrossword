@@ -1,6 +1,6 @@
 # V33 trajectory localization — remaining raw Russian
 
-Safe pass changed **27** player-facing literals in `SessionTracker.java`.
+Safe pass changed **0** player-facing literals in `SessionTracker.java`.
 
 Internal telemetry identifiers and JSON keys are intentionally language-independent.
 Russian fallback arguments inside `UiText.tr(...)` are intentional.
