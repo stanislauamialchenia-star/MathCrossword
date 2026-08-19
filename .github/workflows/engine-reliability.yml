@@ -58,7 +58,9 @@ jobs:
             -d "$RUNNER_TEMP/mathcrossword-reliability" \
             tools/ReliabilityHarness.java \
             tools/GraphTheoryHarness.java \
-            tools/RunLifecycleHarness.java
+            tools/RunLifecycleHarness.java \
+            tools/GraphTraversalTelemetryHarness.java \
+            tools/SolverInvariantEvidenceHarness.java
 
       - name: Run lifecycle contracts
         shell: bash
@@ -77,6 +79,18 @@ jobs:
           java -Xmx512m \
             -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
             com.offline.mathcrossword.GraphTheoryHarness
+
+      - name: Run solver-invariant telemetry contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          java -Xmx256m \
+            -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+            com.offline.mathcrossword.GraphTraversalTelemetryHarness
+          java -Xmx256m \
+            -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+            com.offline.mathcrossword.SolverInvariantEvidenceHarness
 
       - name: Run deterministic smoke gate
         shell: bash
