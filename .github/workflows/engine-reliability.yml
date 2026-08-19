@@ -56,9 +56,6 @@ jobs:
           test -d "$app_classes"
           curl --fail --silent --show-error --location --retry 3 \
             --output "$json_jar" \
-            https://repo.maven.apache.org/maven2/org/json/json/20240303/json/20240303/json-20240303.jar || \
-          curl --fail --silent --show-error --location --retry 3 \
-            --output "$json_jar" \
             https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar
           test -s "$json_jar"
           mkdir -p "$RUNNER_TEMP/mathcrossword-reliability"
@@ -131,3 +128,12 @@ jobs:
           timeout 12m java -Xmx1536m \
             -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
             com.offline.mathcrossword.ReliabilityHarness smoke
+
+      - name: Run extended all-generator compatibility sweep
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          timeout 12m java -Xmx1536m \
+            -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+            com.offline.mathcrossword.ReliabilityHarness extended
