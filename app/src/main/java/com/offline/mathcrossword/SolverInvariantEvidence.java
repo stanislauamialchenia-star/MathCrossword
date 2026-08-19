@@ -48,7 +48,8 @@ final class SolverInvariantEvidence {
 
             JSONObject candidates = new JSONObject();
             candidates.put("edits", countCandidateEdits(row.optJSONArray("events")));
-            candidates.put("distinctCells", row.optInt("candidateDistinctCells", 0));
+            candidates.put("distinctCells", row.optInt("distinctCandidateCells",
+                    row.optInt("candidateSequenceDistinctCells", 0)));
             candidates.put("cellSwitches", row.optInt("candidateCellSwitches", 0));
             candidates.put("cellRevisits", row.optInt("candidateCellRevisits", 0));
             candidates.put("maxObservedWidth", row.optInt("maxCandidatesInOneCell", 0));
