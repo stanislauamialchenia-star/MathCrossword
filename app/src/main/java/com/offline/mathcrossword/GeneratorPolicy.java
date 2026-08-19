@@ -25,6 +25,11 @@ final class GeneratorPolicy {
             case NETWORK: return logic == 4 ? 1 : 0;
             case HYPOTHESIS: return logic >= 4 ? 2 : 1;
             case DEDUCTION: return logic >= 4 ? 1 : 0;
+            // MIXED tier 5 is currently constrained by masks that are structurally
+            // eligible but too often collapse after only one or two reasoning steps.
+            // One extra hidden cell expands the bounded search to 13 -> 12 unknowns,
+            // increasing the chance of a third dependency without raising retries.
+            case MIXED: return logic >= 5 ? 1 : 0;
             case CHAIN: return 0;
             default: return 0;
         }
