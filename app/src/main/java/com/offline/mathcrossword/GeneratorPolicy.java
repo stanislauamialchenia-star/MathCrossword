@@ -276,6 +276,10 @@ final class GeneratorPolicy {
             score += Math.min(h.basicRemaining, m.hidden) * 30;
             score -= h.basicForced * 70;
             score -= h.maxForcedCascade * 55;
+            // Selection is best-of-N. Once a sampled mask actually satisfies the
+            // requested NETWORK tier, never let a prettier-but-collapsing mask
+            // replace it merely because its structural score is numerically larger.
+            if (acceptsDifficulty(SolutionStrategy.NETWORK, m, h, logicLevel)) score += 10_000;
             return score;
         }
         if (strategy == SolutionStrategy.HYPOTHESIS) {
