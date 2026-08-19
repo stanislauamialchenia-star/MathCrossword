@@ -270,6 +270,14 @@ final class GeneratorPolicy {
                                   LogicAnalyzer.Metrics m,
                                   HumanSolver.Metrics h,
                                   int logicLevel) {
+        if (strategy == SolutionStrategy.MIXED) {
+            // MIXED uses the shared difficulty definition rather than a separate
+            // signature evaluator. During best-of-N hidden selection, an already
+            // on-target mask must not be replaced by a higher generic score that
+            // later fails the exact requested tier. This changes selection only;
+            // it does not loosen the Logic 10 acceptance contract.
+            return acceptsDifficulty(SolutionStrategy.MIXED, m, h, logicLevel) ? 10_000 : 0;
+        }
         if (strategy == SolutionStrategy.NETWORK) {
             // A network is not just a cyclic picture. The uncertainty must survive
             // basic propagation after the first useful entry. v22 over-rewarded
