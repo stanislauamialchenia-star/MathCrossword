@@ -65,7 +65,8 @@ jobs:
             tools/GraphTheoryHarness.java \
             tools/RunLifecycleHarness.java \
             tools/GraphTraversalTelemetryHarness.java \
-            tools/SolverInvariantEvidenceHarness.java
+            tools/SolverInvariantEvidenceHarness.java \
+            tools/PathGenerationLatencyHarness.java
 
       - name: Run lifecycle contracts
         shell: bash
@@ -97,6 +98,17 @@ jobs:
           java -Xmx256m \
             -cp "$json_jar:$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
             com.offline.mathcrossword.SolverInvariantEvidenceHarness
+
+      - name: Probe PATH 77-79 generation boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          for level in 77 78 79; do
+            timeout 90s java -Xmx1536m \
+              -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+              com.offline.mathcrossword.PathGenerationLatencyHarness "$level"
+          done
 
       - name: Run deterministic smoke gate
         shell: bash
