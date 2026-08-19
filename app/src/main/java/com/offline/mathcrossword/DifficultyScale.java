@@ -66,9 +66,15 @@ final class DifficultyScale {
     static double pathLogicScore(int level) {
         level = Math.max(1, level);
         if (level <= 100) {
+            // Keep the public Logic 5 -> 6 transition on level 78 rather than
+            // just after it. At 5.50 Java rounds to display Logic 6, so PATH 78
+            // enters the mature tier-4/path hidden constructor at the same point
+            // where the continuous anti-collapse gates have already become hard.
+            // Without this anchor v22 asked a tier-3 constructor to satisfy tier-4
+            // cascade constraints and deterministically exhausted its retry budget.
             return interpolate(level,
-                    new int[]{1, 10, 25, 40, 55, 69, 70, 85, 100},
-                    new double[]{1.0, 1.8, 2.8, 3.8, 4.5, 5.0, 5.1, 5.8, 6.4});
+                    new int[]{1, 10, 25, 40, 55, 69, 70, 78, 85, 100},
+                    new double[]{1.0, 1.8, 2.8, 3.8, 4.5, 5.0, 5.1, 5.5, 5.8, 6.4});
         }
         if (level <= 300) return lerp(6.4, 8.5, (level - 100) / 200.0);
         if (level <= 600) return lerp(8.5, 9.5, (level - 300) / 300.0);
