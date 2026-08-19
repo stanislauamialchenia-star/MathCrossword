@@ -68,7 +68,8 @@ jobs:
             tools/SolverInvariantEvidenceHarness.java \
             tools/PathGenerationLatencyHarness.java \
             tools/NetworkGenerationProbe.java \
-            tools/HypothesisGenerationProbe.java
+            tools/HypothesisGenerationProbe.java \
+            tools/MixedGenerationProbe.java
 
       - name: Run lifecycle contracts
         shell: bash
@@ -129,6 +130,15 @@ jobs:
           timeout 10m java -Xmx1536m \
             -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
             com.offline.mathcrossword.HypothesisGenerationProbe 12
+
+      - name: Probe MIXED Logic 10 generation
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          timeout 10m java -Xmx1536m \
+            -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+            com.offline.mathcrossword.MixedGenerationProbe 12
 
       - name: Run deterministic smoke gate
         shell: bash
