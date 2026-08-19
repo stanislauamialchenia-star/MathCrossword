@@ -6,7 +6,10 @@ final class GeneratorPolicy {
     static int equationDelta(SolutionStrategy strategy, int logic) {
         if (strategy == null) return 0;
         switch (strategy) {
-            case NETWORK: return logic >= 5 ? 1 : 0;
+            // Expert Network needs enough physical closure opportunities before
+            // the hidden-mask search begins. One extra equation at tier 4 brings
+            // the public L6-L8 constructor into the same structural regime as L10.
+            case NETWORK: return logic >= 4 ? 1 : 0;
             case HYPOTHESIS: return logic >= 4 ? 1 : 0;
             case CHAIN: return 1;
             default: return 0;
