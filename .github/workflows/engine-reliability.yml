@@ -52,9 +52,14 @@ jobs:
         run: |
           set -euo pipefail
           app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          json_jar="$RUNNER_TEMP/json-20240303.jar"
           test -d "$app_classes"
+          curl --fail --silent --show-error --location --retry 3 \
+            --output "$json_jar" \
+            https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar
+          test -s "$json_jar"
           mkdir -p "$RUNNER_TEMP/mathcrossword-reliability"
-          javac -cp "$app_classes" \
+          javac -cp "$json_jar:$app_classes" \
             -d "$RUNNER_TEMP/mathcrossword-reliability" \
             tools/ReliabilityHarness.java \
             tools/GraphTheoryHarness.java \
@@ -85,11 +90,12 @@ jobs:
         run: |
           set -euo pipefail
           app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          json_jar="$RUNNER_TEMP/json-20240303.jar"
           java -Xmx256m \
-            -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+            -cp "$json_jar:$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
             com.offline.mathcrossword.GraphTraversalTelemetryHarness
           java -Xmx256m \
-            -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+            -cp "$json_jar:$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
             com.offline.mathcrossword.SolverInvariantEvidenceHarness
 
       - name: Run deterministic smoke gate
