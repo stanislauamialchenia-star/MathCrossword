@@ -289,15 +289,23 @@ final class GeneratorPolicy {
             return score;
         }
         if (strategy == SolutionStrategy.HYPOTHESIS) {
-            // Hidden-mask selection must prefer uncertainty that survives basic
-            // propagation. Otherwise a board may look ambiguous at t=0 but one
-            // singleton opens the entire puzzle, which is a Chain-like cascade,
-            // not a hypothesis task.
-            return h.depth2Deductions * 220 + h.maxReasoningDepth * 150
-                    + h.lookaheadDeductions * 95 + h.lookaheadEliminations * 12
-                    + h.initialBranchCells * 10 + h.maxBranchWidth * 10
-                    + Math.min(h.basicRemaining, m.hidden) * 18
-                    - h.basicForced * 28 - h.maxForcedCascade * 24;
+            // The L8 probe showed that many masks already have a valid branching
+            // signature, but lose the requested tier through one or two initial
+            // singletons or an overlong forced cascade. Score the same survival
+            // properties the Hypothesis evaluator ultimately requires, not just
+            // visual/initial ambiguity.
+            int score = h.depth2Deductions * 220 + h.maxReasoningDepth * 150
+                    + h.lookaheadDeductions * 110 + h.lookaheadEliminations * 12
+                    + h.initialBranchCells * 12 + h.maxBranchWidth * 10
+                    + Math.min(h.basicRemaining, m.hidden) * 28;
+            score -= h.initialSingletons * 90;
+            score -= h.basicForced * 55;
+            score -= h.maxForcedCascade * 35;
+            // Hidden selection is best-of-N. Once a sampled mask actually reaches
+            // the requested HYPOTHESIS tier, it must dominate a branchier-looking
+            // mask that later collapses under basic propagation.
+            if (acceptsDifficulty(SolutionStrategy.HYPOTHESIS, m, h, logicLevel)) score += 10_000;
+            return score;
         }
         if (strategy == SolutionStrategy.DEDUCTION) {
             return m.intersectionTightening * 60 + m.crossHidden * 20
