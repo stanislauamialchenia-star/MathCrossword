@@ -16,7 +16,10 @@ final class GeneratorPolicy {
     static int hiddenDelta(SolutionStrategy strategy, int logic) {
         if (strategy == null) return 0;
         switch (strategy) {
-            case NETWORK: return 0;
+            // Tier 4 was repeatedly falling from an 11-cell target to 10-cell
+            // masks that collapse in one cascade. Give the constructor one extra
+            // hidden slot so its bounded target fallback stays in the 11..12 band.
+            case NETWORK: return logic == 4 ? 1 : 0;
             case HYPOTHESIS: return logic >= 4 ? 2 : 1;
             case DEDUCTION: return logic >= 4 ? 1 : 0;
             case CHAIN: return 0;
