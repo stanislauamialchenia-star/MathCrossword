@@ -31,7 +31,7 @@ import java.util.zip.ZipOutputStream;
  * then Android can offer the resulting ZIP through the normal share sheet.
  */
 final class ResearchExporter {
-    static final int EXPORT_SCHEMA_VERSION = 2;
+    static final int EXPORT_SCHEMA_VERSION = 3;
     private static final String PREFS = "research_export";
     private static final String PARTICIPANT_ID = "participant_id";
 
@@ -69,7 +69,9 @@ final class ResearchExporter {
 
         String participantId = participantId(context);
         JSONObject metadata = metadata(context, participantId, lines.size(), rows.size());
+        JSONObject invariantSummary = SolverInvariantEvidence.aggregate(rows);
         JSONObject summary = summary(rows);
+        summary.put("solverInvariant", invariantSummary);
 
         // The one-argument constructor exists since Android API 1. Entry names are ASCII,
         // while file contents are explicitly encoded as UTF-8 below. This keeps minSdk 23 safe.
@@ -81,6 +83,13 @@ final class ResearchExporter {
             writeEntry(zip, "sessions.jsonl", sessions.toString());
 
             writeEntry(zip, "summary.json", summary.toString(2) + "\n");
+            writeEntry(zip, "solver_invariant_summary.json", invariantSummary.toString(2) + "\n");
+
+            StringBuilder invariantEvidence = new StringBuilder();
+            for (JSONObject row : rows) {
+                invariantEvidence.append(SolverInvariantEvidence.forVisit(row).toString()).append('\n');
+            }
+            writeEntry(zip, "solver_invariant_evidence.jsonl", invariantEvidence.toString());
             zip.finish();
         }
 
@@ -103,6 +112,8 @@ final class ResearchExporter {
         out.put("parsedVisitRows", parsedSessions);
         out.put("generatorVersion", PuzzleGenerator.GENERATOR_VERSION);
         out.put("humanRouteModelVersion", HumanRouteComparator.VERSION);
+        out.put("graphTraversalVersion", GraphTraversalTelemetry.VERSION);
+        out.put("solverInvariantEvidenceVersion", SolverInvariantEvidence.VERSION);
         out.put("moveNotationVersion", MoveNotation.VERSION);
 
         PackageInfo info = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
@@ -118,7 +129,7 @@ final class ResearchExporter {
         privacy.put("locationCollected", false);
         privacy.put("contactsCollected", false);
         privacy.put("networkRequiredForPlay", false);
-        privacy.put("note", "The archive contains local puzzle/visit telemetry, timestamps, random visit/run identifiers and a random installation participant ID. It is created only after an explicit export action.");
+        privacy.put("note", "The archive contains local puzzle/visit telemetry, timestamps, random visit/run identifiers, derived solver-invariant evidence, and a random installation participant ID. It is created only after an explicit export action.");
         out.put("privacy", privacy);
         return out;
     }
