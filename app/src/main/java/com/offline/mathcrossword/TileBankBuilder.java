@@ -211,12 +211,15 @@ final class TileBankBuilder {
             for (Pos q : best.supports) if (singletonCells.contains(q)) coveredSingletons.add(q);
 
             // Most strategies stop once obvious singleton cells have alternatives.
-            // Hypothesis deliberately keeps a small number of broad-support decoys:
-            // the player needs at least a few locally plausible branches before a
-            // contradiction test is meaningful. Final exact uniqueness is checked
-            // after generation, so this never licenses multiple-solution boards.
+            // Hypothesis deliberately keeps broad-support decoys: the false branch
+            // has to remain locally plausible long enough for a lookahead test to
+            // matter. At tier 4 use the full bounded ambiguity budget; this is one
+            // extra tile versus v1.45, not a retry-budget increase. Exact uniqueness
+            // is still checked after the bank is built.
             int hypothesisFloor = strategy == SolutionStrategy.HYPOTHESIS
-                    ? Math.min(maxDecoys, baseDecoys + (logicLevel >= 5 ? 3 : 2))
+                    ? (logicLevel == 4
+                        ? maxDecoys
+                        : Math.min(maxDecoys, baseDecoys + 3))
                     : baseDecoys;
             if (selected.size() >= hypothesisFloor && coveredSingletons.containsAll(singletonCells)) break;
         }

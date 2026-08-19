@@ -67,7 +67,8 @@ jobs:
             tools/GraphTraversalTelemetryHarness.java \
             tools/SolverInvariantEvidenceHarness.java \
             tools/PathGenerationLatencyHarness.java \
-            tools/NetworkGenerationProbe.java
+            tools/NetworkGenerationProbe.java \
+            tools/HypothesisGenerationProbe.java
 
       - name: Run lifecycle contracts
         shell: bash
@@ -119,6 +120,15 @@ jobs:
           timeout 10m java -Xmx1536m \
             -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
             com.offline.mathcrossword.NetworkGenerationProbe 12
+
+      - name: Probe HYPOTHESIS Logic 8 generation
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          timeout 10m java -Xmx1536m \
+            -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+            com.offline.mathcrossword.HypothesisGenerationProbe 12
 
       - name: Run deterministic smoke gate
         shell: bash

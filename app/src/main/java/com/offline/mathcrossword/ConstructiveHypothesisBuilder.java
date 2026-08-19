@@ -167,7 +167,8 @@ final class ConstructiveHypothesisBuilder {
         if (remaining != 0) return null;
 
         t = System.nanoTime();
-        if (!PuzzleGenerator.chooseHiddenWithUniqueSolution(p, cfg.hiddenTarget, workMax, cfg.logicLevel, r, cfg.solutionStrategy, cfg.pathMode, diag)) {
+        if (!PuzzleGenerator.chooseHiddenWithUniqueSolution(p, cfg.hiddenTarget, workMax,
+                cfg.logicLevel, r, cfg.solutionStrategy, cfg.pathMode, diag)) {
             if (diag != null) {
                 diag.addStageTime(GenerationDiagnostics.Stage.HIDDEN_UNIQUENESS, System.nanoTime() - t);
                 diag.reject(GenerationDiagnostics.RejectReason.HIDDEN_OR_UNIQUENESS_FAILED);
@@ -188,9 +189,13 @@ final class ConstructiveHypothesisBuilder {
                     ? ReasoningGraph.Family.HYPOTHESIS_DIAMOND
                     : ReasoningGraph.Family.HYPOTHESIS_CONTRADICTION;
         }
+        // L8 telemetry shows the reconverging diamond survives ambiguity better
+        // than the open fork: a fork too often turns into one long forced cascade
+        // once either branch is touched. Keep forks for diversity, but make the
+        // branch-and-reconverge family the tier-4 default two thirds of the time.
         return Math.floorMod((int)(seed ^ (seed >>> 32)), 3) == 0
-                ? ReasoningGraph.Family.HYPOTHESIS_DIAMOND
-                : ReasoningGraph.Family.HYPOTHESIS_FORK;
+                ? ReasoningGraph.Family.HYPOTHESIS_FORK
+                : ReasoningGraph.Family.HYPOTHESIS_DIAMOND;
     }
 
     private static List<Slot> buildGeometry(int count, ReasoningGraph.Family family, Random r) {
