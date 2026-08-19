@@ -66,7 +66,8 @@ jobs:
             tools/RunLifecycleHarness.java \
             tools/GraphTraversalTelemetryHarness.java \
             tools/SolverInvariantEvidenceHarness.java \
-            tools/PathGenerationLatencyHarness.java
+            tools/PathGenerationLatencyHarness.java \
+            tools/NetworkGenerationProbe.java
 
       - name: Run lifecycle contracts
         shell: bash
@@ -110,6 +111,15 @@ jobs:
               com.offline.mathcrossword.PathGenerationLatencyHarness "$level"
           done
 
+      - name: Probe expert NETWORK generation
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          timeout 10m java -Xmx1536m \
+            -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+            com.offline.mathcrossword.NetworkGenerationProbe 12
+
       - name: Run deterministic smoke gate
         shell: bash
         run: |
@@ -118,3 +128,12 @@ jobs:
           timeout 12m java -Xmx1536m \
             -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
             com.offline.mathcrossword.ReliabilityHarness smoke
+
+      - name: Run extended all-generator compatibility sweep
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          timeout 12m java -Xmx1536m \
+            -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+            com.offline.mathcrossword.ReliabilityHarness extended

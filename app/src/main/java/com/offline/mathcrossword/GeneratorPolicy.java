@@ -6,7 +6,10 @@ final class GeneratorPolicy {
     static int equationDelta(SolutionStrategy strategy, int logic) {
         if (strategy == null) return 0;
         switch (strategy) {
-            case NETWORK: return logic >= 5 ? 1 : 0;
+            // Expert Network needs enough physical closure opportunities before
+            // the hidden-mask search begins. One extra equation at tier 4 brings
+            // the public L6-L8 constructor into the same structural regime as L10.
+            case NETWORK: return logic >= 4 ? 1 : 0;
             case HYPOTHESIS: return logic >= 4 ? 1 : 0;
             case CHAIN: return 1;
             default: return 0;
@@ -16,7 +19,10 @@ final class GeneratorPolicy {
     static int hiddenDelta(SolutionStrategy strategy, int logic) {
         if (strategy == null) return 0;
         switch (strategy) {
-            case NETWORK: return 0;
+            // Tier 4 was repeatedly falling from an 11-cell target to 10-cell
+            // masks that collapse in one cascade. Give the constructor one extra
+            // hidden slot so its bounded target fallback stays in the 11..12 band.
+            case NETWORK: return logic == 4 ? 1 : 0;
             case HYPOTHESIS: return logic >= 4 ? 2 : 1;
             case DEDUCTION: return logic >= 4 ? 1 : 0;
             case CHAIN: return 0;
@@ -171,6 +177,7 @@ final class GeneratorPolicy {
                 return 0;
         }
     }
+
     static boolean staticPrefilter(SolutionStrategy strategy, LogicAnalyzer.Metrics m, int logicLevel) {
         if (logicLevel <= 3) return true;
         if (strategy == SolutionStrategy.CHAIN) {
@@ -248,7 +255,6 @@ final class GeneratorPolicy {
                 && longDependency;
     }
 
-
     static boolean acceptsHypothesisKernel(LogicAnalyzer.Metrics m, HumanSolver.Metrics h, int logicLevel) {
         if (logicLevel < 5 || m == null || h == null) return false;
         return m.hidden >= 10
@@ -265,8 +271,22 @@ final class GeneratorPolicy {
                                   HumanSolver.Metrics h,
                                   int logicLevel) {
         if (strategy == SolutionStrategy.NETWORK) {
-            return m.cycleRank * 75 + m.crossHidden * 24 + m.ambiguousEquations * 16
+            // A network is not just a cyclic picture. The uncertainty must survive
+            // basic propagation after the first useful entry. v22 over-rewarded
+            // graph density and repeatedly selected masks that were structurally
+            // network-like but collapsed in one long forced cascade. Keep the
+            // structural rewards, but make the score reflect the same anti-collapse
+            // properties that the Network difficulty evaluator ultimately requires.
+            int score = m.cycleRank * 75 + m.crossHidden * 24 + m.ambiguousEquations * 16
                     + h.initialBranchCells * 8 + h.reasoningSteps * 35;
+            score += Math.min(h.basicRemaining, m.hidden) * 30;
+            score -= h.basicForced * 70;
+            score -= h.maxForcedCascade * 55;
+            // Selection is best-of-N. Once a sampled mask actually satisfies the
+            // requested NETWORK tier, never let a prettier-but-collapsing mask
+            // replace it merely because its structural score is numerically larger.
+            if (acceptsDifficulty(SolutionStrategy.NETWORK, m, h, logicLevel)) score += 10_000;
+            return score;
         }
         if (strategy == SolutionStrategy.HYPOTHESIS) {
             // Hidden-mask selection must prefer uncertainty that survives basic
@@ -290,7 +310,6 @@ final class GeneratorPolicy {
         bonus -= m.cycleRank * 20;
         return bonus;
     }
-
 
     /** Cheap bank-independent rejection of hidden masks that cannot possibly express
      * the requested strategy. Runs before TileBankBuilder/HumanSolver. */
@@ -319,10 +338,13 @@ final class GeneratorPolicy {
                     && cross >= 1 && direct <= (logicLevel >= 5 ? 4 : 5);
         }
         if (strategy == SolutionStrategy.NETWORK) {
+            // Match the eventual Network evaluator before paying for tile-bank and
+            // HumanSolver work. A mask with too few hidden cycles cannot recover
+            // later no matter how good its arithmetic values are.
             return p.hidden.size() >= (logicLevel >= 5 ? 10 : 8)
                     && ambiguous >= (logicLevel >= 5 ? 5 : 4)
                     && cross >= (logicLevel >= 5 ? 4 : 3)
-                    && cycles >= 1
+                    && cycles >= (logicLevel >= 5 ? 3 : 2)
                     && direct <= (logicLevel >= 5 ? 4 : 3);
         }
         if (strategy == SolutionStrategy.DEDUCTION) {
@@ -389,5 +411,4 @@ final class GeneratorPolicy {
         if (LogicAnalyzer.acceptForLevel(m, h, 2)) return 2;
         return 1;
     }
-
 }
