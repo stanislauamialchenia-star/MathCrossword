@@ -118,3 +118,12 @@ jobs:
           timeout 12m java -Xmx1536m \
             -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
             com.offline.mathcrossword.ReliabilityHarness smoke
+
+      - name: Run extended all-generator compatibility sweep
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          timeout 12m java -Xmx1536m \
+            -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+            com.offline.mathcrossword.ReliabilityHarness extended
