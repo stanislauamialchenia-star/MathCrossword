@@ -122,15 +122,24 @@ final class StrategyEvaluators {
         public boolean acceptsDifficulty(LogicAnalyzer.Metrics m, HumanSolver.Metrics h, int l) {
             if (l <= 3) return LogicAnalyzer.acceptForLevel(m, h, l);
             if (l == 4) {
+                // L8 is specifically a one-step contradiction / lookahead band.
+                // HumanSolver.maxForcedCascade is measured *after* that hypothesis
+                // deduction, so the old half-board cascade cap was rejecting good
+                // hypothesis puzzles merely because the proved choice unlocked a
+                // long cleanup chain. Guard the opening instead: only a small part
+                // may collapse before the hypothesis, and require an actual
+                // contradiction/lookahead deduction rather than using "stuck" as
+                // a proxy for difficulty.
+                boolean hypothesisStep = h.lookaheadDeductions >= 1 || h.maxReasoningDepth >= 1;
                 return m.hidden >= 8 && m.ambiguousEquations >= 4
-                        && h.initialSingletons <= 1
+                        && h.initialSingletons <= 2
                         && h.initialBranchCells >= Math.max(5, m.hidden / 2)
                         && h.initialAverageDomain >= 2.25
+                        && h.basicForced <= Math.max(4, m.hidden / 3)
                         && h.basicRemaining >= Math.max(6, (m.hidden * 2) / 3)
                         && h.maxBranchWidth >= 2
-                        && h.maxForcedCascade <= Math.max(4, m.hidden / 2)
-                        && (h.lookaheadDeductions >= 1 || h.maxReasoningDepth >= 1
-                            || h.stuckRemaining >= Math.max(4, m.hidden / 3));
+                        && h.maxForcedCascade <= Math.max(6, m.hidden - 3)
+                        && hypothesisStep;
             }
             return m.hidden >= 10 && m.ambiguousEquations >= 5
                     && h.initialSingletons == 0 && h.basicForced <= 1
