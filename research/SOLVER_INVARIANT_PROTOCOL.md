@@ -1,6 +1,6 @@
 # Solver-invariant experiment protocol
 
-Status: pre-registered before the next larger play batch.
+Status: pre-registered before the next larger play batch. Measurement pipeline completed before the clean cross-strategy sample.
 
 Tracking issue: #13
 
@@ -48,9 +48,9 @@ We may infer only from recorded actions and puzzle structure, including:
 
 Generator acceptance rules must not be changed from the results until the first full batch is reviewed.
 
-## v1.41 telemetry bridge
+## Current telemetry bridge
 
-The experiment branch is based directly on v1.41 so the current PuzzleRun / Visit lifecycle remains untouched.
+The experiment instrumentation is based directly on the current PuzzleRun / Visit lifecycle so Home -> Continue does not turn one puzzle into false independent losses.
 
 The concrete graph is captured when `HumanRouteComparator.modelRoute(puzzle)` starts the current visit and consumed when that visit is finalized. The resulting report is stored under:
 
@@ -58,7 +58,20 @@ The concrete graph is captured when `HumanRouteComparator.modelRoute(puzzle)` st
 
 with `routeComparison.graphTraversalVersion` beside it.
 
-This keeps the existing session schema and run-resume behavior stable while still exporting realized-graph evidence. Later analysis should read this nested field first; older research branches may expose the same payload as a top-level `graphTraversal` object.
+This keeps the existing session/run-resume behavior stable while exporting realized-graph evidence. Analysis reads this nested field first; older research branches may expose the same payload as a top-level `graphTraversal` object.
+
+## Export bundle
+
+Starting with export schema v3 the research ZIP contains the raw source of truth plus a derived evidence layer:
+
+- `sessions.jsonl` — untouched raw visit rows;
+- `summary.json` — run-aware general summary plus a nested solver-invariant summary;
+- `solver_invariant_summary.json` — cross-strategy coverage and aggregate evidence counters;
+- `solver_invariant_evidence.jsonl` — one compact evidence record per visit.
+
+`SolverInvariantEvidence` deliberately does **not** assign the final theory labels automatically. It only exposes candidate work, cascade/propagation signals, branch signals, realized graph traversal, generator opportunities and review flags. Final labels remain an offline/manual analysis step.
+
+The in-app latest trajectory text also shows the realized graph direction, entry depth, branch-probing/internal-entry flags, confidence and the observed anchor-depth sequence.
 
 ## Derived metrics per session
 
@@ -122,6 +135,8 @@ A single break candidate is not enough to redesign the generator. Prefer repeate
 
 The first checkpoint should contain multiple sessions from each requested strategy. Exact sample size is secondary to coverage and keeping non-cherry-picked sessions.
 
+For the clean sample, use the first released app version that contains export schema v3 / `SolverInvariantEvidence.VERSION = 1` or later. Older visits remain useful background data, but should be separated from the clean cross-strategy sample.
+
 ## Already observed motivating case
 
 A MIXED L10/V10 puzzle was solved by first finding a region with fewer viable candidates. Candidate reduction then cascaded through the board. Large alternative computation trees made the entry search harder, but the successful algorithm did not qualitatively change.
@@ -134,3 +149,4 @@ This observation supports testing H1; it is not counted as proof.
 - #6 / PR #10 — dependency-region vulnerability
 - #7 / PR #9 — reasoning-space coverage archive
 - #13 — this experiment
+- PR #23 — realized-graph telemetry ported onto the current PuzzleRun / Visit lifecycle

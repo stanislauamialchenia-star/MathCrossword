@@ -211,17 +211,62 @@ final class HumanRouteComparator {
     static String describeActual(JSONObject comparison, int maxCells) {
         if (comparison == null) return "—";
         JSONArray route = comparison.optJSONArray("actualDecisionRoute");
-        if (route == null || route.length() == 0) return "—";
         StringBuilder s = new StringBuilder();
-        int limit = Math.min(Math.max(1, maxCells), route.length());
-        for (int i = 0; i < limit; i++) {
-            JSONObject c = route.optJSONObject(i);
-            if (c == null) continue;
-            if (s.length() > 0) s.append(" → ");
-            s.append("[").append(c.optInt("x")).append(",").append(c.optInt("y")).append("]");
+        if (route != null && route.length() > 0) {
+            int limit = Math.min(Math.max(1, maxCells), route.length());
+            for (int i = 0; i < limit; i++) {
+                JSONObject c = route.optJSONObject(i);
+                if (c == null) continue;
+                if (s.length() > 0) s.append(" → ");
+                s.append("[").append(c.optInt("x")).append(",").append(c.optInt("y")).append("]");
+            }
+            if (route.length() > limit) s.append(" → …+").append(route.length() - limit);
         }
-        if (route.length() > limit) s.append(" → …+").append(route.length() - limit);
+
+        String graph = describeGraphTraversal(comparison.optJSONObject("graphTraversal"), 16);
+        if (!"—".equals(graph)) {
+            if (s.length() > 0) s.append("\n");
+            s.append(UiText.tr("real graph: ", "реальный граф: ", "reálný graf: ")).append(graph);
+        }
+        return s.length() == 0 ? "—" : s.toString();
+    }
+
+    static String describeGraphTraversal(JSONObject graph, int maxVisits) {
+        if (graph == null || !graph.optBoolean("available", false)) return "—";
+        StringBuilder s = new StringBuilder();
+        s.append(graphDirectionLabel(graph.optString("direction", "unknown")));
+        int entryDepth = graph.optInt("entryDepth", -1);
+        if (entryDepth >= 0) s.append(" · ").append(UiText.tr("entry d", "вход d", "vstup d")).append(entryDepth);
+        if (graph.optBoolean("anchorReached", false)) s.append(" · anchor");
+        if (graph.optBoolean("internalEntry", false)) s.append(UiText.tr(" · internal entry", " · вход изнутри", " · vnitřní vstup"));
+        if (graph.optBoolean("branchProbing", false)) s.append(UiText.tr(" · branch probe", " · проверка ветви", " · průzkum větve"));
+        if (graph.optBoolean("structuralDivergence", false)) s.append(UiText.tr(" · off-structure", " · вне структуры", " · mimo strukturu"));
+        s.append(UiText.tr(" · confidence ", " · увер. ", " · jistota "))
+                .append(String.format(java.util.Locale.US, "%.0f%%", graph.optDouble("confidencePct", 0.0)));
+
+        JSONArray observed = graph.optJSONArray("observedGraphRoute");
+        if (observed != null && observed.length() > 0) {
+            s.append(" · ");
+            int limit = Math.min(Math.max(1, maxVisits), observed.length());
+            for (int i = 0; i < limit; i++) {
+                JSONObject visit = observed.optJSONObject(i);
+                if (visit == null) continue;
+                if (i > 0) s.append("→");
+                int depth = visit.optInt("anchorDistance", -1);
+                s.append(depth >= 0 ? ("d" + depth) : "?");
+            }
+            if (observed.length() > limit) s.append("→…+").append(observed.length() - limit);
+        }
         return s.toString();
+    }
+
+    private static String graphDirectionLabel(String direction) {
+        if ("forward".equals(direction)) return UiText.tr("forward", "вперёд", "dopředu");
+        if ("backward".equals(direction)) return UiText.tr("backward", "назад", "zpět");
+        if ("bidirectional".equals(direction)) return UiText.tr("bidirectional", "двунаправленно", "obousměrně");
+        if ("mixed".equals(direction)) return UiText.tr("mixed", "смешанно", "smíšeně");
+        if ("divergent".equals(direction)) return UiText.tr("divergent", "вне структуры", "mimo strukturu");
+        return UiText.tr("unknown", "неопределённо", "neurčeno");
     }
 
     private static JSONArray actualDecisionRoute(JSONArray events) {
