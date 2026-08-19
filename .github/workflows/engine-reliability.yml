@@ -99,14 +99,16 @@ jobs:
             -cp "$json_jar:$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
             com.offline.mathcrossword.SolverInvariantEvidenceHarness
 
-      - name: Probe PATH level 78 generation
+      - name: Probe PATH 77-79 generation boundary
         shell: bash
         run: |
           set -euo pipefail
           app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
-          timeout 90s java -Xmx1536m \
-            -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
-            com.offline.mathcrossword.PathGenerationLatencyHarness 78
+          for level in 77 78 79; do
+            timeout 90s java -Xmx1536m \
+              -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+              com.offline.mathcrossword.PathGenerationLatencyHarness "$level"
+          done
 
       - name: Run deterministic smoke gate
         shell: bash
