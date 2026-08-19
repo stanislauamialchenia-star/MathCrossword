@@ -15,6 +15,67 @@ public final class NetworkGenerationProbe {
 
         int[] logicLevels = {8, 10};
         int samples = args.length > 0 ? Integer.parseInt(args[0]) : 12;
+
+        // First inspect one raw requested-strategy candidate per base seed. This tells
+        // us which NETWORK gate misses before production retry/fallback hides it.
+        for (int logic : logicLevels) {
+            int displayCalc = Math.min(10, logic + 1);
+            int tier = DifficultyScale.logicTier(logic);
+            int calcTier = DifficultyScale.calcTier(displayCalc);
+            int eq = PuzzleGenerator.clamp(
+                    DifficultyScale.pathEquationCount(logic) + GeneratorPolicy.equationDelta(SolutionStrategy.NETWORK, tier),
+                    3, 14);
+            int baseHidden = DifficultyScale.pathHiddenTarget(logic);
+            if (logic == 10) baseHidden = Math.min(baseHidden, 12);
+            int hidden = Math.min(18, baseHidden + GeneratorPolicy.hiddenDelta(SolutionStrategy.NETWORK, tier));
+            char[] enabled = PuzzleGenerator.toOps(ops);
+
+            System.out.println("=== RAW NETWORK L" + logic + " tier=" + tier + " eq=" + eq + " hidden=" + hidden + " ===");
+            for (int sample = 0; sample < samples; sample++) {
+                long seed = PuzzleGenerator.mix64(0x5241574E4554574FL
+                        ^ ((long) logic << 32)
+                        ^ sample * 0x9E3779B97F4A7C15L);
+                int shape = GeneratorPolicy.shapeStyle(seed, 0, SolutionStrategy.NETWORK);
+                GameConfig cfg = new GameConfig(eq, 1000, enabled, hidden, shape,
+                        tier, calcTier, logic, displayCalc, logic, displayCalc,
+                        SolutionStrategy.NETWORK, false);
+                GenerationDiagnostics diag = new GenerationDiagnostics(SolutionStrategy.NETWORK, tier);
+                long t0 = System.nanoTime();
+                PuzzleModel.Puzzle p = PuzzleGenerator.generateCandidate(cfg, seed, diag);
+                long ms = (System.nanoTime() - t0) / 1_000_000L;
+                if (p == null) {
+                    System.out.println("RAW_NULL logic=" + logic + " sample=" + sample + " ms=" + ms
+                            + " rejects=" + diag.compactSummary() + " timings=" + diag.stageSummary());
+                    continue;
+                }
+                LogicAnalyzer.Metrics lm = LogicAnalyzer.analyze(p);
+                HumanSolver.Metrics hm = HumanSolver.analyze(p);
+                boolean difficulty = GeneratorPolicy.acceptsDifficulty(SolutionStrategy.NETWORK, lm, hm, tier);
+                boolean signature = GeneratorPolicy.accepts(SolutionStrategy.NETWORK, lm, hm, tier);
+                System.out.println("RAW logic=" + logic
+                        + " sample=" + sample
+                        + " ms=" + ms
+                        + " family=" + safe(p.generatorFamily)
+                        + " ctor=" + safe(p.generatorConstructor)
+                        + " diff=" + difficulty
+                        + " sig=" + signature
+                        + " hidden=" + lm.hidden
+                        + " cycles=" + lm.cycleRank
+                        + " cross=" + lm.crossHidden
+                        + " ambiguous=" + lm.ambiguousEquations
+                        + " singletons=" + lm.singletons
+                        + " initBranches=" + hm.initialBranchCells
+                        + " avgDomain=" + fmt(hm.initialAverageDomain)
+                        + " basicForced=" + hm.basicForced
+                        + " basicRemaining=" + hm.basicRemaining
+                        + " cascade=" + hm.maxForcedCascade
+                        + " reasoning=" + hm.reasoningSteps
+                        + " depth=" + hm.maxReasoningDepth
+                        + " stuck=" + hm.stuckRemaining
+                        + " rejects=" + diag.compactSummary());
+            }
+        }
+
         int total = 0;
         int success = 0;
         int trueNetwork = 0;
@@ -23,7 +84,7 @@ public final class NetworkGenerationProbe {
         long totalMs = 0L;
 
         for (int logic : logicLevels) {
-            System.out.println("=== NETWORK L" + logic + " ===");
+            System.out.println("=== PRODUCTION NETWORK L" + logic + " ===");
             for (int sample = 0; sample < samples; sample++) {
                 long baseSeed = PuzzleGenerator.mix64(0x4E4554574F524B4CL
                         ^ ((long) logic << 32)
@@ -82,5 +143,6 @@ public final class NetworkGenerationProbe {
                 total == 0 ? 0.0 : totalMs / (double) total);
     }
 
+    private static String fmt(double v) { return String.format(Locale.US, "%.2f", v); }
     private static String safe(String s) { return s == null ? "" : s; }
 }
