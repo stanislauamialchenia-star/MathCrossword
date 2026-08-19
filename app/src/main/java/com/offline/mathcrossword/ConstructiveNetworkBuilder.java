@@ -19,7 +19,6 @@ final class ConstructiveNetworkBuilder {
 
         long t = System.nanoTime();
         ReasoningGraph.Family family = chooseFamily(cfg, seed);
-        ReasoningGraph abstractGraph = ReasoningGraph.network(family);
         if (diag != null) diag.addStageTime(GenerationDiagnostics.Stage.GRAPH, System.nanoTime() - t);
 
         t = System.nanoTime();
@@ -129,12 +128,14 @@ final class ConstructiveNetworkBuilder {
         if (diag != null) diag.addStageTime(GenerationDiagnostics.Stage.HIDDEN_UNIQUENESS, System.nanoTime() - t);
         PuzzleGenerator.computeBounds(p);
 
+        // Keep the constructive gate aligned with the real Network evaluator.
+        // Returning a tier-5 board with only two cycles merely guarantees that
+        // generateFree will reject it later after paying the full HumanSolver cost.
         t = System.nanoTime();
         LogicAnalyzer.Metrics lm = LogicAnalyzer.analyze(p);
         if (diag != null) diag.addStageTime(GenerationDiagnostics.Stage.HUMAN_ANALYSIS, System.nanoTime() - t);
-        int minCycles = cfg.logicLevel >= 5 ? 2 : 1;
-        int abstractMin = Math.min(minCycles, Math.max(1, abstractGraph.cycleRank()));
-        if (lm.cycleRank < abstractMin) {
+        int minCycles = cfg.logicLevel >= 5 ? 3 : 2;
+        if (lm.cycleRank < minCycles) {
             if (diag != null) diag.reject(GenerationDiagnostics.RejectReason.STRATEGY_MISMATCH);
             return null;
         }
