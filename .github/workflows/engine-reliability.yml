@@ -56,7 +56,7 @@ jobs:
           test -d "$app_classes"
           curl --fail --silent --show-error --location --retry 3 \
             --output "$json_jar" \
-            https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar
+            https://repo.maven.apache.org/maven2/org/json/json/20240303/json/20240303/json-20240303.jar
           test -s "$json_jar"
           mkdir -p "$RUNNER_TEMP/mathcrossword-reliability"
           javac -cp "$json_jar:$app_classes" \
@@ -67,7 +67,8 @@ jobs:
             tools/GraphTraversalTelemetryHarness.java \
             tools/SolverInvariantEvidenceHarness.java \
             tools/PathGenerationLatencyHarness.java \
-            tools/NetworkGenerationProbe.java
+            tools/NetworkGenerationProbe.java \
+            tools/HypothesisGenerationProbe.java
 
       - name: Run lifecycle contracts
         shell: bash
@@ -119,6 +120,15 @@ jobs:
           timeout 10m java -Xmx1536m \
             -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
             com.offline.mathcrossword.NetworkGenerationProbe 12
+
+      - name: Probe HYPOTHESIS Logic 8 generation
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          timeout 10m java -Xmx1536m \
+            -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+            com.offline.mathcrossword.HypothesisGenerationProbe 12
 
       - name: Run deterministic smoke gate
         shell: bash
