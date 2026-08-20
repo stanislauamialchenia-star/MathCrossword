@@ -110,7 +110,7 @@ jobs:
           app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
           timeout 8m java -Xmx1536m \
             -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
-            com.offline.mathcrossword.AdversarialMrvBenchmark 2
+            com.offline.mathcrossword.AdversarialMrvBenchmark 6
 
       - name: Probe PATH 77-79 generation boundary
         shell: bash
