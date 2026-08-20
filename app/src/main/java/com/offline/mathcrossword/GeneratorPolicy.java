@@ -209,6 +209,17 @@ final class GeneratorPolicy {
                     && m.crossHidden >= 2 && m.singletons <= 1
                     && m.directSingleCells <= 1 && m.averageDomain >= 2.30;
         }
+        if (strategy == SolutionStrategy.MIXED && logicLevel >= 5) {
+            // The focused L10 probe showed that most rejected masks already look
+            // hard, but some can never reach the shared tier-5 gate because their
+            // static topology is one cycle/direct clue short. Reject those before
+            // the expensive HumanSolver/cascade analysis and spend the same bounded
+            // hidden search on masks that are structurally capable of Logic 10.
+            return m.hidden >= 10 && m.ambiguousEquations >= 5
+                    && m.crossHidden >= 4 && m.singletons == 0
+                    && m.directSingleCells == 0 && m.averageDomain >= 2.45
+                    && m.cycleRank >= 3;
+        }
         return LogicAnalyzer.cheapStaticPrefilter(m, logicLevel);
     }
 
@@ -270,6 +281,18 @@ final class GeneratorPolicy {
                                   LogicAnalyzer.Metrics m,
                                   HumanSolver.Metrics h,
                                   int logicLevel) {
+        if (strategy == SolutionStrategy.MIXED) {
+            // MIXED has no style signature, so its hidden search should optimize
+            // for the exact shared difficulty contract. Once a qualifying mask is
+            // sampled it dominates best-of-N selection; near misses favor sustained
+            // reasoning and penalize one-step board collapse.
+            int score = h.reasoningSteps * 95 + h.maxReasoningDepth * 80
+                    + Math.min(h.stuckRemaining, m.hidden) * 28
+                    + h.initialBranchCells * 8
+                    - h.maxForcedCascade * 45;
+            if (acceptsDifficulty(SolutionStrategy.MIXED, m, h, logicLevel)) score += 10_000;
+            return score;
+        }
         if (strategy == SolutionStrategy.NETWORK) {
             // A network is not just a cyclic picture. The uncertainty must survive
             // basic propagation after the first useful entry. v22 over-rewarded
@@ -372,6 +395,31 @@ final class GeneratorPolicy {
                     && cross >= 2
                     && direct <= 3;
         }
+        if (strategy == SolutionStrategy.MIXED) {
+            boolean capable = p.hidden.size() >= (logicLevel >= 5 ? 10 : 8)
+                    && ambiguous >= (logicLevel >= 5 ? 5 : 4)
+                    && cross >= (logicLevel >= 5 ? 4 : 3)
+                    && cycles >= (logicLevel >= 5 ? 3 : 1)
+                    && direct <= (logicLevel >= 5 ? 0 : 3);
+            if (!capable) return false;
+            if (logicLevel >= 5 && "mixed-two-front".equals(p.generatorFamily)) {
+                // The constructor promises two physically separate cyclic regions.
+                // A hidden mask concentrated on one side silently destroys that
+                // promise and the front analyzer later sees only one live region.
+                // Require both sides to carry a meaningful share before paying for
+                // the tile bank and HumanSolver. Coordinates are constructor-local:
+                // left core <=5, right core >=7, with the deliberate gap at x=6.
+                int left = 0, right = 0;
+                for (PuzzleModel.Pos q : p.hidden) {
+                    if (q.x <= 5) left++;
+                    else if (q.x >= 7) right++;
+                }
+                int small = Math.min(left, right);
+                int large = Math.max(left, right);
+                if (small < 4 || large == 0 || small * 100 < large * 40) return false;
+            }
+            return true;
+        }
         return p.hidden.size() >= (logicLevel >= 5 ? 10 : 8)
                 && ambiguous >= (logicLevel >= 5 ? 5 : 4)
                 && cross >= (logicLevel >= 5 ? 4 : 3)
@@ -386,6 +434,10 @@ final class GeneratorPolicy {
         if (logicLevel <= 2) return 1;
         if (strategy == SolutionStrategy.NETWORK) return logicLevel >= 5 ? 8 : 6;
         if (strategy == SolutionStrategy.CHAIN) return logicLevel >= 5 ? 10 : 8;
+        // Exact MIXED tier acceptance already contains the full shared static and
+        // HumanSolver contract. Once we have sampled a few valid masks, continuing
+        // to ten samples only adds latency without improving label correctness.
+        if (strategy == SolutionStrategy.MIXED) return logicLevel >= 5 ? 6 : 6;
         // v13: Deduction/Hypothesis now have their own evaluators, so once a
         // candidate actually satisfies the requested strategy and band we no
         // longer need the old generic 10-12 sample safety margin.
