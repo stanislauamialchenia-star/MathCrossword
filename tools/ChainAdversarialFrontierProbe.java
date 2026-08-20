@@ -9,7 +9,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Diagnosis-only frontier probe for issue #39. */
+/** Diagnosis-only frontier probe for issues #39 and #41. */
 public final class ChainAdversarialFrontierProbe {
     private static final long SEED_BASE = 0x43A19D2E7B5C680FL;
     private static final long RETRY_STEP = 0x9E3779B97F4A7C15L;
@@ -22,15 +22,19 @@ public final class ChainAdversarialFrontierProbe {
         final long seed;
         final Puzzle puzzle;
         final AdversarialMrvBenchmark.Metrics metrics;
+        final CascadeResilienceAnalyzer.Profile cascade;
         final boolean matched;
 
         Row(int sample, int retry, long seed, Puzzle puzzle,
-            AdversarialMrvBenchmark.Metrics metrics, boolean matched) {
+            AdversarialMrvBenchmark.Metrics metrics,
+            CascadeResilienceAnalyzer.Profile cascade,
+            boolean matched) {
             this.sample = sample;
             this.retry = retry;
             this.seed = seed;
             this.puzzle = puzzle;
             this.metrics = metrics;
+            this.cascade = cascade;
             this.matched = matched;
         }
     }
@@ -66,10 +70,11 @@ public final class ChainAdversarialFrontierProbe {
             }
 
             AdversarialMrvBenchmark.Metrics m = AdversarialMrvBenchmark.analyze(p);
+            CascadeResilienceAnalyzer.Profile cascade = CascadeResilienceAnalyzer.analyze(p);
             boolean matched = p.strategyTargetMatched
                     && p.generationStrategy == SolutionStrategy.CHAIN;
             if (!matched) fallbacks++;
-            Row row = new Row(sample, usedRetry, usedSeed, p, m, matched);
+            Row row = new Row(sample, usedRetry, usedSeed, p, m, cascade, matched);
             rows.add(row);
 
             System.out.printf(
@@ -77,6 +82,7 @@ public final class ChainAdversarialFrontierProbe {
                             + "hidden=%d initialMin=%d initialAvg=%.2f rootForced=%d "
                             + "proofCost=%.2f decisions=%d branches=%d failed=%d depth=%d "
                             + "avgDecisionWidth=%.2f maxBranchWidth=%d avgPropagation=%.2f maxPropagation=%d "
+                            + "cascadeFrac=%.2f cascadeAdditional=%d vulnerable=%d wholeCollapse=%s "
                             + "generationMs=%d attempts=%d rejects=%d%n",
                     sample, usedRetry, usedSeed, matched,
                     p.generatorFamily, p.generatorConstructor, p.generationStage,
@@ -84,6 +90,10 @@ public final class ChainAdversarialFrontierProbe {
                     m.proofCostPerHidden(), m.decisionNodes, m.candidateBranches,
                     m.failedBranches, m.maxDepth, m.averageDecisionWidth(),
                     m.maxBranchWidth, m.averagePropagationGain(), m.maxPropagationGain,
+                    cascade.maxResolvedFractionAfterOneCell,
+                    cascade.maxAdditionalForcedAfterOneCell,
+                    cascade.vulnerableSingleCells,
+                    cascade.wholeBoardSingleCellCollapse(),
                     p.generationMillis, p.generationAttempts, p.generationRejects);
         }
 
@@ -101,6 +111,8 @@ public final class ChainAdversarialFrontierProbe {
         double avgDecisions = 0.0;
         double avgDepth = 0.0;
         double avgPropagation = 0.0;
+        double avgCascadeFraction = 0.0;
+        int wholeCollapses = 0;
         int oneDecisionOrLess = 0;
         int depth3Plus = 0;
         for (Row row : matchedRows) {
@@ -108,6 +120,8 @@ public final class ChainAdversarialFrontierProbe {
             avgDecisions += row.metrics.decisionNodes;
             avgDepth += row.metrics.maxDepth;
             avgPropagation += row.metrics.averagePropagationGain();
+            avgCascadeFraction += row.cascade.maxResolvedFractionAfterOneCell;
+            if (row.cascade.wholeBoardSingleCellCollapse()) wholeCollapses++;
             if (row.metrics.decisionNodes <= 1) oneDecisionOrLess++;
             if (row.metrics.maxDepth >= 3) depth3Plus++;
         }
@@ -116,6 +130,15 @@ public final class ChainAdversarialFrontierProbe {
         avgDecisions /= n;
         avgDepth /= n;
         avgPropagation /= n;
+        avgCascadeFraction /= n;
+
+        int quartile = Math.max(1, n / 4);
+        double easyCascade = averageCascadeFraction(matchedRows, 0, quartile);
+        double hardCascade = averageCascadeFraction(matchedRows, n - quartile, n);
+        double easyPropagation = averagePropagation(matchedRows, 0, quartile);
+        double hardPropagation = averagePropagation(matchedRows, n - quartile, n);
+        double cascadeCorrelation = pearsonCostVsCascade(matchedRows);
+        double vulnerableCorrelation = pearsonCostVsVulnerable(matchedRows);
 
         List<Row> hardest = new ArrayList<>(matchedRows);
         hardest.sort(Comparator
@@ -128,11 +151,19 @@ public final class ChainAdversarialFrontierProbe {
                 "SUMMARY requested=%d generated=%d matched=%d fallbacks=%d misses=%d "
                         + "proofCost[min=%.2f median=%.2f p90=%.2f max=%.2f avg=%.2f] "
                         + "avgDecisions=%.2f avgDepth=%.2f avgPropagation=%.2f "
+                        + "avgCascadeFrac=%.2f wholeCollapses=%d "
                         + "oneDecisionOrLess=%d depth3Plus=%d%n",
                 samples, rows.size(), matchedRows.size(), fallbacks, misses,
                 min, median, p90, max, avgCost,
                 avgDecisions, avgDepth, avgPropagation,
+                avgCascadeFraction, wholeCollapses,
                 oneDecisionOrLess, depth3Plus);
+        System.out.printf(
+                "CORRELATION proofCost_vs_cascadeFrac=%.3f proofCost_vs_vulnerable=%.3f "
+                        + "easyQuartile[cascade=%.2f propagation=%.2f] "
+                        + "hardQuartile[cascade=%.2f propagation=%.2f]%n",
+                cascadeCorrelation, vulnerableCorrelation,
+                easyCascade, easyPropagation, hardCascade, hardPropagation);
 
         int top = Math.min(5, hardest.size());
         for (int i = 0; i < top; i++) {
@@ -141,18 +172,78 @@ public final class ChainAdversarialFrontierProbe {
             System.out.printf(
                     "TOP rank=%d sample=%d seed=%d retry=%d family=%s ctor=%s "
                             + "proofCost=%.2f decisions=%d branches=%d failed=%d depth=%d "
-                            + "avgDecisionWidth=%.2f maxBranchWidth=%d avgPropagation=%.2f maxPropagation=%d%n",
+                            + "avgDecisionWidth=%.2f maxBranchWidth=%d avgPropagation=%.2f maxPropagation=%d "
+                            + "cascadeFrac=%.2f cascadeAdditional=%d vulnerable=%d wholeCollapse=%s%n",
                     i + 1, row.sample, row.seed, row.retry,
                     row.puzzle.generatorFamily, row.puzzle.generatorConstructor,
                     m.proofCostPerHidden(), m.decisionNodes, m.candidateBranches,
                     m.failedBranches, m.maxDepth, m.averageDecisionWidth(),
-                    m.maxBranchWidth, m.averagePropagationGain(), m.maxPropagationGain);
+                    m.maxBranchWidth, m.averagePropagationGain(), m.maxPropagationGain,
+                    row.cascade.maxResolvedFractionAfterOneCell,
+                    row.cascade.maxAdditionalForcedAfterOneCell,
+                    row.cascade.vulnerableSingleCells,
+                    row.cascade.wholeBoardSingleCellCollapse());
         }
 
         for (Row row : matchedRows) {
             if (row.metrics.truncated) throw new AssertionError("MRV frontier truncated");
             if (row.metrics.solutions != 1) throw new AssertionError("Unexpected solution count");
         }
+    }
+
+    static double averageCascadeFraction(List<Row> rows, int from, int to) {
+        if (to <= from) return 0.0;
+        double sum = 0.0;
+        for (int i = from; i < to; i++) sum += rows.get(i).cascade.maxResolvedFractionAfterOneCell;
+        return sum / (to - from);
+    }
+
+    static double averagePropagation(List<Row> rows, int from, int to) {
+        if (to <= from) return 0.0;
+        double sum = 0.0;
+        for (int i = from; i < to; i++) sum += rows.get(i).metrics.averagePropagationGain();
+        return sum / (to - from);
+    }
+
+    static double pearsonCostVsCascade(List<Row> rows) {
+        double[] x = new double[rows.size()];
+        double[] y = new double[rows.size()];
+        for (int i = 0; i < rows.size(); i++) {
+            x[i] = rows.get(i).metrics.proofCostPerHidden();
+            y[i] = rows.get(i).cascade.maxResolvedFractionAfterOneCell;
+        }
+        return pearson(x, y);
+    }
+
+    static double pearsonCostVsVulnerable(List<Row> rows) {
+        double[] x = new double[rows.size()];
+        double[] y = new double[rows.size()];
+        for (int i = 0; i < rows.size(); i++) {
+            x[i] = rows.get(i).metrics.proofCostPerHidden();
+            y[i] = rows.get(i).cascade.vulnerableSingleCells;
+        }
+        return pearson(x, y);
+    }
+
+    static double pearson(double[] x, double[] y) {
+        if (x.length != y.length || x.length < 2) return 0.0;
+        double mx = 0.0, my = 0.0;
+        for (int i = 0; i < x.length; i++) {
+            mx += x[i];
+            my += y[i];
+        }
+        mx /= x.length;
+        my /= y.length;
+        double covariance = 0.0, vx = 0.0, vy = 0.0;
+        for (int i = 0; i < x.length; i++) {
+            double dx = x[i] - mx;
+            double dy = y[i] - my;
+            covariance += dx * dy;
+            vx += dx * dx;
+            vy += dy * dy;
+        }
+        if (vx == 0.0 || vy == 0.0) return 0.0;
+        return covariance / Math.sqrt(vx * vy);
     }
 
     static double quantile(List<Row> sorted, double q) {
