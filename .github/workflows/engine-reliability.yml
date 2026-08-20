@@ -70,7 +70,8 @@ jobs:
             tools/NetworkGenerationProbe.java \
             tools/HypothesisGenerationProbe.java \
             tools/MixedGenerationProbe.java \
-            tools/AdversarialMrvBenchmark.java
+            tools/AdversarialMrvBenchmark.java \
+            tools/ChainAdversarialFrontierProbe.java
 
       - name: Run lifecycle contracts
         shell: bash
@@ -111,6 +112,15 @@ jobs:
           timeout 8m java -Xmx1536m \
             -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
             com.offline.mathcrossword.AdversarialMrvBenchmark 6
+
+      - name: Probe CHAIN L10 adversarial frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          timeout 6m java -Xmx1536m \
+            -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+            com.offline.mathcrossword.ChainAdversarialFrontierProbe 24
 
       - name: Probe PATH 77-79 generation boundary
         shell: bash
