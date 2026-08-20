@@ -51,37 +51,49 @@ jobs:
               global text
               count = text.count(old)
               if count != 1:
-                  raise SystemExit(f'Expected exactly one match, found {count}: {old[:80]!r}')
+                  raise SystemExit(f'Expected exactly one match, found {count}: {old!r}')
               text = text.replace(old, new, 1)
 
-          replace_once(
-          '''        final int bg = Color.rgb(238, 248, 235);\n        final int board = Color.rgb(255, 255, 255);\n        final int ink = Color.rgb(42, 45, 43);\n        final int green = Color.rgb(211, 244, 186);\n        final int red = Color.rgb(255, 171, 160);\n        final int selected = Color.rgb(255, 244, 190);\n        final int accent = Color.rgb(46, 136, 62);\n        final int soft = Color.rgb(245, 251, 242);''',
-          '''        // Minimal visual system: warm neutral surfaces, one muted green accent.\n        // Success/error colors stay semantic instead of acting as decoration.\n        final int bg = Color.rgb(246, 245, 241);\n        final int board = Color.rgb(255, 255, 253);\n        final int ink = Color.rgb(39, 42, 40);\n        final int green = Color.rgb(229, 239, 226);\n        final int red = Color.rgb(249, 224, 221);\n        final int selected = Color.rgb(232, 238, 231);\n        final int accent = Color.rgb(62, 100, 72);\n        final int soft = Color.rgb(250, 249, 246);''')
+          # Palette: neutral surfaces + one muted green accent.
+          replace_once('        final int bg = Color.rgb(238, 248, 235);',
+                       '        // Minimal visual system: warm neutral surfaces, one muted green accent.\n        // Success/error colors stay semantic instead of acting as decoration.\n        final int bg = Color.rgb(246, 245, 241);')
+          replace_once('        final int board = Color.rgb(255, 255, 255);', '        final int board = Color.rgb(255, 255, 253);')
+          replace_once('        final int ink = Color.rgb(42, 45, 43);', '        final int ink = Color.rgb(39, 42, 40);')
+          replace_once('        final int green = Color.rgb(211, 244, 186);', '        final int green = Color.rgb(229, 239, 226);')
+          replace_once('        final int red = Color.rgb(255, 171, 160);', '        final int red = Color.rgb(249, 224, 221);')
+          replace_once('        final int selected = Color.rgb(255, 244, 190);', '        final int selected = Color.rgb(232, 238, 231);')
+          replace_once('        final int accent = Color.rgb(46, 136, 62);', '        final int accent = Color.rgb(62, 100, 72);')
+          replace_once('        final int soft = Color.rgb(245, 251, 242);', '        final int soft = Color.rgb(250, 249, 246);')
 
-          replace_once(
-          '''        void drawBigButton(Canvas c, RectF r, String label, boolean filled) {\n            paint.setStyle(Paint.Style.FILL);\n            paint.setColor(filled ? accent : board);\n            c.drawRoundRect(r, dp(16), dp(16), paint);\n            stroke.setStyle(Paint.Style.STROKE);\n            stroke.setStrokeWidth(dp(2));\n            stroke.setColor(filled ? accent : Color.rgb(80, 105, 82));\n            c.drawRoundRect(r, dp(16), dp(16), stroke);\n            paint.setColor(filled ? Color.WHITE : ink);\n            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);\n            paint.setTextAlign(Paint.Align.CENTER);\n            paint.setTextSize(dp(18));\n            Paint.FontMetrics fm = paint.getFontMetrics();\n            c.drawText(label, r.centerX(), r.centerY() - (fm.ascent + fm.descent) / 2f, paint);\n        }''',
-          '''        void drawBigButton(Canvas c, RectF r, String label, boolean filled) {\n            paint.setStyle(Paint.Style.FILL);\n            paint.setColor(filled ? accent : board);\n            c.drawRoundRect(r, dp(14), dp(14), paint);\n            stroke.setStyle(Paint.Style.STROKE);\n            stroke.setStrokeWidth(dp(filled ? 1.6f : 1.1f));\n            stroke.setColor(filled ? accent : Color.rgb(174, 176, 171));\n            c.drawRoundRect(r, dp(14), dp(14), stroke);\n            paint.setColor(filled ? Color.WHITE : ink);\n            paint.setTypeface(filled ? android.graphics.Typeface.DEFAULT_BOLD : android.graphics.Typeface.DEFAULT);\n            paint.setTextAlign(Paint.Align.CENTER);\n            paint.setTextSize(dp(filled ? 18f : 17f));\n            Paint.FontMetrics fm = paint.getFontMetrics();\n            c.drawText(label, r.centerX(), r.centerY() - (fm.ascent + fm.descent) / 2f, paint);\n        }''')
+          # Primary vs secondary button hierarchy.
+          replace_once('            c.drawRoundRect(r, dp(16), dp(16), paint);', '            c.drawRoundRect(r, dp(14), dp(14), paint);')
+          replace_once('            stroke.setStrokeWidth(dp(2));\n            stroke.setColor(filled ? accent : Color.rgb(80, 105, 82));\n            c.drawRoundRect(r, dp(16), dp(16), stroke);',
+                       '            stroke.setStrokeWidth(dp(filled ? 1.6f : 1.1f));\n            stroke.setColor(filled ? accent : Color.rgb(174, 176, 171));\n            c.drawRoundRect(r, dp(14), dp(14), stroke);')
+          replace_once('            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);\n            paint.setTextAlign(Paint.Align.CENTER);\n            paint.setTextSize(dp(18));\n            Paint.FontMetrics fm = paint.getFontMetrics();\n            c.drawText(label, r.centerX(), r.centerY() - (fm.ascent + fm.descent) / 2f, paint);\n        }\n\n        void drawFreeSetup',
+                       '            paint.setTypeface(filled ? android.graphics.Typeface.DEFAULT_BOLD : android.graphics.Typeface.DEFAULT);\n            paint.setTextAlign(Paint.Align.CENTER);\n            paint.setTextSize(dp(filled ? 18f : 17f));\n            Paint.FontMetrics fm = paint.getFontMetrics();\n            c.drawText(label, r.centerX(), r.centerY() - (fm.ascent + fm.descent) / 2f, paint);\n        }\n\n        void drawFreeSetup')
 
-          replace_once(
-          '''            stroke.setStrokeWidth(dp(1.5f));\n            stroke.setColor(on ? accent : Color.rgb(120, 130, 121));''',
-          '''            stroke.setStrokeWidth(dp(on ? 1.6f : 1.0f));\n            stroke.setColor(on ? accent : Color.rgb(174, 176, 171));''')
+          # Pills and tool buttons become quieter when inactive.
+          replace_once('            stroke.setStrokeWidth(dp(1.5f));\n            stroke.setColor(on ? accent : Color.rgb(120, 130, 121));',
+                       '            stroke.setStrokeWidth(dp(on ? 1.6f : 1.0f));\n            stroke.setColor(on ? accent : Color.rgb(174, 176, 171));')
+          replace_once('            paint.setColor(active ? selected : (enabled ? board : Color.rgb(231, 237, 230)));',
+                       '            paint.setColor(active ? selected : (enabled ? board : Color.rgb(239, 239, 236)));')
+          replace_once('            stroke.setStrokeWidth(dp(active ? 2.2f : 1.4f));',
+                       '            stroke.setStrokeWidth(dp(active ? 1.8f : 1.0f));')
+          replace_once('            stroke.setColor(active ? accent : (enabled ? Color.rgb(105, 117, 106) : Color.rgb(185, 194, 185)));',
+                       '            stroke.setColor(active ? accent : (enabled ? Color.rgb(174, 176, 171) : Color.rgb(205, 206, 202)));')
 
-          replace_once(
-          '''            paint.setColor(active ? selected : (enabled ? board : Color.rgb(231, 237, 230)));\n            c.drawRoundRect(r, dp(12), dp(12), paint);\n            stroke.setStyle(Paint.Style.STROKE);\n            stroke.setStrokeWidth(dp(active ? 2.2f : 1.4f));\n            stroke.setColor(active ? accent : (enabled ? Color.rgb(105, 117, 106) : Color.rgb(185, 194, 185)));''',
-          '''            paint.setColor(active ? selected : (enabled ? board : Color.rgb(239, 239, 236)));\n            c.drawRoundRect(r, dp(12), dp(12), paint);\n            stroke.setStyle(Paint.Style.STROKE);\n            stroke.setStrokeWidth(dp(active ? 1.8f : 1.0f));\n            stroke.setColor(active ? accent : (enabled ? Color.rgb(174, 176, 171) : Color.rgb(205, 206, 202)));''')
+          # Number tiles should not introduce a second loud green.
+          replace_once('                    paint.setColor(Color.rgb(28, 121, 38));', '                    paint.setColor(ink);')
 
-          replace_once('                    paint.setColor(Color.rgb(28, 121, 38));',
-                       '                    paint.setColor(ink);')
-
+          # Candidate and completion sheets use the neutral soft surface.
           replace_once('            paint.setColor(Color.argb(246, 248, 252, 246));\n            c.drawRect(0, top, w, h, paint);',
                        '            paint.setColor(Color.argb(250, Color.red(soft), Color.green(soft), Color.blue(soft)));\n            c.drawRect(0, top, w, h, paint);')
-
           replace_once('            paint.setColor(Color.argb(246, 248, 252, 246));\n            c.drawRect(0, sheetTop, w, h, paint);',
                        '            paint.setColor(Color.argb(250, Color.red(soft), Color.green(soft), Color.blue(soft)));\n            c.drawRect(0, sheetTop, w, h, paint);')
 
-          replace_once(
-          '''            int fill = board;\n            if (status == 1) fill = green;\n            if (status == 2) fill = red;\n            if (selectedCell != null && selectedCell.equals(pos)) fill = selected;\n            paint.setStyle(Paint.Style.FILL);\n            paint.setColor(fill);\n            c.drawRect(r, paint);\n            c.drawRect(r, stroke);''',
-          '''            int fill = board;\n            if (status == 1) fill = green;\n            if (status == 2) fill = red;\n            boolean cellSelected = selectedCell != null && selectedCell.equals(pos);\n            if (cellSelected) fill = selected;\n            paint.setStyle(Paint.Style.FILL);\n            paint.setColor(fill);\n            c.drawRect(r, paint);\n            c.drawRect(r, stroke);\n            if (cellSelected) {\n                stroke.setColor(accent);\n                stroke.setStrokeWidth(Math.max(dp(1.8f), cellSize * 0.045f));\n                c.drawRect(r, stroke);\n                stroke.setColor(ink);\n                stroke.setStrokeWidth(Math.max(dp(1.0f), cellSize * 0.035f));\n            }''')
+          # Selection keeps a soft fill but gains one clear accent outline.
+          replace_once('            if (selectedCell != null && selectedCell.equals(pos)) fill = selected;\n            paint.setStyle(Paint.Style.FILL);\n            paint.setColor(fill);\n            c.drawRect(r, paint);\n            c.drawRect(r, stroke);',
+                       '            boolean cellSelected = selectedCell != null && selectedCell.equals(pos);\n            if (cellSelected) fill = selected;\n            paint.setStyle(Paint.Style.FILL);\n            paint.setColor(fill);\n            c.drawRect(r, paint);\n            c.drawRect(r, stroke);\n            if (cellSelected) {\n                stroke.setColor(accent);\n                stroke.setStrokeWidth(Math.max(dp(1.8f), cellSize * 0.045f));\n                c.drawRect(r, stroke);\n                stroke.setColor(ink);\n                stroke.setStrokeWidth(Math.max(dp(1.0f), cellSize * 0.035f));\n            }')
 
           # Neutralize small chrome that currently reads as another green layer.
           text = text.replace('Color.rgb(88, 105, 91)', 'Color.rgb(104, 106, 102)')
