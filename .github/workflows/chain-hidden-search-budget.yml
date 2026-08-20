@@ -1,0 +1,78 @@
+name: CHAIN hidden-search budget probe
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Ensure Android API 36
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f "$ANDROID_HOME/platforms/android-36/android.jar" ]; then
+            sdkmanager_bin="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+            test -n "$sdkmanager_bin"
+            "$sdkmanager_bin" "platforms;android-36" "build-tools;36.0.0"
+          fi
+
+      - name: Patch expert CHAIN sample floor for experiment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('app/src/main/java/com/offline/mathcrossword/GeneratorPolicy.java')
+          text = path.read_text()
+          old = 'if (strategy == SolutionStrategy.CHAIN) return logicLevel >= 5 ? 10 : 8;'
+          new = 'if (strategy == SolutionStrategy.CHAIN) return logicLevel >= 5 ? 18 : 8;'
+          if text.count(old) != 1:
+              raise SystemExit(f'expected exactly one CHAIN sample-floor line, found {text.count(old)}')
+          path.write_text(text.replace(old, new))
+          PY
+          grep -n "SolutionStrategy.CHAIN.*18 : 8" app/src/main/java/com/offline/mathcrossword/GeneratorPolicy.java
+
+      - name: Compile GitHub debug classes
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:compileGithubDebugJavaWithJavac --no-daemon
+
+      - name: Compile frontier probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          test -d "$app_classes"
+          mkdir -p "$RUNNER_TEMP/chain-budget-probe"
+          javac -cp "$app_classes" \
+            -d "$RUNNER_TEMP/chain-budget-probe" \
+            tools/AdversarialMrvBenchmark.java \
+            tools/ChainAdversarialFrontierProbe.java
+
+      - name: Run 24-case CHAIN L10 frontier with 18-sample floor
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          timeout 8m java -Xmx1536m \
+            -cp "$app_classes:$RUNNER_TEMP/chain-budget-probe" \
+            com.offline.mathcrossword.ChainAdversarialFrontierProbe 24
