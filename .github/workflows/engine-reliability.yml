@@ -69,7 +69,8 @@ jobs:
             tools/PathGenerationLatencyHarness.java \
             tools/NetworkGenerationProbe.java \
             tools/HypothesisGenerationProbe.java \
-            tools/MixedGenerationProbe.java
+            tools/MixedGenerationProbe.java \
+            tools/AdversarialMrvBenchmark.java
 
       - name: Run lifecycle contracts
         shell: bash
@@ -101,6 +102,15 @@ jobs:
           java -Xmx256m \
             -cp "$json_jar:$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
             com.offline.mathcrossword.SolverInvariantEvidenceHarness
+
+      - name: Run adversarial MRV benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          timeout 8m java -Xmx1536m \
+            -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+            com.offline.mathcrossword.AdversarialMrvBenchmark 2
 
       - name: Probe PATH 77-79 generation boundary
         shell: bash
