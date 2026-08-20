@@ -126,7 +126,22 @@ final class CascadeResilienceAnalyzer {
     static int qualityBonus(SolutionStrategy strategy, int logicLevel, Profile profile) {
         if (profile == null || profile.hidden == 0) return 0;
         if (strategy == SolutionStrategy.CHAIN) {
-            return Math.min(220, profile.maxAdditionalForcedAfterOneCell * 18);
+            // #41 showed that almost every L10 CHAIN can still collapse the whole board
+            // once the *right* value is known, including the hardest MRV samples. The
+            // discriminator is entry-point selectivity: cheap boards expose many cells
+            // that can trigger that cascade, while the hard tail exposes only a few.
+            // Preserve the productive-cascade reward and, only at tier 5, add a bounded
+            // reward for making those useful entry points sparse. This is selection
+            // pressure only; CHAIN acceptance and constructor behavior stay unchanged.
+            if (logicLevel < 5) {
+                return Math.min(220, profile.maxAdditionalForcedAfterOneCell * 18);
+            }
+            int productiveCascade = Math.min(190, profile.maxAdditionalForcedAfterOneCell * 17);
+            if (profile.testedSingleCells <= 0) return productiveCascade;
+            double vulnerableFraction = profile.vulnerableSingleCells / (double) profile.testedSingleCells;
+            double selectivity = Math.max(0.0, Math.min(1.0, 1.0 - vulnerableFraction));
+            int selectivityBonus = (int) Math.round(selectivity * 110.0);
+            return Math.min(280, productiveCascade + selectivityBonus);
         }
         double resilience = 1.0 - profile.maxResolvedFractionAfterOneCell;
         int bonus = (int) Math.round(resilience * (logicLevel >= 5 ? 260.0 : 180.0));
