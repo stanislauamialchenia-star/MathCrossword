@@ -196,14 +196,16 @@ public class MainActivity extends Activity {
         final RectF libraryPrevRect = new RectF();
         final RectF libraryNextRect = new RectF();
 
-        final int bg = Color.rgb(238, 248, 235);
-        final int board = Color.rgb(255, 255, 255);
-        final int ink = Color.rgb(42, 45, 43);
-        final int green = Color.rgb(211, 244, 186);
-        final int red = Color.rgb(255, 171, 160);
-        final int selected = Color.rgb(255, 244, 190);
-        final int accent = Color.rgb(46, 136, 62);
-        final int soft = Color.rgb(245, 251, 242);
+        // Minimal visual system: warm neutral surfaces, one muted green accent.
+        // Success/error colors stay semantic instead of acting as decoration.
+        final int bg = Color.rgb(246, 245, 241);
+        final int board = Color.rgb(255, 255, 253);
+        final int ink = Color.rgb(39, 42, 40);
+        final int green = Color.rgb(229, 239, 226);
+        final int red = Color.rgb(249, 224, 221);
+        final int selected = Color.rgb(232, 238, 231);
+        final int accent = Color.rgb(62, 100, 72);
+        final int soft = Color.rgb(250, 249, 246);
 
         GameView(Context context) {
             super(context);
@@ -506,13 +508,13 @@ public class MainActivity extends Activity {
             }
 
             homePrivacyRect.set(dp(18), footerY - dp(50), w - dp(18), footerY - dp(24));
-            paint.setColor(Color.rgb(88, 105, 91));
+            paint.setColor(Color.rgb(104, 106, 102));
             paint.setTextSize(dp(11.2f));
             paint.setTextAlign(Paint.Align.CENTER);
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
             c.drawText(UiText.tr("Privacy", "Конфиденциальность", "Soukromí"), footerCenterX, footerY - dp(31), paint);
 
-            paint.setColor(Color.rgb(108, 119, 110));
+            paint.setColor(Color.rgb(126, 127, 123));
             paint.setTextSize(dp(11.8f));
             paint.setTextAlign(Paint.Align.CENTER);
             String versionLine = "v" + installedVersionName() + " (" + installedVersionCode() + ") · "
@@ -544,7 +546,7 @@ public class MainActivity extends Activity {
 
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
             paint.setTextSize(dp(12.5f));
-            paint.setColor(Color.rgb(95, 106, 97));
+            paint.setColor(Color.rgb(105, 107, 103));
             c.drawText(UiText.tr("Progress: level ", "Прогресс: уровень ", "Postup: úroveň ") + progressLevel + UiText.tr(" · replay does not reset progress", " · переигрывание прогресс не сбрасывает", " · opakování nesmaže postup"),
                     w / 2f, top + dp(57), paint);
 
@@ -949,15 +951,15 @@ public class MainActivity extends Activity {
         void drawBigButton(Canvas c, RectF r, String label, boolean filled) {
             paint.setStyle(Paint.Style.FILL);
             paint.setColor(filled ? accent : board);
-            c.drawRoundRect(r, dp(16), dp(16), paint);
+            c.drawRoundRect(r, dp(14), dp(14), paint);
             stroke.setStyle(Paint.Style.STROKE);
-            stroke.setStrokeWidth(dp(2));
-            stroke.setColor(filled ? accent : Color.rgb(80, 105, 82));
-            c.drawRoundRect(r, dp(16), dp(16), stroke);
+            stroke.setStrokeWidth(dp(filled ? 1.6f : 1.1f));
+            stroke.setColor(filled ? accent : Color.rgb(174, 176, 171));
+            c.drawRoundRect(r, dp(14), dp(14), stroke);
             paint.setColor(filled ? Color.WHITE : ink);
-            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTypeface(filled ? android.graphics.Typeface.DEFAULT_BOLD : android.graphics.Typeface.DEFAULT);
             paint.setTextAlign(Paint.Align.CENTER);
-            paint.setTextSize(dp(18));
+            paint.setTextSize(dp(filled ? 18f : 17f));
             Paint.FontMetrics fm = paint.getFontMetrics();
             c.drawText(label, r.centerX(), r.centerY() - (fm.ascent + fm.descent) / 2f, paint);
         }
@@ -1002,7 +1004,7 @@ public class MainActivity extends Activity {
             freeGenerateRect.set(dp(28), buttonY + dp(73), w - dp(28), buttonY + dp(135));
             drawBigButton(c, freeGenerateRect, generating ? UiText.tr("Generating…", "Генерирую…", "Generuji…") : UiText.tr("Generate", "Сгенерировать", "Vygenerovat"), !generating);
 
-            paint.setColor(Color.rgb(100, 112, 102));
+            paint.setColor(Color.rgb(111, 112, 108));
             paint.setTextAlign(Paint.Align.CENTER);
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
             paint.setTextSize(dp(12.5f));
@@ -1060,8 +1062,8 @@ public class MainActivity extends Activity {
             paint.setColor(on ? green : board);
             c.drawRoundRect(r, dp(10), dp(10), paint);
             stroke.setStyle(Paint.Style.STROKE);
-            stroke.setStrokeWidth(dp(1.5f));
-            stroke.setColor(on ? accent : Color.rgb(120, 130, 121));
+            stroke.setStrokeWidth(dp(on ? 1.6f : 1.0f));
+            stroke.setColor(on ? accent : Color.rgb(174, 176, 171));
             c.drawRoundRect(r, dp(10), dp(10), stroke);
             paint.setColor(ink);
             paint.setTextAlign(Paint.Align.CENTER);
@@ -1202,12 +1204,12 @@ public class MainActivity extends Activity {
         void drawCandidateDrawer(Canvas c, float top, float height, float w, float h, float minH, float maxH) {
             drawerHandleRect.set(0, Math.max(0, top - dp(8)), w, Math.min(h - bottomInset, top + dp(44)));
             paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.argb(246, 248, 252, 246));
+            paint.setColor(Color.argb(250, Color.red(soft), Color.green(soft), Color.blue(soft)));
             c.drawRect(0, top, w, h, paint);
             paint.setColor(Color.argb(28, 0, 0, 0));
             c.drawRect(0, top, w, top + dp(1), paint);
 
-            paint.setColor(Color.rgb(118, 128, 119));
+            paint.setColor(Color.rgb(137, 138, 134));
             RectF grip = new RectF(w / 2f - dp(24), top + dp(8), w / 2f + dp(24), top + dp(12));
             c.drawRoundRect(grip, dp(3), dp(3), paint);
 
@@ -1323,11 +1325,11 @@ public class MainActivity extends Activity {
 
         void drawToolButton(Canvas c, RectF r, String label, boolean enabled, boolean active) {
             paint.setStyle(Paint.Style.FILL);
-            paint.setColor(active ? selected : (enabled ? board : Color.rgb(231, 237, 230)));
+            paint.setColor(active ? selected : (enabled ? board : Color.rgb(239, 239, 236)));
             c.drawRoundRect(r, dp(12), dp(12), paint);
             stroke.setStyle(Paint.Style.STROKE);
-            stroke.setStrokeWidth(dp(active ? 2.2f : 1.4f));
-            stroke.setColor(active ? accent : (enabled ? Color.rgb(105, 117, 106) : Color.rgb(185, 194, 185)));
+            stroke.setStrokeWidth(dp(active ? 1.8f : 1.0f));
+            stroke.setColor(active ? accent : (enabled ? Color.rgb(174, 176, 171) : Color.rgb(205, 206, 202)));
             c.drawRoundRect(r, dp(12), dp(12), stroke);
             paint.setColor(enabled ? ink : Color.rgb(160, 168, 160));
             paint.setTextAlign(Paint.Align.CENTER);
@@ -1345,11 +1347,19 @@ public class MainActivity extends Activity {
             int fill = board;
             if (status == 1) fill = green;
             if (status == 2) fill = red;
-            if (selectedCell != null && selectedCell.equals(pos)) fill = selected;
+            boolean cellSelected = selectedCell != null && selectedCell.equals(pos);
+            if (cellSelected) fill = selected;
             paint.setStyle(Paint.Style.FILL);
             paint.setColor(fill);
             c.drawRect(r, paint);
             c.drawRect(r, stroke);
+            if (cellSelected) {
+                stroke.setColor(accent);
+                stroke.setStrokeWidth(Math.max(dp(1.8f), cellSize * 0.045f));
+                c.drawRect(r, stroke);
+                stroke.setColor(ink);
+                stroke.setStrokeWidth(Math.max(dp(1.0f), cellSize * 0.035f));
+            }
 
             String text = "";
             if (cell.kind == Kind.NUMBER) {
@@ -1591,7 +1601,7 @@ public class MainActivity extends Activity {
                     stroke.setStrokeWidth(dp(noted ? 2.4f : 1.8f));
                     c.drawRoundRect(r, dp(5), dp(5), stroke);
 
-                    paint.setColor(Color.rgb(28, 121, 38));
+                    paint.setColor(ink);
                     paint.setTextAlign(Paint.Align.CENTER);
                     paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
                     paint.setTextSize(textSize);
@@ -1615,7 +1625,7 @@ public class MainActivity extends Activity {
             undoRect.setEmpty(); candidateRect.setEmpty(); hintRect.setEmpty();
 
             paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.argb(246, 248, 252, 246));
+            paint.setColor(Color.argb(250, Color.red(soft), Color.green(soft), Color.blue(soft)));
             c.drawRect(0, sheetTop, w, h, paint);
             paint.setColor(Color.argb(22, 0, 0, 0));
             c.drawRect(0, sheetTop, w, sheetTop + dp(1), paint);
