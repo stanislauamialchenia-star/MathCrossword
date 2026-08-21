@@ -50,6 +50,16 @@ jobs:
           p.write_text(s.replace(old, new, 1))
           PY
           python3 tools/apply-scratchpad-prototype.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/offline/mathcrossword/MainActivity.java')
+          s = p.read_text()
+          bad = "editable.charAt(editable.length() - 1) != '\n') editable.append('\n');"
+          good = "editable.charAt(editable.length() - 1) != '\\n') editable.append('\\n');"
+          if bad not in s:
+              raise SystemExit('generated newline literal not found')
+          p.write_text(s.replace(bad, good, 1))
+          PY
           git diff --check
 
       - name: Compile prototype
