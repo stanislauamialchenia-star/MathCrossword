@@ -82,7 +82,7 @@ jobs:
       - name: Upload installable prototype APK
         uses: actions/upload-artifact@v4
         with:
-          name: MathCrossword-${{ github.head_ref }}-${{ github.event.pull_request.number }}
+          name: MathCrossword-prototype-pr-${{ github.event.pull_request.number }}
           path: ${{ runner.temp }}/MathCrossword-prototype.apk
           if-no-files-found: error
           retention-days: 14
