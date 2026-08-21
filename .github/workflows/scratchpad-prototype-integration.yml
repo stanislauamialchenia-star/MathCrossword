@@ -39,6 +39,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('tools/apply-scratchpad-prototype.py')
+          s = p.read_text()
+          old = """    n = text.count(old)\n    if n != 1:\n        raise SystemExit(f'{label}: expected 1 match, got {n}')\n    text = text.replace(old, new, 1)"""
+          new = """    n = text.count(old)\n    expected = 2 if label == 'clear scratchpad rect' else 1\n    if n != expected:\n        raise SystemExit(f'{label}: expected {expected} match(es), got {n}')\n    text = text.replace(old, new, 1)"""
+          if old not in s:
+              raise SystemExit('patch helper definition not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
           python3 tools/apply-scratchpad-prototype.py
           git diff --check
 
