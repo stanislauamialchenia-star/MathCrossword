@@ -308,6 +308,7 @@ final class SessionTracker {
             s.solved = RunLifecycle.isSolved(s.outcome);
             s.activeMs = row.optLong("activeMs", 0L);
             s.eventCount = row.optInt("eventCount", 0);
+            s.firstActionMs = row.optLong("firstActionMs", -1L);
             s.ratedLogic = row.optInt("ratedLogic", 0);
             s.predictedSteps = row.optInt("predictedSteps", 0);
             s.hidden = row.optInt("hidden", 0);
@@ -342,6 +343,14 @@ final class SessionTracker {
                 s.routeOrderAgreementPct = routeComparison.optDouble("orderAgreementPct", 0.0);
                 s.routeAlternateEntry = routeComparison.optBoolean("alternateEntry", false);
                 s.routeStrongDivergence = routeComparison.optBoolean("strongDivergence", false);
+                JSONObject traversal = routeComparison.optJSONObject("graphTraversal");
+                if (traversal != null && traversal.optBoolean("available", false)) {
+                    s.traversalAvailable = true;
+                    s.traversalDirection = traversal.optString("direction", "unknown");
+                    s.traversalConfidencePct = traversal.optDouble("confidencePct", 0.0);
+                    s.traversalInternalEntry = traversal.optBoolean("internalEntry", false);
+                    s.traversalEntryDepth = traversal.optInt("entryDepth", -1);
+                }
             }
             out.recent.add(s);
         }
@@ -623,6 +632,7 @@ final class SessionTracker {
         String outcome;
         long activeMs;
         int eventCount;
+        long firstActionMs = -1L;
         int ratedLogic;
         int predictedSteps;
         int hidden;
@@ -655,6 +665,11 @@ final class SessionTracker {
         double routeOrderAgreementPct;
         boolean routeAlternateEntry;
         boolean routeStrongDivergence;
+        boolean traversalAvailable;
+        String traversalDirection;
+        double traversalConfidencePct;
+        boolean traversalInternalEntry;
+        int traversalEntryDepth = -1;
     }
 
     private static final class OpenSession {

@@ -181,6 +181,7 @@ public class MainActivity extends Activity {
         final RectF candidateRect = new RectF();
         final RectF hintRect = new RectF();
         final RectF nextLevelRect = new RectF();
+        final RectF solvedInsightRect = new RectF();
         final RectF freeGenerateRect = new RectF();
         final RectF[] logicRects = {new RectF(), new RectF(), new RectF(), new RectF(), new RectF(),
                 new RectF(), new RectF(), new RectF(), new RectF(), new RectF()};
@@ -1107,7 +1108,7 @@ public class MainActivity extends Activity {
             candidateDrawerHeight = Math.max(drawerMin, Math.min(drawerMax, candidateDrawerHeight));
             if (candidateDrawerHeight > drawerMin + dp(10)) lastExpandedDrawerHeight = candidateDrawerHeight;
             // Completion gets its own reserved bottom sheet. Never overlay the board.
-            float solvedDrawerHeight = dp(158) + bottomInset;
+            float solvedDrawerHeight = dp(214) + bottomInset;
             float effectiveDrawerHeight = solved ? solvedDrawerHeight : (focusMode ? drawerMin : candidateDrawerHeight);
 
             float headerH = focusMode ? 0f : dp(46);
@@ -1617,9 +1618,8 @@ public class MainActivity extends Activity {
         }
 
         void drawSolvedBanner(Canvas c, float w, float h) {
-            // Replace the candidate drawer after completion instead of floating controls
-            // over the crossword. The board has already reserved this exact area.
-            float sheetTop = h - bottomInset - dp(158);
+            // Completion stays below the board; reflection is optional and secondary.
+            float sheetTop = h - bottomInset - dp(214);
             drawerHandleRect.setEmpty();
             bankHits.clear();
             undoRect.setEmpty(); candidateRect.setEmpty(); hintRect.setEmpty();
@@ -1634,11 +1634,14 @@ public class MainActivity extends Activity {
             paint.setTextAlign(Paint.Align.CENTER);
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             paint.setTextSize(dp(16.5f));
-            c.drawText(UiText.tr("Solved ✓", "Готово ✓", "Hotovo ✓"), w / 2f, sheetTop + dp(38), paint);
+            c.drawText(UiText.tr("Solved ✓", "Готово ✓", "Hotovo ✓"), w / 2f, sheetTop + dp(34), paint);
 
-            // Keep completion action obvious but less visually dominant than the board.
             float side = dp(38);
-            nextLevelRect.set(side, sheetTop + dp(76), w - side, h - bottomInset - dp(32));
+            solvedInsightRect.set(side, sheetTop + dp(55), w - side, sheetTop + dp(99));
+            drawToolButton(c, solvedInsightRect,
+                    UiText.tr("How you solved it", "Как ты решил", "Jak jsi řešil"), true, false);
+
+            nextLevelRect.set(side, sheetTop + dp(119), w - side, h - bottomInset - dp(24));
             paint.setColor(accent);
             c.drawRoundRect(nextLevelRect, dp(13), dp(13), paint);
             paint.setColor(Color.WHITE);
@@ -1852,6 +1855,10 @@ public class MainActivity extends Activity {
                 return true;
             }
 
+            if (solved && solvedInsightRect.contains(x, y)) {
+                showPostSolveInsights();
+                return true;
+            }
             if (solved && nextLevelRect.contains(x, y)) {
                 if (generating) return true;
                 if (mode == GameMode.PATH) loadPathLevel(level + 1);
@@ -2048,6 +2055,43 @@ public class MainActivity extends Activity {
                     .setTitle(UiText.tr("Privacy", "Конфиденциальность", "Soukromí"))
                     .setView(scroll)
                     .setNegativeButton(UiText.tr("Close", "Закрыть", "Zavřít"), null)
+                    .show();
+        }
+
+        void showPostSolveInsights() {
+            SessionTracker.AnalysisSnapshot snapshot = tracker.analyze();
+            if (snapshot.recent.isEmpty() || !snapshot.recent.get(0).solved) {
+                Toast.makeText(getContext(), UiText.tr("No solved trace is available yet", "Пока нет завершённого следа решения", "Zatím není dostupná dokončená stopa řešení"), Toast.LENGTH_SHORT).show();
+                return;
+            }
+            PostSolveInsightBuilder.Result result = PostSolveInsightBuilder.build(snapshot.recent.get(0));
+            StringBuilder body = new StringBuilder();
+            for (String observation : result.observations) {
+                if (body.length() > 0) body.append("\n\n");
+                body.append("• ").append(observation);
+            }
+            body.append(UiText.tr(
+                    "\n\nThis is an interpretation of your interaction trace, not a literal record of your thoughts.",
+                    "\n\nЭто интерпретация следа взаимодействия с задачей, а не буквальная запись твоих мыслей.",
+                    "\n\nJde o interpretaci stopy interakce s hlavolamem, ne o doslovný záznam tvých myšlenek."));
+
+            TextView text = new TextView(getContext());
+            int pad = (int) dp(20);
+            text.setPadding(pad, pad, pad, pad);
+            text.setText(body.toString());
+            text.setTextSize(16f);
+            text.setTextColor(ink);
+            text.setLineSpacing(0f, 1.16f);
+            text.setTextIsSelectable(true);
+
+            ScrollView scroll = new ScrollView(getContext());
+            scroll.setFillViewport(true);
+            scroll.addView(text);
+
+            new AlertDialog.Builder(getContext())
+                    .setTitle(UiText.tr("How you solved it", "Как ты решил", "Jak jsi řešil"))
+                    .setView(scroll)
+                    .setPositiveButton(UiText.tr("Done", "Готово", "Hotovo"), null)
                     .show();
         }
 
