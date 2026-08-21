@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - product/post-solve-insights
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
