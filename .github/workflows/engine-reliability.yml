@@ -1,24 +1,16 @@
-name: Engine reliability CI
+name: Temporary screenshot polish integration
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
-  workflow_dispatch:
 
 permissions:
   contents: write
 
-concurrency:
-  group: engine-reliability-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  polish_screenshot:
-    if: github.event_name == 'pull_request' && github.head_ref == 'product/post-solve-insights' && github.actor != 'github-actions[bot]'
+  polish:
+    if: github.head_ref == 'product/post-solve-insights' && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -43,96 +35,14 @@ jobs:
             "$sdkmanager_bin" "platforms;android-36" "build-tools;36.0.0"
           fi
 
-      - name: Apply screenshot-driven polish
+      - name: Apply screenshot polish
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('app/src/main/java/com/offline/mathcrossword/MainActivity.java')
-          text = path.read_text()
-          def once(old, new, label):
-              global text
-              n = text.count(old)
-              if n != 1:
-                  raise SystemExit(f'{label}: expected 1 match, got {n}')
-              text = text.replace(old, new, 1)
-
-          once(
-              '            float side = dp(26);\n            float buttonH = dp(52);\n            float gap = dp(9);\n            float firstTop = Math.max(y + dp(76), h * 0.29f);\n            homeContinueRect.set(side, firstTop, w - side, firstTop + buttonH);\n            homeLevelsRect.set(side, homeContinueRect.bottom + gap, w - side, homeContinueRect.bottom + gap + buttonH);\n            homeFreeRect.set(side, homeLevelsRect.bottom + gap, w - side, homeLevelsRect.bottom + gap + buttonH);\n            homeLibraryRect.set(side, homeFreeRect.bottom + gap, w - side, homeFreeRect.bottom + gap + buttonH);\n            homeAnalysisRect.set(side, homeLibraryRect.bottom + gap, w - side, homeLibraryRect.bottom + gap + buttonH);',
-              '            float side = dp(26);\n            float primaryH = dp(52);\n            float secondaryH = dp(48);\n            float gap = dp(8);\n            float firstTop = Math.max(y + dp(68), h * 0.275f);\n            homeContinueRect.set(side, firstTop, w - side, firstTop + primaryH);\n            homeLevelsRect.set(side, homeContinueRect.bottom + gap, w - side, homeContinueRect.bottom + gap + secondaryH);\n            homeFreeRect.set(side, homeLevelsRect.bottom + gap, w - side, homeLevelsRect.bottom + gap + secondaryH);\n            homeLibraryRect.set(side, homeFreeRect.bottom + gap, w - side, homeFreeRect.bottom + gap + secondaryH);\n            homeAnalysisRect.set(side, homeLibraryRect.bottom + gap, w - side, homeLibraryRect.bottom + gap + secondaryH);',
-              'home geometry')
-          once('                footerCenterX -= dp(14);\n', '', 'footer centering')
-          old_footer = '''            homePrivacyRect.set(dp(18), footerY - dp(50), w - dp(18), footerY - dp(24));
-            paint.setColor(Color.rgb(104, 106, 102));
-            paint.setTextSize(dp(11.2f));
-            paint.setTextAlign(Paint.Align.CENTER);
-            paint.setTypeface(android.graphics.Typeface.DEFAULT);
-            c.drawText(UiText.tr("Privacy", "Конфиденциальность", "Soukromí"), footerCenterX, footerY - dp(31), paint);
-
-            paint.setColor(Color.rgb(126, 127, 123));
-            paint.setTextSize(dp(11.8f));
-            paint.setTextAlign(Paint.Align.CENTER);
-            String versionLine = "v" + installedVersionName() + " (" + installedVersionCode() + ") · "
-                    + DistributionConfig.channelLabel() + UiText.tr(" · offline · no ads", " · офлайн · без рекламы", " · offline · bez reklam");
-            if (DistributionConfig.selfUpdateEnabled() && !UiText.tr("update not checked", "обновление не проверено", "aktualizace nezkontrolována").equals(updateStatus))
-                versionLine += " · " + updateStatus;
-            c.drawText(versionLine, footerCenterX, footerY - dp(7), paint);
-            paint.setTextSize(dp(10.8f));
-            c.drawText(UiText.tr("data and solve history stay on this device", "данные и история решения хранятся локально", "data a historie řešení zůstávají v zařízení"), footerCenterX, footerY + dp(11), paint);'''
-          new_footer = '''            homePrivacyRect.set(dp(18), footerY - dp(42), w - dp(18), footerY - dp(16));
-            paint.setColor(Color.rgb(104, 106, 102));
-            paint.setTextSize(dp(11.2f));
-            paint.setTextAlign(Paint.Align.CENTER);
-            paint.setTypeface(android.graphics.Typeface.DEFAULT);
-            c.drawText(UiText.tr("Privacy", "Конфиденциальность", "Soukromí"), footerCenterX, footerY - dp(23), paint);
-
-            paint.setColor(Color.rgb(132, 133, 129));
-            paint.setTextSize(dp(11.4f));
-            paint.setTextAlign(Paint.Align.CENTER);
-            c.drawText("v" + installedVersionName(), footerCenterX, footerY + dp(3), paint);'''
-          once(old_footer, new_footer, 'home footer')
-          old_bank = '''                    boolean noted = candidateMode && selectedCell != null && selectedNotes.contains(t.value);
-                    paint.setStyle(Paint.Style.FILL);
-                    paint.setColor((t.id == selectedTileId || noted) ? selected : board);
-                    c.drawRoundRect(r, dp(5), dp(5), paint);
-                    stroke.setColor(noted ? accent : ink);
-                    stroke.setStrokeWidth(dp(noted ? 2.4f : 1.8f));
-                    c.drawRoundRect(r, dp(5), dp(5), stroke);'''
-          new_bank = '''                    boolean noted = candidateMode && selectedCell != null && selectedNotes.contains(t.value);
-                    paint.setStyle(Paint.Style.FILL);
-                    if (t.id == selectedTileId) paint.setColor(selected);
-                    else if (noted) paint.setColor(Color.rgb(245, 248, 244));
-                    else paint.setColor(board);
-                    c.drawRoundRect(r, dp(5), dp(5), paint);
-                    stroke.setColor(noted ? Color.rgb(104, 130, 110) : ink);
-                    stroke.setStrokeWidth(dp(noted ? 2.0f : 1.8f));
-                    c.drawRoundRect(r, dp(5), dp(5), stroke);'''
-          once(old_bank, new_bank, 'candidate bank emphasis')
-          once('            float solvedDrawerHeight = dp(214) + bottomInset;', '            float solvedDrawerHeight = dp(178) + bottomInset;', 'solved reserved height')
-          once('            float sheetTop = h - bottomInset - dp(214);', '            float sheetTop = h - bottomInset - dp(178);', 'solved sheet height')
-          old_actions = '''            float side = dp(38);
-            solvedInsightRect.set(side, sheetTop + dp(55), w - side, sheetTop + dp(99));
-            drawToolButton(c, solvedInsightRect,
-                    UiText.tr("How you solved it", "Как ты решил", "Jak jsi řešil"), true, false);
-
-            nextLevelRect.set(side, sheetTop + dp(119), w - side, h - bottomInset - dp(24));'''
-          new_actions = '''            float side = dp(38);
-            solvedInsightRect.set(side, sheetTop + dp(46), w - side, sheetTop + dp(88));
-            paint.setColor(accent);
-            paint.setTextAlign(Paint.Align.CENTER);
-            paint.setTypeface(android.graphics.Typeface.DEFAULT);
-            paint.setTextSize(dp(13.5f));
-            c.drawText(UiText.tr("How you solved it  →", "Как ты решил  →", "Jak jsi řešil  →"),
-                    w / 2f, sheetTop + dp(72), paint);
-
-            nextLevelRect.set(side, sheetTop + dp(98), w - side, h - bottomInset - dp(22));'''
-          once(old_actions, new_actions, 'solved secondary action')
-          path.write_text(text)
-          PY
+          python3 tools/screenshot-polish.py
           git diff --check
 
-      - name: Compile screenshot polish
+      - name: Compile both variants and post-solve contract
         shell: bash
         run: |
           set -euo pipefail
@@ -143,158 +53,13 @@ jobs:
           javac -cp "$app_classes" -d "$RUNNER_TEMP/post-solve-contract" tools/PostSolveInsightHarness.java
           java -cp "$app_classes:$RUNNER_TEMP/post-solve-contract" com.offline.mathcrossword.PostSolveInsightHarness
 
-      - name: Commit tested screenshot polish
+      - name: Commit tested polish
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm -f .github/workflows/apply-screenshot-polish.yml || true
+          git rm -f .github/workflows/apply-screenshot-polish.yml tools/screenshot-polish.py
           git add app/src/main/java/com/offline/mathcrossword/MainActivity.java
           git commit -m "Polish UI from phone screenshots"
           git push origin HEAD:product/post-solve-insights
-
-  smoke:
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v5
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Ensure Android API 36
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ ! -f "$ANDROID_HOME/platforms/android-36/android.jar" ]; then
-            sdkmanager_bin="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
-            test -n "$sdkmanager_bin"
-            "$sdkmanager_bin" "platforms;android-36" "build-tools;36.0.0"
-          fi
-
-      - name: Compile both distribution variants
-        shell: bash
-        run: |
-          chmod +x ./gradlew
-          ./gradlew :app:compileGithubDebugJavaWithJavac :app:compilePlayDebugJavaWithJavac --no-daemon
-
-      - name: Compile reliability harnesses
-        shell: bash
-        run: |
-          set -euo pipefail
-          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
-          json_jar="$RUNNER_TEMP/json-20240303.jar"
-          test -d "$app_classes"
-          curl --fail --silent --show-error --location --retry 3 \
-            --output "$json_jar" \
-            https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar
-          test -s "$json_jar"
-          mkdir -p "$RUNNER_TEMP/mathcrossword-reliability"
-          javac -cp "$json_jar:$app_classes" \
-            -d "$RUNNER_TEMP/mathcrossword-reliability" \
-            tools/ReliabilityHarness.java \
-            tools/GraphTheoryHarness.java \
-            tools/RunLifecycleHarness.java \
-            tools/GraphTraversalTelemetryHarness.java \
-            tools/SolverInvariantEvidenceHarness.java \
-            tools/PathGenerationLatencyHarness.java \
-            tools/NetworkGenerationProbe.java \
-            tools/HypothesisGenerationProbe.java \
-            tools/MixedGenerationProbe.java \
-            tools/AdversarialMrvBenchmark.java \
-            tools/ChainAdversarialFrontierProbe.java \
-            tools/PostSolveInsightHarness.java
-
-      - name: Run lifecycle contracts
-        shell: bash
-        run: |
-          set -euo pipefail
-          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
-          java -Xmx256m -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" com.offline.mathcrossword.RunLifecycleHarness
-
-      - name: Run graph topology contracts
-        shell: bash
-        run: |
-          set -euo pipefail
-          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
-          java -Xmx512m -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" com.offline.mathcrossword.GraphTheoryHarness
-
-      - name: Run solver-invariant telemetry contracts
-        shell: bash
-        run: |
-          set -euo pipefail
-          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
-          json_jar="$RUNNER_TEMP/json-20240303.jar"
-          java -Xmx256m -cp "$json_jar:$app_classes:$RUNNER_TEMP/mathcrossword-reliability" com.offline.mathcrossword.GraphTraversalTelemetryHarness
-          java -Xmx256m -cp "$json_jar:$app_classes:$RUNNER_TEMP/mathcrossword-reliability" com.offline.mathcrossword.SolverInvariantEvidenceHarness
-
-      - name: Run post-solve insight contracts
-        shell: bash
-        run: |
-          set -euo pipefail
-          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
-          java -Xmx256m -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" com.offline.mathcrossword.PostSolveInsightHarness
-
-      - name: Run adversarial MRV benchmark
-        shell: bash
-        run: |
-          set -euo pipefail
-          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
-          timeout 8m java -Xmx1536m -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" com.offline.mathcrossword.AdversarialMrvBenchmark 6
-
-      - name: Probe CHAIN L10 adversarial frontier
-        shell: bash
-        run: |
-          set -euo pipefail
-          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
-          timeout 6m java -Xmx1536m -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" com.offline.mathcrossword.ChainAdversarialFrontierProbe 24
-
-      - name: Probe PATH 77-79 generation boundary
-        shell: bash
-        run: |
-          set -euo pipefail
-          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
-          for level in 77 78 79; do
-            timeout 90s java -Xmx1536m -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" com.offline.mathcrossword.PathGenerationLatencyHarness "$level"
-          done
-
-      - name: Probe expert NETWORK generation
-        shell: bash
-        run: |
-          set -euo pipefail
-          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
-          timeout 10m java -Xmx1536m -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" com.offline.mathcrossword.NetworkGenerationProbe 12
-
-      - name: Probe HYPOTHESIS Logic 8 generation
-        shell: bash
-        run: |
-          set -euo pipefail
-          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
-          timeout 10m java -Xmx1536m -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" com.offline.mathcrossword.HypothesisGenerationProbe 12
-
-      - name: Probe MIXED Logic 10 generation
-        shell: bash
-        run: |
-          set -euo pipefail
-          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
-          timeout 10m java -Xmx1536m -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" com.offline.mathcrossword.MixedGenerationProbe 12
-
-      - name: Run deterministic smoke gate
-        shell: bash
-        run: |
-          set -euo pipefail
-          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
-          timeout 12m java -Xmx1536m -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" com.offline.mathcrossword.ReliabilityHarness smoke
-
-      - name: Run extended all-generator compatibility sweep
-        shell: bash
-        run: |
-          set -euo pipefail
-          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
-          timeout 12m java -Xmx1536m -cp "$app_classes:$RUNNER_TEMP/mathcrossword-reliability" com.offline.mathcrossword.ReliabilityHarness extended
