@@ -1,3 +1,4 @@
+# trigger after workflow exists on branch
 name: Apply screenshot-driven visual polish
 
 on:
