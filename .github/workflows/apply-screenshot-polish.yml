@@ -1,0 +1,159 @@
+name: Apply screenshot-driven visual polish
+
+on:
+  push:
+    branches:
+      - product/post-solve-insights
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v5
+        with:
+          ref: product/post-solve-insights
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Ensure Android API 36
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f "$ANDROID_HOME/platforms/android-36/android.jar" ]; then
+            sdkmanager_bin="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+            test -n "$sdkmanager_bin"
+            "$sdkmanager_bin" "platforms;android-36" "build-tools;36.0.0"
+          fi
+
+      - name: Apply focused UI changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('app/src/main/java/com/offline/mathcrossword/MainActivity.java')
+          text = path.read_text()
+
+          def once(old, new, label):
+              global text
+              n = text.count(old)
+              if n != 1:
+                  raise SystemExit(f'{label}: expected 1 match, got {n}')
+              text = text.replace(old, new, 1)
+
+          once(
+              '            float side = dp(26);\n            float buttonH = dp(52);\n            float gap = dp(9);\n            float firstTop = Math.max(y + dp(76), h * 0.29f);\n            homeContinueRect.set(side, firstTop, w - side, firstTop + buttonH);\n            homeLevelsRect.set(side, homeContinueRect.bottom + gap, w - side, homeContinueRect.bottom + gap + buttonH);\n            homeFreeRect.set(side, homeLevelsRect.bottom + gap, w - side, homeLevelsRect.bottom + gap + buttonH);\n            homeLibraryRect.set(side, homeFreeRect.bottom + gap, w - side, homeFreeRect.bottom + gap + buttonH);\n            homeAnalysisRect.set(side, homeLibraryRect.bottom + gap, w - side, homeLibraryRect.bottom + gap + buttonH);',
+              '            float side = dp(26);\n            float primaryH = dp(52);\n            float secondaryH = dp(48);\n            float gap = dp(8);\n            float firstTop = Math.max(y + dp(68), h * 0.275f);\n            homeContinueRect.set(side, firstTop, w - side, firstTop + primaryH);\n            homeLevelsRect.set(side, homeContinueRect.bottom + gap, w - side, homeContinueRect.bottom + gap + secondaryH);\n            homeFreeRect.set(side, homeLevelsRect.bottom + gap, w - side, homeLevelsRect.bottom + gap + secondaryH);\n            homeLibraryRect.set(side, homeFreeRect.bottom + gap, w - side, homeFreeRect.bottom + gap + secondaryH);\n            homeAnalysisRect.set(side, homeLibraryRect.bottom + gap, w - side, homeLibraryRect.bottom + gap + secondaryH);',
+              'home geometry')
+
+          once('                footerCenterX -= dp(14);\n', '', 'footer centering')
+
+          old_footer = '''            homePrivacyRect.set(dp(18), footerY - dp(50), w - dp(18), footerY - dp(24));
+            paint.setColor(Color.rgb(104, 106, 102));
+            paint.setTextSize(dp(11.2f));
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            c.drawText(UiText.tr("Privacy", "Конфиденциальность", "Soukromí"), footerCenterX, footerY - dp(31), paint);
+
+            paint.setColor(Color.rgb(126, 127, 123));
+            paint.setTextSize(dp(11.8f));
+            paint.setTextAlign(Paint.Align.CENTER);
+            String versionLine = "v" + installedVersionName() + " (" + installedVersionCode() + ") · "
+                    + DistributionConfig.channelLabel() + UiText.tr(" · offline · no ads", " · офлайн · без рекламы", " · offline · bez reklam");
+            if (DistributionConfig.selfUpdateEnabled() && !UiText.tr("update not checked", "обновление не проверено", "aktualizace nezkontrolována").equals(updateStatus))
+                versionLine += " · " + updateStatus;
+            c.drawText(versionLine, footerCenterX, footerY - dp(7), paint);
+            paint.setTextSize(dp(10.8f));
+            c.drawText(UiText.tr("data and solve history stay on this device", "данные и история решения хранятся локально", "data a historie řešení zůstávají v zařízení"), footerCenterX, footerY + dp(11), paint);'''
+          new_footer = '''            homePrivacyRect.set(dp(18), footerY - dp(42), w - dp(18), footerY - dp(16));
+            paint.setColor(Color.rgb(104, 106, 102));
+            paint.setTextSize(dp(11.2f));
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            c.drawText(UiText.tr("Privacy", "Конфиденциальность", "Soukromí"), footerCenterX, footerY - dp(23), paint);
+
+            paint.setColor(Color.rgb(132, 133, 129));
+            paint.setTextSize(dp(11.4f));
+            paint.setTextAlign(Paint.Align.CENTER);
+            c.drawText("v" + installedVersionName(), footerCenterX, footerY + dp(3), paint);'''
+          once(old_footer, new_footer, 'home footer')
+
+          old_bank = '''                    boolean noted = candidateMode && selectedCell != null && selectedNotes.contains(t.value);
+                    paint.setStyle(Paint.Style.FILL);
+                    paint.setColor((t.id == selectedTileId || noted) ? selected : board);
+                    c.drawRoundRect(r, dp(5), dp(5), paint);
+                    stroke.setColor(noted ? accent : ink);
+                    stroke.setStrokeWidth(dp(noted ? 2.4f : 1.8f));
+                    c.drawRoundRect(r, dp(5), dp(5), stroke);'''
+          new_bank = '''                    boolean noted = candidateMode && selectedCell != null && selectedNotes.contains(t.value);
+                    paint.setStyle(Paint.Style.FILL);
+                    if (t.id == selectedTileId) paint.setColor(selected);
+                    else if (noted) paint.setColor(Color.rgb(245, 248, 244));
+                    else paint.setColor(board);
+                    c.drawRoundRect(r, dp(5), dp(5), paint);
+                    stroke.setColor(noted ? Color.rgb(104, 130, 110) : ink);
+                    stroke.setStrokeWidth(dp(noted ? 2.0f : 1.8f));
+                    c.drawRoundRect(r, dp(5), dp(5), stroke);'''
+          once(old_bank, new_bank, 'candidate bank emphasis')
+
+          once('            float solvedDrawerHeight = dp(214) + bottomInset;',
+               '            float solvedDrawerHeight = dp(178) + bottomInset;',
+               'solved reserved height')
+          once('            float sheetTop = h - bottomInset - dp(214);',
+               '            float sheetTop = h - bottomInset - dp(178);',
+               'solved sheet height')
+
+          old_actions = '''            float side = dp(38);
+            solvedInsightRect.set(side, sheetTop + dp(55), w - side, sheetTop + dp(99));
+            drawToolButton(c, solvedInsightRect,
+                    UiText.tr("How you solved it", "Как ты решил", "Jak jsi řešil"), true, false);
+
+            nextLevelRect.set(side, sheetTop + dp(119), w - side, h - bottomInset - dp(24));'''
+          new_actions = '''            float side = dp(38);
+            solvedInsightRect.set(side, sheetTop + dp(46), w - side, sheetTop + dp(88));
+            paint.setColor(accent);
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(13.5f));
+            c.drawText(UiText.tr("How you solved it  →", "Как ты решил  →", "Jak jsi řešil  →"),
+                    w / 2f, sheetTop + dp(72), paint);
+
+            nextLevelRect.set(side, sheetTop + dp(98), w - side, h - bottomInset - dp(22));'''
+          once(old_actions, new_actions, 'solved secondary action')
+
+          path.write_text(text)
+          PY
+          git diff --check
+
+      - name: Compile both Android variants
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew :app:compileGithubDebugJavaWithJavac :app:compilePlayDebugJavaWithJavac --no-daemon
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          mkdir -p "$RUNNER_TEMP/post-solve-contract"
+          javac -cp "$app_classes" -d "$RUNNER_TEMP/post-solve-contract" tools/PostSolveInsightHarness.java
+          java -cp "$app_classes:$RUNNER_TEMP/post-solve-contract" com.offline.mathcrossword.PostSolveInsightHarness
+
+      - name: Commit tested polish and remove one-time workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/apply-screenshot-polish.yml
+          git add app/src/main/java/com/offline/mathcrossword/MainActivity.java
+          git commit -m "Polish UI from phone screenshots"
+          git push origin HEAD:product/post-solve-insights
