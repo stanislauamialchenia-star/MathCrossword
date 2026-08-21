@@ -23,3 +23,5 @@ This branch is intentionally a prototype and should not be merged before phone t
 5. Is `+ клетка` useful or confusing without row/column labels on the board?
 6. Are four tool buttons too cramped in Russian?
 7. Does this reduce the urge to switch to paper for branching puzzles?
+
+Signed prototype APK preview rerun requested after fixing the artifact name.
