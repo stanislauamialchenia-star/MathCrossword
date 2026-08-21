@@ -1,3 +1,4 @@
+# trigger navigation polish integration
 from pathlib import Path
 
 p = Path('app/src/main/java/com/offline/mathcrossword/MainActivity.java')
