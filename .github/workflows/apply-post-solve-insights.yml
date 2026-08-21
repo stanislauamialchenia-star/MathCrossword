@@ -1,30 +1,180 @@
 name: Apply post-solve insight card
 
 on:
-  push:
+  pull_request:
     branches:
-      - product/post-solve-insights
+      - main
 
 permissions:
   contents: write
 
 jobs:
   patch:
-    if: github.actor != 'github-actions[bot]'
+    if: github.head_ref == 'product/post-solve-insights' && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - name: Check out source
+      - name: Check out source branch
         uses: actions/checkout@v5
         with:
           ref: product/post-solve-insights
 
-      - name: Verify runner write access
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Ensure Android API 36
         shell: bash
         run: |
           set -euo pipefail
-          echo "runner active $(date -u +%s)" > tools/post-solve-runner-proof.txt
+          if [ ! -f "$ANDROID_HOME/platforms/android-36/android.jar" ]; then
+            sdkmanager_bin="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+            test -n "$sdkmanager_bin"
+            "$sdkmanager_bin" "platforms;android-36" "build-tools;36.0.0"
+          fi
+
+      - name: Apply source changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected 1 match, found {count}')
+              return text.replace(old, new, 1)
+
+          session = Path('app/src/main/java/com/offline/mathcrossword/SessionTracker.java')
+          text = session.read_text()
+          text = replace_once(text,
+              '            s.eventCount = row.optInt("eventCount", 0);\n            s.ratedLogic = row.optInt("ratedLogic", 0);',
+              '            s.eventCount = row.optInt("eventCount", 0);\n            s.firstActionMs = row.optLong("firstActionMs", -1L);\n            s.ratedLogic = row.optInt("ratedLogic", 0);',
+              'summary firstAction')
+          text = replace_once(text,
+              '                s.routeAlternateEntry = routeComparison.optBoolean("alternateEntry", false);\n                s.routeStrongDivergence = routeComparison.optBoolean("strongDivergence", false);\n            }',
+              '                s.routeAlternateEntry = routeComparison.optBoolean("alternateEntry", false);\n                s.routeStrongDivergence = routeComparison.optBoolean("strongDivergence", false);\n                JSONObject traversal = routeComparison.optJSONObject("graphTraversal");\n                if (traversal != null && traversal.optBoolean("available", false)) {\n                    s.traversalAvailable = true;\n                    s.traversalDirection = traversal.optString("direction", "unknown");\n                    s.traversalConfidencePct = traversal.optDouble("confidencePct", 0.0);\n                    s.traversalInternalEntry = traversal.optBoolean("internalEntry", false);\n                    s.traversalEntryDepth = traversal.optInt("entryDepth", -1);\n                }\n            }',
+              'summary traversal')
+          text = replace_once(text,
+              '        int eventCount;\n        int ratedLogic;',
+              '        int eventCount;\n        long firstActionMs = -1L;\n        int ratedLogic;',
+              'summary field firstAction')
+          text = replace_once(text,
+              '        boolean routeAlternateEntry;\n        boolean routeStrongDivergence;\n    }',
+              '        boolean routeAlternateEntry;\n        boolean routeStrongDivergence;\n        boolean traversalAvailable;\n        String traversalDirection;\n        double traversalConfidencePct;\n        boolean traversalInternalEntry;\n        int traversalEntryDepth = -1;\n    }',
+              'summary traversal fields')
+          session.write_text(text)
+
+          main = Path('app/src/main/java/com/offline/mathcrossword/MainActivity.java')
+          text = main.read_text()
+          text = replace_once(text,
+              '        final RectF hintRect = new RectF();\n        final RectF nextLevelRect = new RectF();\n        final RectF freeGenerateRect = new RectF();',
+              '        final RectF hintRect = new RectF();\n        final RectF nextLevelRect = new RectF();\n        final RectF solvedInsightRect = new RectF();\n        final RectF freeGenerateRect = new RectF();',
+              'solved insight rect')
+          text = replace_once(text,
+              '            float solvedDrawerHeight = dp(158) + bottomInset;',
+              '            float solvedDrawerHeight = dp(214) + bottomInset;',
+              'solved drawer height')
+
+          start = text.index('        void drawSolvedBanner(Canvas c, float w, float h) {')
+          end = text.index('        @Override public boolean onTouchEvent(MotionEvent event) {', start)
+          banner = '''        void drawSolvedBanner(Canvas c, float w, float h) {\n            // Completion stays below the board; reflection is optional and secondary.\n            float sheetTop = h - bottomInset - dp(214);\n            drawerHandleRect.setEmpty();\n            bankHits.clear();\n            undoRect.setEmpty(); candidateRect.setEmpty(); hintRect.setEmpty();\n\n            paint.setStyle(Paint.Style.FILL);\n            paint.setColor(Color.argb(250, Color.red(soft), Color.green(soft), Color.blue(soft)));\n            c.drawRect(0, sheetTop, w, h, paint);\n            paint.setColor(Color.argb(22, 0, 0, 0));\n            c.drawRect(0, sheetTop, w, sheetTop + dp(1), paint);\n\n            paint.setColor(ink);\n            paint.setTextAlign(Paint.Align.CENTER);\n            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);\n            paint.setTextSize(dp(16.5f));\n            c.drawText(UiText.tr("Solved ✓", "Готово ✓", "Hotovo ✓"), w / 2f, sheetTop + dp(34), paint);\n\n            float side = dp(38);\n            solvedInsightRect.set(side, sheetTop + dp(55), w - side, sheetTop + dp(99));\n            drawToolButton(c, solvedInsightRect,\n                    UiText.tr("How you solved it", "Как ты решил", "Jak jsi řešil"), true, false);\n\n            nextLevelRect.set(side, sheetTop + dp(119), w - side, h - bottomInset - dp(24));\n            paint.setColor(accent);\n            c.drawRoundRect(nextLevelRect, dp(13), dp(13), paint);\n            paint.setColor(Color.WHITE);\n            paint.setTextSize(dp(17));\n            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);\n            String labelText = generating ? UiText.tr("Generating…", "Генерирую…", "Generuji…")\n                    : (mode == GameMode.PATH ? UiText.tr("Next level  →", "Следующий уровень  →", "Další úroveň  →") : UiText.tr("New puzzle  →", "Новая головоломка  →", "Nový hlavolam  →"));\n            Paint.FontMetrics fm = paint.getFontMetrics();\n            c.drawText(labelText, w / 2f, nextLevelRect.centerY() - (fm.ascent + fm.descent) / 2f, paint);\n        }\n\n'''
+          text = text[:start] + banner + text[end:]
+
+          text = replace_once(text,
+              '            if (solved && nextLevelRect.contains(x, y)) {\n                if (generating) return true;',
+              '            if (solved && solvedInsightRect.contains(x, y)) {\n                showPostSolveInsights();\n                return true;\n            }\n            if (solved && nextLevelRect.contains(x, y)) {\n                if (generating) return true;',
+              'solved insight touch')
+
+          marker = '        void showLastTrajectoryDialog() {'
+          idx = text.index(marker)
+          method = '''        void showPostSolveInsights() {\n            SessionTracker.AnalysisSnapshot snapshot = tracker.analyze();\n            if (snapshot.recent.isEmpty() || !snapshot.recent.get(0).solved) {\n                Toast.makeText(getContext(), UiText.tr("No solved trace is available yet", "Пока нет завершённого следа решения", "Zatím není dostupná dokončená stopa řešení"), Toast.LENGTH_SHORT).show();\n                return;\n            }\n            PostSolveInsightBuilder.Result result = PostSolveInsightBuilder.build(snapshot.recent.get(0));\n            StringBuilder body = new StringBuilder();\n            for (String observation : result.observations) {\n                if (body.length() > 0) body.append("\\n\\n");\n                body.append("• ").append(observation);\n            }\n            body.append(UiText.tr(\n                    "\\n\\nThis is an interpretation of your interaction trace, not a literal record of your thoughts.",\n                    "\\n\\nЭто интерпретация следа взаимодействия с задачей, а не буквальная запись твоих мыслей.",\n                    "\\n\\nJde o interpretaci stopy interakce s hlavolamem, ne o doslovný záznam tvých myšlenek."));\n\n            TextView text = new TextView(getContext());\n            int pad = (int) dp(20);\n            text.setPadding(pad, pad, pad, pad);\n            text.setText(body.toString());\n            text.setTextSize(16f);\n            text.setTextColor(ink);\n            text.setLineSpacing(0f, 1.16f);\n            text.setTextIsSelectable(true);\n\n            ScrollView scroll = new ScrollView(getContext());\n            scroll.setFillViewport(true);\n            scroll.addView(text);\n\n            new AlertDialog.Builder(getContext())\n                    .setTitle(UiText.tr("How you solved it", "Как ты решил", "Jak jsi řešil"))\n                    .setView(scroll)\n                    .setPositiveButton(UiText.tr("Done", "Готово", "Hotovo"), null)\n                    .show();\n        }\n\n'''
+          text = text[:idx] + method + text[idx:]
+          main.write_text(text)
+
+          build = Path('app/build.gradle')
+          gradle = build.read_text()
+          if "versionCode 48" not in gradle or "versionName '1.48'" not in gradle:
+              raise SystemExit('Unexpected version before insight integration')
+          build.write_text(gradle.replace('versionCode 48', 'versionCode 49', 1)
+                                 .replace("versionName '1.48'", "versionName '1.49'", 1))
+
+          Path('tools/PostSolveInsightHarness.java').write_text(r'''package com.offline.mathcrossword;
+
+public final class PostSolveInsightHarness {
+    public static void main(String[] args) {
+        UiText.setLanguageOverride("ru");
+        SessionTracker.SessionSummary divergent = new SessionTracker.SessionSummary();
+        divergent.solved = true;
+        divergent.traversalAvailable = true;
+        divergent.traversalDirection = "mixed";
+        divergent.traversalConfidencePct = 88.0;
+        divergent.routeCompared = true;
+        divergent.routeStrongDivergence = true;
+        PostSolveInsightBuilder.Result a = PostSolveInsightBuilder.build(divergent);
+        require(!a.observations.isEmpty(), "divergent story missing");
+        require(a.observations.size() <= 4, "too many observations");
+        require(join(a).contains("маршрут"), "route story missing");
+
+        SessionTracker.SessionSummary cascade = new SessionTracker.SessionSummary();
+        cascade.solved = true;
+        cascade.hidden = 10;
+        cascade.maxForcedCascade = 6;
+        cascade.rapidCascades = 1;
+        cascade.hypothesisEpisodes = 2;
+        cascade.candidateCellRevisits = 3;
+        cascade.firstActionMs = 18000L;
+        PostSolveInsightBuilder.Result b = PostSolveInsightBuilder.build(cascade);
+        require(b.observations.size() >= 2 && b.observations.size() <= 4, "signal selection bounds");
+        require(join(b).contains("каскад"), "cascade story missing");
+        require(join(b).contains("альтернатив"), "hypothesis uncertainty wording missing");
+
+        SessionTracker.SessionSummary quiet = new SessionTracker.SessionSummary();
+        quiet.solved = true;
+        require(PostSolveInsightBuilder.build(quiet).observations.size() == 1, "quiet solve fallback missing");
+
+        SessionTracker.SessionSummary unfinished = new SessionTracker.SessionSummary();
+        require(PostSolveInsightBuilder.build(unfinished).observations.isEmpty(), "unfinished card must be empty");
+        System.out.println("PASS post-solve insight contracts");
+    }
+
+    private static String join(PostSolveInsightBuilder.Result r) {
+        StringBuilder out = new StringBuilder();
+        for (String s : r.observations) out.append(s).append('\n');
+        return out.toString().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    private static void require(boolean condition, String message) {
+        if (!condition) throw new AssertionError(message);
+    }
+}
+''')
+          PY
+          git diff --check
+
+      - name: Compile both variants and contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew :app:compileGithubDebugJavaWithJavac :app:compilePlayDebugJavaWithJavac --no-daemon
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          mkdir -p "$RUNNER_TEMP/post-solve-contract"
+          javac -cp "$app_classes" -d "$RUNNER_TEMP/post-solve-contract" tools/PostSolveInsightHarness.java
+          java -cp "$app_classes:$RUNNER_TEMP/post-solve-contract" com.offline.mathcrossword.PostSolveInsightHarness
+
+      - name: Commit tested source changes
+        shell: bash
+        run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tools/post-solve-runner-proof.txt
-          git commit -m "Verify post-solve integration runner"
+          git add app/src/main/java/com/offline/mathcrossword/SessionTracker.java \
+                  app/src/main/java/com/offline/mathcrossword/MainActivity.java \
+                  app/build.gradle \
+                  tools/PostSolveInsightHarness.java
+          git commit -m "Add player-facing post-solve insights"
           git push origin HEAD:product/post-solve-insights
