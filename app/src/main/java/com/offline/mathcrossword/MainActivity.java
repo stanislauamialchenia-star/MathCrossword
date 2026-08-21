@@ -286,6 +286,10 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
+        if (scratchpadPanel != null && scratchpadPanel.getVisibility() == View.VISIBLE) {
+            hideScratchpad(true);
+            return;
+        }
         if (gameView != null && gameView.goHomeIfNeeded()) return;
         super.onBackPressed();
     }
@@ -2113,6 +2117,7 @@ public class MainActivity extends Activity {
                 return true;
             }
             if (!focusMode && topHomeRect.contains(x, y)) {
+                ((MainActivity) getContext()).hideScratchpad(false);
                 if (tracker.hasOpenSession() && !solved) {
                     tracker.finish(false, "home");
                     resumablePuzzle = puzzle != null;
@@ -2120,6 +2125,7 @@ public class MainActivity extends Activity {
                 screen = Screen.HOME; invalidate(); return true;
             }
             if ((!focusMode && menuRect.contains(x, y)) || (focusMode && focusMenuRect.contains(x, y))) {
+                ((MainActivity) getContext()).hideScratchpad(false);
                 showGameMenu();
                 return true;
             }
