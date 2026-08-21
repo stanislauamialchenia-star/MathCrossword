@@ -181,6 +181,7 @@ public class MainActivity extends Activity {
         final RectF candidateRect = new RectF();
         final RectF hintRect = new RectF();
         final RectF nextLevelRect = new RectF();
+        final RectF solvedInsightRect = new RectF();
         final RectF freeGenerateRect = new RectF();
         final RectF[] logicRects = {new RectF(), new RectF(), new RectF(), new RectF(), new RectF(),
                 new RectF(), new RectF(), new RectF(), new RectF(), new RectF()};
@@ -463,14 +464,15 @@ public class MainActivity extends Activity {
             // Keep the home screen quiet: product/update metadata lives in a small footer,
             // not as another primary action competing with play.
             float side = dp(26);
-            float buttonH = dp(52);
-            float gap = dp(9);
-            float firstTop = Math.max(y + dp(76), h * 0.29f);
-            homeContinueRect.set(side, firstTop, w - side, firstTop + buttonH);
-            homeLevelsRect.set(side, homeContinueRect.bottom + gap, w - side, homeContinueRect.bottom + gap + buttonH);
-            homeFreeRect.set(side, homeLevelsRect.bottom + gap, w - side, homeLevelsRect.bottom + gap + buttonH);
-            homeLibraryRect.set(side, homeFreeRect.bottom + gap, w - side, homeFreeRect.bottom + gap + buttonH);
-            homeAnalysisRect.set(side, homeLibraryRect.bottom + gap, w - side, homeLibraryRect.bottom + gap + buttonH);
+            float primaryH = dp(52);
+            float secondaryH = dp(48);
+            float gap = dp(8);
+            float firstTop = Math.max(y + dp(68), h * 0.275f);
+            homeContinueRect.set(side, firstTop, w - side, firstTop + primaryH);
+            homeLevelsRect.set(side, homeContinueRect.bottom + gap, w - side, homeContinueRect.bottom + gap + secondaryH);
+            homeFreeRect.set(side, homeLevelsRect.bottom + gap, w - side, homeLevelsRect.bottom + gap + secondaryH);
+            homeLibraryRect.set(side, homeFreeRect.bottom + gap, w - side, homeFreeRect.bottom + gap + secondaryH);
+            homeAnalysisRect.set(side, homeLibraryRect.bottom + gap, w - side, homeLibraryRect.bottom + gap + secondaryH);
 
             String continueLabel;
             if (generating) {
@@ -502,28 +504,21 @@ public class MainActivity extends Activity {
                 Paint.FontMetrics updateFm = paint.getFontMetrics();
                 c.drawText(updateChecking ? "…" : "↻", homeUpdateRect.centerX(),
                         homeUpdateRect.centerY() - (updateFm.ascent + updateFm.descent) / 2f, paint);
-                footerCenterX -= dp(14);
             } else {
                 homeUpdateRect.setEmpty();
             }
 
-            homePrivacyRect.set(dp(18), footerY - dp(50), w - dp(18), footerY - dp(24));
+            homePrivacyRect.set(dp(18), footerY - dp(42), w - dp(18), footerY - dp(16));
             paint.setColor(Color.rgb(104, 106, 102));
             paint.setTextSize(dp(11.2f));
             paint.setTextAlign(Paint.Align.CENTER);
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
-            c.drawText(UiText.tr("Privacy", "Конфиденциальность", "Soukromí"), footerCenterX, footerY - dp(31), paint);
+            c.drawText(UiText.tr("Privacy", "Конфиденциальность", "Soukromí"), footerCenterX, footerY - dp(23), paint);
 
-            paint.setColor(Color.rgb(126, 127, 123));
-            paint.setTextSize(dp(11.8f));
+            paint.setColor(Color.rgb(132, 133, 129));
+            paint.setTextSize(dp(11.4f));
             paint.setTextAlign(Paint.Align.CENTER);
-            String versionLine = "v" + installedVersionName() + " (" + installedVersionCode() + ") · "
-                    + DistributionConfig.channelLabel() + UiText.tr(" · offline · no ads", " · офлайн · без рекламы", " · offline · bez reklam");
-            if (DistributionConfig.selfUpdateEnabled() && !UiText.tr("update not checked", "обновление не проверено", "aktualizace nezkontrolována").equals(updateStatus))
-                versionLine += " · " + updateStatus;
-            c.drawText(versionLine, footerCenterX, footerY - dp(7), paint);
-            paint.setTextSize(dp(10.8f));
-            c.drawText(UiText.tr("data and solve history stay on this device", "данные и история решения хранятся локально", "data a historie řešení zůstávají v zařízení"), footerCenterX, footerY + dp(11), paint);
+            c.drawText("v" + installedVersionName(), footerCenterX, footerY + dp(3), paint);
         }
 
         void drawLevels(Canvas c) {
@@ -1107,7 +1102,7 @@ public class MainActivity extends Activity {
             candidateDrawerHeight = Math.max(drawerMin, Math.min(drawerMax, candidateDrawerHeight));
             if (candidateDrawerHeight > drawerMin + dp(10)) lastExpandedDrawerHeight = candidateDrawerHeight;
             // Completion gets its own reserved bottom sheet. Never overlay the board.
-            float solvedDrawerHeight = dp(158) + bottomInset;
+            float solvedDrawerHeight = dp(178) + bottomInset;
             float effectiveDrawerHeight = solved ? solvedDrawerHeight : (focusMode ? drawerMin : candidateDrawerHeight);
 
             float headerH = focusMode ? 0f : dp(46);
@@ -1595,10 +1590,12 @@ public class MainActivity extends Activity {
                     bankHits.add(new BankHit(r, t.id));
                     boolean noted = candidateMode && selectedCell != null && selectedNotes.contains(t.value);
                     paint.setStyle(Paint.Style.FILL);
-                    paint.setColor((t.id == selectedTileId || noted) ? selected : board);
+                    if (t.id == selectedTileId) paint.setColor(selected);
+                    else if (noted) paint.setColor(Color.rgb(245, 248, 244));
+                    else paint.setColor(board);
                     c.drawRoundRect(r, dp(5), dp(5), paint);
-                    stroke.setColor(noted ? accent : ink);
-                    stroke.setStrokeWidth(dp(noted ? 2.4f : 1.8f));
+                    stroke.setColor(noted ? Color.rgb(104, 130, 110) : ink);
+                    stroke.setStrokeWidth(dp(noted ? 2.0f : 1.8f));
                     c.drawRoundRect(r, dp(5), dp(5), stroke);
 
                     paint.setColor(ink);
@@ -1617,9 +1614,8 @@ public class MainActivity extends Activity {
         }
 
         void drawSolvedBanner(Canvas c, float w, float h) {
-            // Replace the candidate drawer after completion instead of floating controls
-            // over the crossword. The board has already reserved this exact area.
-            float sheetTop = h - bottomInset - dp(158);
+            // Completion stays below the board; reflection is optional and secondary.
+            float sheetTop = h - bottomInset - dp(178);
             drawerHandleRect.setEmpty();
             bankHits.clear();
             undoRect.setEmpty(); candidateRect.setEmpty(); hintRect.setEmpty();
@@ -1634,11 +1630,18 @@ public class MainActivity extends Activity {
             paint.setTextAlign(Paint.Align.CENTER);
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             paint.setTextSize(dp(16.5f));
-            c.drawText(UiText.tr("Solved ✓", "Готово ✓", "Hotovo ✓"), w / 2f, sheetTop + dp(38), paint);
+            c.drawText(UiText.tr("Solved ✓", "Готово ✓", "Hotovo ✓"), w / 2f, sheetTop + dp(34), paint);
 
-            // Keep completion action obvious but less visually dominant than the board.
             float side = dp(38);
-            nextLevelRect.set(side, sheetTop + dp(76), w - side, h - bottomInset - dp(32));
+            solvedInsightRect.set(side, sheetTop + dp(46), w - side, sheetTop + dp(88));
+            paint.setColor(accent);
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(13.5f));
+            c.drawText(UiText.tr("How you solved it  →", "Как ты решил  →", "Jak jsi řešil  →"),
+                    w / 2f, sheetTop + dp(72), paint);
+
+            nextLevelRect.set(side, sheetTop + dp(98), w - side, h - bottomInset - dp(22));
             paint.setColor(accent);
             c.drawRoundRect(nextLevelRect, dp(13), dp(13), paint);
             paint.setColor(Color.WHITE);
@@ -1852,6 +1855,10 @@ public class MainActivity extends Activity {
                 return true;
             }
 
+            if (solved && solvedInsightRect.contains(x, y)) {
+                showPostSolveInsights();
+                return true;
+            }
             if (solved && nextLevelRect.contains(x, y)) {
                 if (generating) return true;
                 if (mode == GameMode.PATH) loadPathLevel(level + 1);
@@ -2048,6 +2055,43 @@ public class MainActivity extends Activity {
                     .setTitle(UiText.tr("Privacy", "Конфиденциальность", "Soukromí"))
                     .setView(scroll)
                     .setNegativeButton(UiText.tr("Close", "Закрыть", "Zavřít"), null)
+                    .show();
+        }
+
+        void showPostSolveInsights() {
+            SessionTracker.AnalysisSnapshot snapshot = tracker.analyze();
+            if (snapshot.recent.isEmpty() || !snapshot.recent.get(0).solved) {
+                Toast.makeText(getContext(), UiText.tr("No solved trace is available yet", "Пока нет завершённого следа решения", "Zatím není dostupná dokončená stopa řešení"), Toast.LENGTH_SHORT).show();
+                return;
+            }
+            PostSolveInsightBuilder.Result result = PostSolveInsightBuilder.build(snapshot.recent.get(0));
+            StringBuilder body = new StringBuilder();
+            for (String observation : result.observations) {
+                if (body.length() > 0) body.append("\n\n");
+                body.append("• ").append(observation);
+            }
+            body.append(UiText.tr(
+                    "\n\nThis is an interpretation of your interaction trace, not a literal record of your thoughts.",
+                    "\n\nЭто интерпретация следа взаимодействия с задачей, а не буквальная запись твоих мыслей.",
+                    "\n\nJde o interpretaci stopy interakce s hlavolamem, ne o doslovný záznam tvých myšlenek."));
+
+            TextView text = new TextView(getContext());
+            int pad = (int) dp(20);
+            text.setPadding(pad, pad, pad, pad);
+            text.setText(body.toString());
+            text.setTextSize(16f);
+            text.setTextColor(ink);
+            text.setLineSpacing(0f, 1.16f);
+            text.setTextIsSelectable(true);
+
+            ScrollView scroll = new ScrollView(getContext());
+            scroll.setFillViewport(true);
+            scroll.addView(text);
+
+            new AlertDialog.Builder(getContext())
+                    .setTitle(UiText.tr("How you solved it", "Как ты решил", "Jak jsi řešil"))
+                    .setView(scroll)
+                    .setPositiveButton(UiText.tr("Done", "Готово", "Hotovo"), null)
                     .show();
         }
 
