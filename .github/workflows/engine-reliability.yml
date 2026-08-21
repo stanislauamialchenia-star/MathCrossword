@@ -10,70 +10,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: engine-reliability-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  integrate_post_solve:
-    if: github.event_name == 'pull_request' && github.head_ref == 'product/post-solve-insights' && github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Check out post-solve branch
-        uses: actions/checkout@v5
-        with:
-          ref: product/post-solve-insights
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Ensure Android API 36
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ ! -f "$ANDROID_HOME/platforms/android-36/android.jar" ]; then
-            sdkmanager_bin="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
-            test -n "$sdkmanager_bin"
-            "$sdkmanager_bin" "platforms;android-36" "build-tools;36.0.0"
-          fi
-
-      - name: Apply post-solve source patch
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 tools/apply-post-solve-integration.py
-          git diff --check
-
-      - name: Compile post-solve integration
-        shell: bash
-        run: |
-          set -euo pipefail
-          chmod +x ./gradlew
-          ./gradlew :app:compileGithubDebugJavaWithJavac :app:compilePlayDebugJavaWithJavac --no-daemon
-          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
-          mkdir -p "$RUNNER_TEMP/post-solve-contract"
-          javac -cp "$app_classes" -d "$RUNNER_TEMP/post-solve-contract" tools/PostSolveInsightHarness.java
-          java -cp "$app_classes:$RUNNER_TEMP/post-solve-contract" com.offline.mathcrossword.PostSolveInsightHarness
-
-      - name: Commit tested integration
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/src/main/java/com/offline/mathcrossword/SessionTracker.java \
-                  app/src/main/java/com/offline/mathcrossword/MainActivity.java \
-                  app/build.gradle \
-                  tools/PostSolveInsightHarness.java
-          git commit -m "Add player-facing post-solve insights"
-          git push origin HEAD:product/post-solve-insights
-
   smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 25
