@@ -1,4 +1,4 @@
-# retry after integration patch fix
+# retry after generated-source compile fix
 name: Apply scratchpad prototype
 
 on:
