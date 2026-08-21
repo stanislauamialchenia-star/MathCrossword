@@ -71,7 +71,8 @@ jobs:
             tools/HypothesisGenerationProbe.java \
             tools/MixedGenerationProbe.java \
             tools/AdversarialMrvBenchmark.java \
-            tools/ChainAdversarialFrontierProbe.java
+            tools/ChainAdversarialFrontierProbe.java \
+            tools/PostSolveInsightHarness.java
 
       - name: Run lifecycle contracts
         shell: bash
@@ -103,6 +104,16 @@ jobs:
           java -Xmx256m \
             -cp "$json_jar:$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
             com.offline.mathcrossword.SolverInvariantEvidenceHarness
+
+      - name: Run post-solve insight contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_classes="app/build/intermediates/javac/githubDebug/compileGithubDebugJavaWithJavac/classes"
+          json_jar="$RUNNER_TEMP/json-20240303.jar"
+          java -Xmx256m \
+            -cp "$json_jar:$app_classes:$RUNNER_TEMP/mathcrossword-reliability" \
+            com.offline.mathcrossword.PostSolveInsightHarness
 
       - name: Run adversarial MRV benchmark
         shell: bash
