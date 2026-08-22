@@ -182,6 +182,7 @@ public class MainActivity extends Activity {
 
     void prepareScratchpadForPuzzle(long seed, boolean clear) {
         scratchpadPuzzleSeed = seed;
+        if (clear && gameView != null) gameView.clearScratchpadCellLabels();
         android.content.SharedPreferences sp = getSharedPreferences("scratchpad_local", MODE_PRIVATE);
         String value = (!clear && sp.getLong("seed", Long.MIN_VALUE) == seed)
                 ? sp.getString("text", "") : "";
@@ -248,7 +249,7 @@ public class MainActivity extends Activity {
 
     void insertSelectedCellIntoScratchpad() {
         if (gameView == null) return;
-        String ref = gameView.selectedScratchpadCellReference();
+        String ref = gameView.ensureSelectedScratchpadCellLabel();
         if (ref == null) {
             Toast.makeText(this, UiText.tr(
                     "Select a hidden cell first",
@@ -345,6 +346,8 @@ public class MainActivity extends Activity {
         float drawerDragStartY = 0f;
         float drawerDragStartHeight = 0f;
         final Map<Pos, LinkedHashSet<Integer>> candidateNotes = new HashMap<>();
+        final LinkedHashMap<Pos, String> scratchpadCellLabels = new LinkedHashMap<>();
+        int scratchpadNextLabel = 0;
         final List<GameSnapshot> undoStack = new ArrayList<>();
         int topInset = 0;
         int bottomInset = 0;
@@ -1384,6 +1387,7 @@ public class MainActivity extends Activity {
             // This guarantees that notes from non-selected cells are never replaced by a
             // summary marker or covered by later board drawing.
             drawAllCandidateNotesOverlay(canvas);
+            drawScratchpadCellLabelsOverlay(canvas);
             drawLocalFocusOverlay(canvas);
 
             if (solved) drawSolvedBanner(canvas, w, h);
@@ -1627,6 +1631,29 @@ public class MainActivity extends Activity {
             }
         }
 
+        void drawScratchpadCellLabelsOverlay(Canvas c) {
+            if (!scratchpadOverlayOpen || puzzle == null || scratchpadCellLabels.isEmpty()) return;
+            for (Map.Entry<Pos, String> entry : scratchpadCellLabels.entrySet()) {
+                Pos pos = entry.getKey();
+                if (!puzzle.hidden.contains(pos)) continue;
+                float left = originX + pos.x * cellSize;
+                float top = originY + pos.y * cellSize;
+                float inset = Math.max(dp(1.2f), cellSize * 0.035f);
+                float badgeSize = Math.min(dp(17f), Math.max(dp(11f), cellSize * 0.28f));
+                RectF badge = new RectF(left + inset, top + inset, left + inset + badgeSize, top + inset + badgeSize);
+
+                paint.setStyle(Paint.Style.FILL);
+                paint.setColor(Color.argb(238, Color.red(selected), Color.green(selected), Color.blue(selected)));
+                c.drawRoundRect(badge, dp(4), dp(4), paint);
+                paint.setColor(accent);
+                paint.setTextAlign(Paint.Align.CENTER);
+                paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+                paint.setTextSize(Math.min(dp(10.5f), badgeSize * 0.72f));
+                Paint.FontMetrics fm = paint.getFontMetrics();
+                c.drawText(entry.getValue(), badge.centerX(), badge.centerY() - (fm.ascent + fm.descent) / 2f, paint);
+            }
+        }
+
         void drawCandidateNotes(Canvas c, RectF r, Set<Integer> notes, boolean focused) {
             // Candidate notes are never intentionally hidden. The layout adapts to both
             // note count and digit width so three-digit values do not disappear under borders.
@@ -1693,11 +1720,23 @@ public class MainActivity extends Activity {
             invalidate();
         }
 
-        String selectedScratchpadCellReference() {
+        String ensureSelectedScratchpadCellLabel() {
             if (puzzle == null || selectedCell == null || !puzzle.hidden.contains(selectedCell)) return null;
-            int row = selectedCell.y - puzzle.minY + 1;
-            int col = selectedCell.x - puzzle.minX + 1;
-            return "R" + row + "C" + col;
+            String label = scratchpadCellLabels.get(selectedCell);
+            if (label == null) {
+                int index = scratchpadNextLabel++;
+                if (index < 26) label = Character.toString((char) ('A' + index));
+                else label = Character.toString((char) ('A' + (index % 26))) + (index / 26 + 1);
+                scratchpadCellLabels.put(selectedCell, label);
+            }
+            invalidate();
+            return label;
+        }
+
+        void clearScratchpadCellLabels() {
+            scratchpadCellLabels.clear();
+            scratchpadNextLabel = 0;
+            invalidate();
         }
 
         float pointerSpacing(MotionEvent event) {
