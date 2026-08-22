@@ -1,0 +1,62 @@
+name: Scratchpad letter-label integration
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/scratchpad-letter-label-integration.yml
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out scratchpad prototype branch
+        uses: actions/checkout@v5
+        with:
+          ref: prototype/resizable-scratchpad
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Ensure Android API 36
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f "$ANDROID_HOME/platforms/android-36/android.jar" ]; then
+            sdkmanager_bin="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+            test -n "$sdkmanager_bin"
+            "$sdkmanager_bin" "platforms;android-36" "build-tools;36.0.0"
+          fi
+
+      - name: Apply A-B-C scratchpad labels
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/apply-scratchpad-letter-labels.py
+          git diff --check
+
+      - name: Compile both Android variants
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew :app:compileGithubDebugJavaWithJavac :app:compilePlayDebugJavaWithJavac --no-daemon
+
+      - name: Commit tested label UX to prototype branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -f tools/apply-scratchpad-letter-labels.py .github/workflows/apply-scratchpad-letter-labels.yml
+          git add app/src/main/java/com/offline/mathcrossword/MainActivity.java
+          git commit -m "Use A-B-C labels for scratchpad cells"
+          git push origin HEAD:prototype/resizable-scratchpad
