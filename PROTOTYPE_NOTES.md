@@ -26,3 +26,5 @@ This branch is intentionally a prototype and should not be merged before phone t
 6. Are the small cell badges readable without covering candidate notes or main values?
 7. Are four tool buttons too cramped in Russian?
 8. Does this reduce the urge to switch to paper for branching puzzles?
+
+The A/B/C label revision was compiled successfully for both GitHub and Play variants before being committed to the prototype branch.
