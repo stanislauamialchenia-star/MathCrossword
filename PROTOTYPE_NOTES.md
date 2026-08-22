@@ -12,7 +12,9 @@ This branch is intentionally a prototype and should not be merged before phone t
 - Free-form note text stays local to the device and is not exported as research telemetry.
 - Closing/reopening the panel keeps the current note.
 - A new or restarted puzzle gets a clean note.
-- `+ клетка` inserts a lightweight `R#C#:` reference for the selected hidden cell.
+- `+ клетка` now assigns the selected hidden cell a human label (`A`, `B`, `C`...) and inserts `A:` into the note.
+- The same cell keeps the same label when inserted again.
+- Letter badges are shown on the corresponding puzzle cells only while the scratchpad is open, so the normal board stays clean when it is closed.
 - Android Back closes the scratchpad first.
 
 ## Phone-test checklist
@@ -20,8 +22,7 @@ This branch is intentionally a prototype and should not be merged before phone t
 2. Is the drag grip easy to find and resize naturally?
 3. Does the keyboard leave enough useful space for both board and note?
 4. Does text survive close/reopen and Home → Continue?
-5. Is `+ клетка` useful or confusing without row/column labels on the board?
-6. Are four tool buttons too cramped in Russian?
-7. Does this reduce the urge to switch to paper for branching puzzles?
-
-Signed prototype APK preview rerun requested after fixing the artifact name.
+5. Do `A/B/C` labels make it immediately obvious which scratchpad line belongs to which cell?
+6. Are the small cell badges readable without covering candidate notes or main values?
+7. Are four tool buttons too cramped in Russian?
+8. Does this reduce the urge to switch to paper for branching puzzles?
