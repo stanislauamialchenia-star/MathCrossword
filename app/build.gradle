@@ -21,8 +21,8 @@ android {
         applicationId 'com.offline.mathcrossword'
         minSdk 23
         targetSdk 36
-        // v1.49 adds optional post-solve reflection without changing generator behavior.
-        versionCode 49
-        versionName '1.49'
+        // v1.50 adds the optional resizable in-game scratchpad and persistent A/B/C cell labels.
+        versionCode 50
+        versionName '1.50'
     }
 }
