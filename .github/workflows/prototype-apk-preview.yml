@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   apk:
-    if: startsWith(github.head_ref, 'prototype/') || github.head_ref == 'ux/discoverable-clear'
+    if: startsWith(github.head_ref, 'prototype/')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
