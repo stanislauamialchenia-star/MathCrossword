@@ -81,14 +81,24 @@ public class MainActivity extends Activity {
         panelBg.setCornerRadii(new float[]{dpActivity(18), dpActivity(18), dpActivity(18), dpActivity(18), 0, 0, 0, 0});
         panel.setBackground(panelBg);
 
-        TextView grip = new TextView(this);
-        grip.setText("━━━━");
-        grip.setTextColor(Color.rgb(150, 151, 147));
-        grip.setTextSize(13f);
-        grip.setGravity(Gravity.CENTER);
-        panel.addView(grip, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dpActivity(30)));
-        grip.setOnTouchListener((v, event) -> {
+        FrameLayout gripRow = new FrameLayout(this);
+        panel.addView(gripRow, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dpActivity(22)));
+
+        FrameLayout gripTouchTarget = new FrameLayout(this);
+        FrameLayout.LayoutParams gripTouchParams = new FrameLayout.LayoutParams(
+                dpActivity(72), dpActivity(22), Gravity.CENTER);
+        gripRow.addView(gripTouchTarget, gripTouchParams);
+
+        View grip = new View(this);
+        GradientDrawable gripBg = new GradientDrawable();
+        gripBg.setColor(Color.rgb(174, 176, 171));
+        gripBg.setCornerRadius(dpActivity(2));
+        grip.setBackground(gripBg);
+        FrameLayout.LayoutParams gripParams = new FrameLayout.LayoutParams(
+                dpActivity(36), dpActivity(3), Gravity.CENTER);
+        gripTouchTarget.addView(grip, gripParams);
+        gripTouchTarget.setOnTouchListener((v, event) -> {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 scratchpadDragStartY = event.getRawY();
                 scratchpadDragStartHeight = Math.max(1, scratchpadPanel.getHeight());
@@ -106,31 +116,44 @@ public class MainActivity extends Activity {
             return false;
         });
 
-        LinearLayout header = new LinearLayout(this);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dpActivity(4), 0, dpActivity(4), dpActivity(4));
-        panel.addView(header, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dpActivity(38)));
+        LinearLayout controls = new LinearLayout(this);
+        controls.setGravity(Gravity.CENTER_VERTICAL);
+        panel.addView(controls, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dpActivity(42)));
 
-        TextView title = new TextView(this);
-        title.setText(UiText.tr("Scratchpad", "Черновик", "Poznámky"));
-        title.setTextColor(Color.rgb(39, 42, 40));
-        title.setTextSize(15f);
-        title.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        header.addView(title, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
-        title.setGravity(Gravity.CENTER_VERTICAL);
+        TextView candidates = scratchpadAction(
+                UiText.tr("✎ Cand.", "✎ Канд.", "✎ Kand."), true, false);
+        controls.addView(candidates, new LinearLayout.LayoutParams(0, dpActivity(38), 1f));
+        candidates.setOnClickListener(v -> hideScratchpad(true));
 
-        TextView insert = scratchpadAction(UiText.tr("+ cell", "+ клетка", "+ buňka"));
-        header.addView(insert, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, dpActivity(34)));
+        addScratchpadControlGap(controls, 4);
+        TextView scratchpad = scratchpadAction(
+                UiText.tr("▤ Draft", "▤ Черн.", "▤ Pozn."), true, true);
+        controls.addView(scratchpad, new LinearLayout.LayoutParams(0, dpActivity(38), 1f));
+
+        addScratchpadControlGap(controls, 4);
+        TextView insert = scratchpadAction(UiText.tr("+ cell", "+ клетка", "+ buňka"), false, false);
+        controls.addView(insert, new LinearLayout.LayoutParams(dpActivity(64), dpActivity(34)));
+        insert.setTextSize(12.5f);
         insert.setOnClickListener(v -> insertSelectedCellIntoScratchpad());
 
-        TextView close = scratchpadAction("⌄");
-        LinearLayout.LayoutParams closeParams = new LinearLayout.LayoutParams(dpActivity(42), dpActivity(34));
-        closeParams.leftMargin = dpActivity(6);
-        header.addView(close, closeParams);
-        close.setTextSize(20f);
-        close.setOnClickListener(v -> hideScratchpad(true));
+        addScratchpadControlGap(controls, 4);
+        TextView undo = scratchpadAction("↶", false, false);
+        controls.addView(undo, new LinearLayout.LayoutParams(dpActivity(38), dpActivity(34)));
+        undo.setTextSize(19f);
+        undo.setContentDescription(UiText.tr("Undo", "Отмена", "Zpět"));
+        undo.setOnClickListener(v -> {
+            if (gameView != null) gameView.undoLastAction();
+        });
+
+        addScratchpadControlGap(controls, 4);
+        TextView hint = scratchpadAction("?", false, false);
+        controls.addView(hint, new LinearLayout.LayoutParams(dpActivity(38), dpActivity(34)));
+        hint.setTextSize(17f);
+        hint.setContentDescription(UiText.tr("Hint", "Намёк", "Nápověda"));
+        hint.setOnClickListener(v -> {
+            if (gameView != null) gameView.showGuidedHint();
+        });
 
         scratchpadEditor = new EditText(this);
         scratchpadEditor.setGravity(Gravity.TOP | Gravity.START);
@@ -161,17 +184,24 @@ public class MainActivity extends Activity {
         return panel;
     }
 
-    TextView scratchpadAction(String label) {
+    void addScratchpadControlGap(LinearLayout row, int widthDp) {
+        View gap = new View(this);
+        row.addView(gap, new LinearLayout.LayoutParams(dpActivity(widthDp), 1));
+    }
+
+    TextView scratchpadAction(String label, boolean primary, boolean active) {
         TextView view = new TextView(this);
         view.setText(label);
-        view.setTextSize(13f);
-        view.setTextColor(Color.rgb(62, 100, 72));
+        view.setTextSize(primary ? 13f : 14f);
+        view.setTextColor(active ? Color.rgb(45, 78, 54) : Color.rgb(62, 100, 72));
         view.setGravity(Gravity.CENTER);
-        view.setPadding(dpActivity(10), 0, dpActivity(10), 0);
+        view.setPadding(dpActivity(primary ? 6 : 4), 0, dpActivity(primary ? 6 : 4), 0);
+        view.setTypeface(active ? android.graphics.Typeface.DEFAULT_BOLD : android.graphics.Typeface.DEFAULT);
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(Color.rgb(255, 255, 253));
+        bg.setColor(active ? Color.rgb(225, 235, 225) : Color.rgb(255, 255, 253));
         bg.setCornerRadius(dpActivity(10));
-        bg.setStroke(dpActivity(1), Color.rgb(188, 196, 188));
+        bg.setStroke(dpActivity(active ? 2 : 1),
+                active ? Color.rgb(78, 111, 85) : Color.rgb(188, 196, 188));
         view.setBackground(bg);
         return view;
     }
@@ -1433,24 +1463,25 @@ public class MainActivity extends Activity {
         }
 
         void drawCandidateDrawer(Canvas c, float top, float height, float w, float h, float minH, float maxH) {
-            drawerHandleRect.set(0, Math.max(0, top - dp(8)), w, Math.min(h - bottomInset, top + dp(44)));
+            drawerHandleRect.set(w / 2f - dp(36), top, w / 2f + dp(36),
+                    Math.min(h - bottomInset, top + dp(22)));
             paint.setStyle(Paint.Style.FILL);
             paint.setColor(Color.argb(250, Color.red(soft), Color.green(soft), Color.blue(soft)));
             c.drawRect(0, top, w, h, paint);
             paint.setColor(Color.argb(28, 0, 0, 0));
             c.drawRect(0, top, w, top + dp(1), paint);
 
-            paint.setColor(Color.rgb(137, 138, 134));
-            RectF grip = new RectF(w / 2f - dp(24), top + dp(8), w / 2f + dp(24), top + dp(12));
-            c.drawRoundRect(grip, dp(3), dp(3), paint);
+            paint.setColor(Color.rgb(174, 176, 171));
+            RectF grip = new RectF(w / 2f - dp(18), top + dp(8), w / 2f + dp(18), top + dp(11));
+            c.drawRoundRect(grip, dp(2), dp(2), paint);
 
             bankHits.clear();
             undoRect.setEmpty(); candidateRect.setEmpty(); scratchpadRect.setEmpty(); hintRect.setEmpty();
             if (height <= minH + dp(6) || focusMode) return;
 
-            float contentTop = top + dp(25);
+            float contentTop = top + dp(24);
             drawGameTools(c, contentTop, w);
-            float bankTop = contentTop + dp(52);
+            float bankTop = contentTop + dp(48);
             float expansion = Math.max(0f, Math.min(1f, (height - minH) / Math.max(dp(1), maxH - minH)));
             drawBank(c, bankTop, w, h - bottomInset, expansion);
         }
@@ -1542,18 +1573,25 @@ public class MainActivity extends Activity {
 
         void drawGameTools(Canvas c, float y, float w) {
             float side = dp(12);
-            float gap = dp(6);
-            float h = dp(44);
-            float totalW = w - side * 2 - gap * 3;
-            float each = totalW / 4f;
-            undoRect.set(side, y, side + each, y + h);
-            candidateRect.set(undoRect.right + gap, y, undoRect.right + gap + each, y + h);
-            scratchpadRect.set(candidateRect.right + gap, y, candidateRect.right + gap + each, y + h);
-            hintRect.set(scratchpadRect.right + gap, y, w - side, y + h);
-            drawToolButton(c, undoRect, UiText.tr("↶ Undo", "↶ Отмена", "↶ Zpět"), !undoStack.isEmpty(), false);
+            float primaryGap = dp(4);
+            float secondaryGap = dp(8);
+            float smallGap = dp(4);
+            float primaryH = dp(40);
+            float secondaryW = dp(40);
+            float primaryW = (w - side * 2 - primaryGap - secondaryGap - smallGap - secondaryW * 2) / 2f;
+
+            candidateRect.set(side, y, side + primaryW, y + primaryH);
+            scratchpadRect.set(candidateRect.right + primaryGap, y,
+                    candidateRect.right + primaryGap + primaryW, y + primaryH);
+            undoRect.set(scratchpadRect.right + secondaryGap, y + dp(2),
+                    scratchpadRect.right + secondaryGap + secondaryW, y + primaryH - dp(2));
+            hintRect.set(undoRect.right + smallGap, y + dp(2),
+                    undoRect.right + smallGap + secondaryW, y + primaryH - dp(2));
+
             drawToolButton(c, candidateRect, UiText.tr("✎ Cand.", "✎ Канд.", "✎ Kand."), true, candidateMode);
             drawToolButton(c, scratchpadRect, UiText.tr("▤ Draft", "▤ Черн.", "▤ Pozn."), true, false);
-            drawToolButton(c, hintRect, UiText.tr("? Hint", "? Намёк", "? Nápověda"), true, false);
+            drawToolButton(c, undoRect, "↶", !undoStack.isEmpty(), false);
+            drawToolButton(c, hintRect, "?", true, false);
         }
 
         void drawToolButton(Canvas c, RectF r, String label, boolean enabled, boolean active) {
