@@ -21,8 +21,8 @@ android {
         applicationId 'com.offline.mathcrossword'
         minSdk 23
         targetSdk 36
-        // v1.50 adds the optional resizable in-game scratchpad and persistent A/B/C cell labels.
-        versionCode 50
-        versionName '1.50'
+        // Prototype-only bump so this preview can install over current v1.51 builds.
+        versionCode 52
+        versionName '1.52-preview'
     }
 }
