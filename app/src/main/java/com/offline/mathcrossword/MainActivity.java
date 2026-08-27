@@ -97,6 +97,10 @@ public class MainActivity extends Activity {
         FrameLayout.LayoutParams gripParams = new FrameLayout.LayoutParams(
                 dpActivity(64), dpActivity(18), Gravity.CENTER);
         gripRow.addView(grip, gripParams);
+        grip.setContentDescription(UiText.tr(
+                "Drag down to collapse the workbench",
+                "Потяни вниз, чтобы свернуть рабочую панель",
+                "Tažením dolů sbal pracovní panel"));
         grip.setOnTouchListener((v, event) -> {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 scratchpadDragStartY = event.getRawY();
@@ -108,8 +112,17 @@ public class MainActivity extends Activity {
                 setScratchpadPanelHeight(scratchpadDragStartHeight + delta, false);
                 return true;
             }
-            if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
-                setScratchpadPanelHeight(scratchpadPanel.getHeight(), true);
+            if (event.getAction() == MotionEvent.ACTION_UP) {
+                float dragDown = event.getRawY() - scratchpadDragStartY;
+                if (dragDown > dpActivity(36)) {
+                    hideScratchpad(true);
+                } else {
+                    setScratchpadPanelHeight(scratchpadPanel.getHeight(), true);
+                }
+                return true;
+            }
+            if (event.getAction() == MotionEvent.ACTION_CANCEL) {
+                setScratchpadPanelHeight(scratchpadPanel.getHeight(), false);
                 return true;
             }
             return false;
@@ -149,7 +162,7 @@ public class MainActivity extends Activity {
         });
 
         scratchpadInsertAction = scratchpadWorkbenchAction("⊞", false, true, false);
-        LinearLayout.LayoutParams insertParams = new LinearLayout.LayoutParams(dpActivity(38), dpActivity(34));
+        LinearLayout.LayoutParams insertParams = new LinearLayout.LayoutParams(dpActivity(44), dpActivity(34));
         insertParams.leftMargin = dpActivity(5);
         header.addView(scratchpadInsertAction, insertParams);
         scratchpadInsertAction.setContentDescription(UiText.tr(
@@ -167,14 +180,6 @@ public class MainActivity extends Activity {
             refreshScratchpadWorkbenchState();
         });
 
-        TextView close = scratchpadWorkbenchAction("⌄", false, true, true);
-        LinearLayout.LayoutParams closeParams = new LinearLayout.LayoutParams(dpActivity(38), dpActivity(34));
-        closeParams.leftMargin = dpActivity(5);
-        header.addView(close, closeParams);
-        close.setContentDescription(UiText.tr(
-                "Collapse workbench", "Свернуть рабочую панель", "Sbalit pracovní panel"));
-        close.setOnClickListener(v -> hideScratchpad(true));
-
         // Candidates are no longer a separate screen/tab. They form a permanent shelf
         // directly above the writing surface.
         scratchpadCandidateShelf = new LinearLayout(this);
@@ -188,8 +193,11 @@ public class MainActivity extends Activity {
         scratchpadEditor.setGravity(Gravity.TOP | Gravity.START);
         scratchpadEditor.setTextSize(16f);
         scratchpadEditor.setTextColor(Color.rgb(39, 42, 40));
-        scratchpadEditor.setHintTextColor(Color.rgb(178, 180, 175));
-        scratchpadEditor.setHint("…");
+        scratchpadEditor.setHintTextColor(Color.argb(72, 39, 42, 40));
+        scratchpadEditor.setHint(UiText.tr(
+                "space for thought…",
+                "место для мысли…",
+                "místo pro myšlenku…"));
         scratchpadEditor.setPadding(dpActivity(8), dpActivity(2), dpActivity(8), dpActivity(12));
         scratchpadEditor.setBackgroundColor(Color.TRANSPARENT);
         scratchpadEditor.setSingleLine(false);
@@ -238,9 +246,20 @@ public class MainActivity extends Activity {
         if (gameView == null) return;
         styleScratchpadWorkbenchAction(scratchpadUndoAction, false, !gameView.undoStack.isEmpty());
         styleScratchpadWorkbenchAction(scratchpadCandidateModeAction, gameView.candidateMode, true);
-        boolean canInsert = gameView.selectedCell != null
-                && gameView.puzzle != null
-                && gameView.puzzle.hidden.contains(gameView.selectedCell);
+        String insertLabel = gameView.previewSelectedScratchpadCellLabel();
+        boolean canInsert = insertLabel != null;
+        if (scratchpadInsertAction != null) {
+            scratchpadInsertAction.setText(canInsert ? "+" + insertLabel : "⊞");
+            scratchpadInsertAction.setContentDescription(canInsert
+                    ? UiText.tr(
+                            "Insert cell " + insertLabel,
+                            "Вставить клетку " + insertLabel,
+                            "Vložit buňku " + insertLabel)
+                    : UiText.tr(
+                            "Select a hidden cell to reference it",
+                            "Выбери скрытую клетку, чтобы сослаться на неё",
+                            "Vyber skrytou buňku pro vytvoření odkazu"));
+        }
         styleScratchpadWorkbenchAction(scratchpadInsertAction, false, canInsert);
         refreshScratchpadCandidateShelf();
     }
@@ -457,6 +476,7 @@ public class MainActivity extends Activity {
         scratchpadEditor.requestFocus();
         scratchpadEditor.setSelection(scratchpadEditor.length());
         gameView.tracker.event("scratchpad_insert_cell", gameView.selectedCell.x, gameView.selectedCell.y, 1, null);
+        refreshScratchpadWorkbenchState();
         InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
         if (imm != null) imm.showSoftInput(scratchpadEditor, InputMethodManager.SHOW_IMPLICIT);
     }
@@ -1921,13 +1941,22 @@ public class MainActivity extends Activity {
             invalidate();
         }
 
+        String scratchpadLabelForIndex(int index) {
+            if (index < 26) return Character.toString((char) ('A' + index));
+            return Character.toString((char) ('A' + (index % 26))) + (index / 26 + 1);
+        }
+
+        String previewSelectedScratchpadCellLabel() {
+            if (puzzle == null || selectedCell == null || !puzzle.hidden.contains(selectedCell)) return null;
+            String existing = scratchpadCellLabels.get(selectedCell);
+            return existing != null ? existing : scratchpadLabelForIndex(scratchpadNextLabel);
+        }
+
         String ensureSelectedScratchpadCellLabel() {
             if (puzzle == null || selectedCell == null || !puzzle.hidden.contains(selectedCell)) return null;
             String label = scratchpadCellLabels.get(selectedCell);
             if (label == null) {
-                int index = scratchpadNextLabel++;
-                if (index < 26) label = Character.toString((char) ('A' + index));
-                else label = Character.toString((char) ('A' + (index % 26))) + (index / 26 + 1);
+                label = scratchpadLabelForIndex(scratchpadNextLabel++);
                 scratchpadCellLabels.put(selectedCell, label);
             }
             invalidate();
