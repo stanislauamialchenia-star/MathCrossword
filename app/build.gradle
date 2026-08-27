@@ -21,8 +21,8 @@ android {
         applicationId 'com.offline.mathcrossword'
         minSdk 23
         targetSdk 36
-        // Prototype-only version bump for the unified candidates + scratchpad workbench test.
-        versionCode 54
-        versionName '1.54-preview'
+        // Prototype-only version bump: unified workbench is now the only in-game bottom surface.
+        versionCode 55
+        versionName '1.55-preview'
     }
 }

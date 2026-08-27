@@ -410,7 +410,12 @@ public class MainActivity extends Activity {
             if (track && gameView != null) gameView.tracker.event("scratchpad_open", -1, -1, 0, null);
         }
         scratchpadPanel.setVisibility(View.GONE);
-        if (gameView != null) gameView.setScratchpadOverlay(false, 0);
+        if (gameView != null) {
+            gameView.setScratchpadOverlay(false, 0);
+            gameView.candidateDrawerHeight = dpActivity(28) + gameView.bottomInset;
+            gameView.lastExpandedDrawerHeight = gameView.candidateDrawerHeight;
+            gameView.invalidate();
+        }
         if (scratchpadEditor != null) scratchpadEditor.clearFocus();
         InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
         if (imm != null && scratchpadEditor != null) imm.hideSoftInputFromWindow(scratchpadEditor.getWindowToken(), 0);
@@ -693,6 +698,7 @@ public class MainActivity extends Activity {
             startTrackerForCurrentPuzzle();
             resumablePuzzle = false;
             invalidate();
+            post(() -> ((MainActivity) getContext()).showScratchpad());
         }
 
         void loadPathLevel(int newLevel) {
@@ -749,6 +755,7 @@ public class MainActivity extends Activity {
             ((MainActivity) getContext()).prepareScratchpadForPuzzle(puzzle.seed, true);
             startTrackerForCurrentPuzzle();
             invalidate();
+            post(() -> ((MainActivity) getContext()).showScratchpad());
             prefetchPathLevel(level + 1);
         }
 
@@ -827,6 +834,7 @@ public class MainActivity extends Activity {
                     ((MainActivity) getContext()).prepareScratchpadForPuzzle(puzzle.seed, true);
                     startTrackerForCurrentPuzzle();
                     invalidate();
+                    post(() -> ((MainActivity) getContext()).showScratchpad());
                 });
             }, "mathcrossword-generator").start();
         }
@@ -845,6 +853,7 @@ public class MainActivity extends Activity {
             resetBoardViewport();
             ((MainActivity) getContext()).prepareScratchpadForPuzzle(puzzle.seed, true);
             invalidate();
+            post(() -> ((MainActivity) getContext()).showScratchpad());
         }
 
         @Override protected void onDraw(Canvas canvas) {
@@ -1527,7 +1536,7 @@ public class MainActivity extends Activity {
             float solvedDrawerHeight = dp(178) + bottomInset;
             float scratchpadHeight = Math.max(drawerMin, scratchpadReservedHeight);
             float effectiveDrawerHeight = solved ? solvedDrawerHeight
-                    : (scratchpadOverlayOpen ? scratchpadHeight : (focusMode ? drawerMin : candidateDrawerHeight));
+                    : (scratchpadOverlayOpen ? scratchpadHeight : drawerMin);
 
             float headerH = focusMode ? 0f : dp(46);
             float topH = topInset + headerH;
@@ -1655,27 +1664,18 @@ public class MainActivity extends Activity {
                     puzzle.displayLogicLevel, puzzle.logicScore, puzzle.displayCalcLevel, puzzle.calcScore,
                     puzzle.solutionStrategy.label, puzzle.hidden.size(), installedVersionName(), installedVersionCode());
             String focusLabel = focusMode ? UiText.tr("Show panels", "Показать панели", "Zobrazit panely") : UiText.tr("Focus mode", "Режим фокуса", "Režim soustředění");
-            boolean drawerHidden = candidateDrawerHeight <= dp(40) + bottomInset;
-            String drawerLabel = drawerHidden ? UiText.tr("Show workbench", "Показать рабочую панель", "Zobrazit pracovní panel") : UiText.tr("Hide workbench", "Скрыть рабочую панель", "Skrýt pracovní panel");
+            String drawerLabel = UiText.tr("Show workbench", "Показать рабочую панель", "Zobrazit pracovní panel");
             new AlertDialog.Builder(getContext())
                     .setTitle(mode == GameMode.PATH ? UiText.tr("Level ", "Уровень ", "Úroveň ") + level : UiText.tr("Puzzle", "Головоломка", "Hlavolam"))
                     .setMessage(info)
                     .setItems(new String[]{focusLabel, drawerLabel, UiText.tr("Restart", "Перезапустить", "Restartovat"), UiText.tr("Close", "Закрыть", "Zavřít")}, (dialog, which) -> {
                         if (which == 0) {
-                            if (!focusMode && candidateDrawerHeight > dp(40) + bottomInset) lastExpandedDrawerHeight = candidateDrawerHeight;
                             focusMode = !focusMode;
-                            if (!focusMode && candidateDrawerHeight <= dp(40) + bottomInset) {
-                                candidateDrawerHeight = lastExpandedDrawerHeight > dp(40) + bottomInset
-                                        ? lastExpandedDrawerHeight : dp(220) + bottomInset;
-                            }
                             tracker.event("focus_mode", -1, -1, focusMode ? 1 : -1, null);
                             invalidate();
                         } else if (which == 1) {
-                            if (!drawerHidden) lastExpandedDrawerHeight = candidateDrawerHeight;
-                            candidateDrawerHeight = drawerHidden
-                                    ? (lastExpandedDrawerHeight > dp(40) + bottomInset ? lastExpandedDrawerHeight : dp(220) + bottomInset)
-                                    : dp(28) + bottomInset;
-                            tracker.event("candidate_drawer", -1, -1, drawerHidden ? 1 : 0, "menu");
+                            tracker.event("workbench_open", -1, -1, 1, "menu");
+                            ((MainActivity) getContext()).showScratchpad();
                             invalidate();
                         } else if (which == 2) {
                             restartCurrentGame();
@@ -2147,12 +2147,12 @@ public class MainActivity extends Activity {
         @Override public boolean onTouchEvent(MotionEvent event) {
             float x = event.getX(), y = event.getY();
             if (screen == Screen.GAME) {
-                // Drawer gesture has priority over board gestures.
-                if (!solved && event.getAction() == MotionEvent.ACTION_DOWN && drawerHandleRect.contains(x, y)) {
+                // The legacy drawer is now only a reopen handle for the unified workbench.
+                if (!solved && !scratchpadOverlayOpen
+                        && event.getAction() == MotionEvent.ACTION_DOWN
+                        && drawerHandleRect.contains(x, y)) {
                     cancelBoardLongPress();
-                    draggingCandidateDrawer = true;
-                    drawerDragStartY = y;
-                    drawerDragStartHeight = candidateDrawerHeight;
+                    ((MainActivity) getContext()).showScratchpad();
                     return true;
                 }
                 if (event.getAction() == MotionEvent.ACTION_MOVE && draggingCandidateDrawer) {
