@@ -50,6 +50,10 @@ public class MainActivity extends Activity {
     FrameLayout rootView;
     LinearLayout scratchpadPanel;
     EditText scratchpadEditor;
+    LinearLayout scratchpadCandidateShelf;
+    TextView scratchpadCandidateModeAction;
+    TextView scratchpadUndoAction;
+    TextView scratchpadInsertAction;
     long scratchpadPuzzleSeed = Long.MIN_VALUE;
     int scratchpadPanelHeightPx = -1;
     float scratchpadDragStartY = 0f;
@@ -74,20 +78,29 @@ public class MainActivity extends Activity {
     LinearLayout buildScratchpadPanel() {
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(dpActivity(12), 0, dpActivity(12), 0);
+        panel.setPadding(dpActivity(10), 0, dpActivity(10), 0);
         panel.setElevation(dpActivity(10));
         GradientDrawable panelBg = new GradientDrawable();
         panelBg.setColor(Color.rgb(250, 249, 246));
         panelBg.setCornerRadii(new float[]{dpActivity(18), dpActivity(18), dpActivity(18), dpActivity(18), 0, 0, 0, 0});
         panel.setBackground(panelBg);
 
+        // Keep resize discoverable, but give the grip only a narrow centered touch target.
+        FrameLayout gripRow = new FrameLayout(this);
+        panel.addView(gripRow, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dpActivity(18)));
         TextView grip = new TextView(this);
-        grip.setText("━━━━");
-        grip.setTextColor(Color.rgb(150, 151, 147));
-        grip.setTextSize(13f);
+        grip.setText("━");
+        grip.setTextColor(Color.rgb(164, 165, 161));
+        grip.setTextSize(9f);
         grip.setGravity(Gravity.CENTER);
-        panel.addView(grip, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dpActivity(30)));
+        FrameLayout.LayoutParams gripParams = new FrameLayout.LayoutParams(
+                dpActivity(64), dpActivity(18), Gravity.CENTER);
+        gripRow.addView(grip, gripParams);
+        grip.setContentDescription(UiText.tr(
+                "Drag down to collapse the workbench",
+                "Потяни вниз, чтобы свернуть рабочую панель",
+                "Tažením dolů sbal pracovní panel"));
         grip.setOnTouchListener((v, event) -> {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 scratchpadDragStartY = event.getRawY();
@@ -99,49 +112,93 @@ public class MainActivity extends Activity {
                 setScratchpadPanelHeight(scratchpadDragStartHeight + delta, false);
                 return true;
             }
-            if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
-                setScratchpadPanelHeight(scratchpadPanel.getHeight(), true);
+            if (event.getAction() == MotionEvent.ACTION_UP) {
+                float dragDown = event.getRawY() - scratchpadDragStartY;
+                if (dragDown > dpActivity(36)) {
+                    hideScratchpad(true);
+                } else {
+                    setScratchpadPanelHeight(scratchpadPanel.getHeight(), true);
+                }
+                return true;
+            }
+            if (event.getAction() == MotionEvent.ACTION_CANCEL) {
+                setScratchpadPanelHeight(scratchpadPanel.getHeight(), false);
                 return true;
             }
             return false;
         });
 
+        // One compact command strip: actions stay in one visual location while the
+        // remaining surface is reserved for candidates and reasoning.
         LinearLayout header = new LinearLayout(this);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dpActivity(4), 0, dpActivity(4), dpActivity(4));
+        header.setGravity(Gravity.CENTER);
+        header.setPadding(0, 0, 0, dpActivity(2));
         panel.addView(header, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dpActivity(38)));
 
-        TextView title = new TextView(this);
-        title.setText(UiText.tr("Scratchpad", "Черновик", "Poznámky"));
-        title.setTextColor(Color.rgb(39, 42, 40));
-        title.setTextSize(15f);
-        title.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        header.addView(title, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
-        title.setGravity(Gravity.CENTER_VERTICAL);
+        scratchpadUndoAction = scratchpadWorkbenchAction("↶", false, true, false);
+        LinearLayout.LayoutParams undoParams = new LinearLayout.LayoutParams(dpActivity(38), dpActivity(34));
+        header.addView(scratchpadUndoAction, undoParams);
+        scratchpadUndoAction.setContentDescription(UiText.tr("Undo", "Отмена", "Zpět"));
+        scratchpadUndoAction.setOnClickListener(v -> {
+            if (gameView == null || gameView.undoStack.isEmpty()) return;
+            gameView.undoLastAction();
+            refreshScratchpadWorkbenchState();
+        });
 
-        TextView insert = scratchpadAction(UiText.tr("+ cell", "+ клетка", "+ buňka"));
-        header.addView(insert, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, dpActivity(34)));
-        insert.setOnClickListener(v -> insertSelectedCellIntoScratchpad());
+        scratchpadCandidateModeAction = scratchpadWorkbenchAction("✎", false, true, true);
+        LinearLayout.LayoutParams candidateParams = new LinearLayout.LayoutParams(dpActivity(38), dpActivity(34));
+        candidateParams.leftMargin = dpActivity(5);
+        header.addView(scratchpadCandidateModeAction, candidateParams);
+        scratchpadCandidateModeAction.setContentDescription(UiText.tr(
+                "Candidate mode", "Режим кандидатов", "Režim kandidátů"));
+        scratchpadCandidateModeAction.setOnClickListener(v -> {
+            if (gameView == null) return;
+            gameView.candidateMode = !gameView.candidateMode;
+            gameView.selectedTileId = -1;
+            gameView.tracker.event("candidate_mode", -1, -1, gameView.candidateMode ? 1 : -1, "workbench");
+            refreshScratchpadWorkbenchState();
+            gameView.invalidate();
+        });
 
-        TextView close = scratchpadAction("⌄");
-        LinearLayout.LayoutParams closeParams = new LinearLayout.LayoutParams(dpActivity(42), dpActivity(34));
-        closeParams.leftMargin = dpActivity(6);
-        header.addView(close, closeParams);
-        close.setTextSize(20f);
-        close.setOnClickListener(v -> hideScratchpad(true));
+        scratchpadInsertAction = scratchpadWorkbenchAction("⊞", false, true, false);
+        LinearLayout.LayoutParams insertParams = new LinearLayout.LayoutParams(dpActivity(44), dpActivity(34));
+        insertParams.leftMargin = dpActivity(5);
+        header.addView(scratchpadInsertAction, insertParams);
+        scratchpadInsertAction.setContentDescription(UiText.tr(
+                "Insert selected cell", "Вставить выбранную клетку", "Vložit vybranou buňku"));
+        scratchpadInsertAction.setOnClickListener(v -> insertSelectedCellIntoScratchpad());
+
+        TextView hintAction = scratchpadWorkbenchAction("?", false, true, true);
+        LinearLayout.LayoutParams hintParams = new LinearLayout.LayoutParams(dpActivity(38), dpActivity(34));
+        hintParams.leftMargin = dpActivity(5);
+        header.addView(hintAction, hintParams);
+        hintAction.setContentDescription(UiText.tr("Hint", "Намёк", "Nápověda"));
+        hintAction.setOnClickListener(v -> {
+            if (gameView == null) return;
+            gameView.showGuidedHint();
+            refreshScratchpadWorkbenchState();
+        });
+
+        // Candidates are no longer a separate screen/tab. They form a permanent shelf
+        // directly above the writing surface.
+        scratchpadCandidateShelf = new LinearLayout(this);
+        scratchpadCandidateShelf.setOrientation(LinearLayout.VERTICAL);
+        scratchpadCandidateShelf.setGravity(Gravity.CENTER_HORIZONTAL);
+        scratchpadCandidateShelf.setPadding(dpActivity(2), dpActivity(2), dpActivity(2), dpActivity(5));
+        panel.addView(scratchpadCandidateShelf, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         scratchpadEditor = new EditText(this);
         scratchpadEditor.setGravity(Gravity.TOP | Gravity.START);
         scratchpadEditor.setTextSize(16f);
         scratchpadEditor.setTextColor(Color.rgb(39, 42, 40));
-        scratchpadEditor.setHintTextColor(Color.rgb(145, 147, 142));
+        scratchpadEditor.setHintTextColor(Color.argb(72, 39, 42, 40));
         scratchpadEditor.setHint(UiText.tr(
-                "Write freely: branches, alternatives, contradictions…",
-                "Пиши свободно: ветки, варианты, противоречия…",
-                "Piš volně: větve, možnosti, rozpory…"));
-        scratchpadEditor.setPadding(dpActivity(10), dpActivity(8), dpActivity(10), dpActivity(12));
+                "space for thought…",
+                "место для мысли…",
+                "místo pro myšlenku…"));
+        scratchpadEditor.setPadding(dpActivity(8), dpActivity(2), dpActivity(8), dpActivity(12));
         scratchpadEditor.setBackgroundColor(Color.TRANSPARENT);
         scratchpadEditor.setSingleLine(false);
         scratchpadEditor.setHorizontallyScrolling(false);
@@ -159,6 +216,153 @@ public class MainActivity extends Activity {
         panel.addView(scratchpadEditor, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
         return panel;
+    }
+
+    TextView scratchpadWorkbenchAction(String label, boolean active, boolean compact, boolean enabled) {
+        TextView view = new TextView(this);
+        view.setText(label);
+        view.setGravity(Gravity.CENTER);
+        view.setPadding(compact ? 0 : dpActivity(8), 0, compact ? 0 : dpActivity(8), 0);
+        view.setTextSize(compact ? 18f : 13f);
+        styleScratchpadWorkbenchAction(view, active, enabled);
+        return view;
+    }
+
+    void styleScratchpadWorkbenchAction(TextView view, boolean active, boolean enabled) {
+        if (view == null) return;
+        view.setEnabled(enabled);
+        view.setTextColor(enabled ? Color.rgb(39, 42, 40) : Color.rgb(160, 168, 160));
+        view.setTypeface(active ? android.graphics.Typeface.DEFAULT_BOLD : android.graphics.Typeface.DEFAULT);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(active ? Color.rgb(232, 238, 231)
+                : (enabled ? Color.rgb(255, 255, 253) : Color.rgb(239, 239, 236)));
+        bg.setCornerRadius(dpActivity(11));
+        bg.setStroke(dpActivity(active ? 2 : 1), active ? Color.rgb(62, 100, 72)
+                : (enabled ? Color.rgb(174, 176, 171) : Color.rgb(205, 206, 202)));
+        view.setBackground(bg);
+    }
+
+    void refreshScratchpadWorkbenchState() {
+        if (gameView == null) return;
+        styleScratchpadWorkbenchAction(scratchpadUndoAction, false, !gameView.undoStack.isEmpty());
+        styleScratchpadWorkbenchAction(scratchpadCandidateModeAction, gameView.candidateMode, true);
+        String insertLabel = gameView.previewSelectedScratchpadCellLabel();
+        boolean canInsert = insertLabel != null;
+        if (scratchpadInsertAction != null) {
+            scratchpadInsertAction.setText(canInsert ? "+" + insertLabel : "⊞");
+            scratchpadInsertAction.setContentDescription(canInsert
+                    ? UiText.tr(
+                            "Insert cell " + insertLabel,
+                            "Вставить клетку " + insertLabel,
+                            "Vložit buňku " + insertLabel)
+                    : UiText.tr(
+                            "Select a hidden cell to reference it",
+                            "Выбери скрытую клетку, чтобы сослаться на неё",
+                            "Vyber skrytou buňku pro vytvoření odkazu"));
+        }
+        styleScratchpadWorkbenchAction(scratchpadInsertAction, false, canInsert);
+        refreshScratchpadCandidateShelf();
+    }
+
+    void refreshScratchpadCandidateShelf() {
+        if (scratchpadCandidateShelf == null) return;
+        scratchpadCandidateShelf.removeAllViews();
+        if (gameView == null || gameView.puzzle == null) return;
+
+        List<Tile> visible = new ArrayList<>();
+        for (Tile t : gameView.puzzle.tiles) if (!t.used) visible.add(t);
+        if (visible.isEmpty()) return;
+
+        int screenW = rootView == null ? 0 : rootView.getWidth();
+        if (screenW <= 0) screenW = getResources().getDisplayMetrics().widthPixels;
+        int contentW = Math.max(dpActivity(220), screenW - dpActivity(28));
+        int gap = dpActivity(4);
+        int targetW = dpActivity(38);
+        int perRow = Math.max(4, Math.min(8, (contentW + gap) / (targetW + gap)));
+        int tileW = Math.max(dpActivity(34),
+                (contentW - gap * Math.max(0, perRow - 1)) / perRow);
+        int tileH = dpActivity(32);
+
+        Set<Integer> selectedNotes = Collections.emptySet();
+        if (gameView.selectedCell != null) {
+            LinkedHashSet<Integer> notes = gameView.candidateNotes.get(gameView.selectedCell);
+            if (notes != null) selectedNotes = notes;
+        }
+
+        for (int start = 0; start < visible.size(); start += perRow) {
+            LinearLayout row = new LinearLayout(this);
+            row.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, tileH);
+            if (start > 0) rowParams.topMargin = gap;
+            scratchpadCandidateShelf.addView(row, rowParams);
+
+            int end = Math.min(visible.size(), start + perRow);
+            for (int i = start; i < end; i++) {
+                Tile t = visible.get(i);
+                TextView tile = new TextView(this);
+                tile.setText(Integer.toString(t.value));
+                tile.setGravity(Gravity.CENTER);
+                tile.setTextSize(15f);
+                tile.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+                tile.setTextColor(Color.rgb(39, 42, 40));
+                boolean selected = t.id == gameView.selectedTileId;
+                boolean noted = gameView.candidateMode
+                        && gameView.selectedCell != null
+                        && selectedNotes.contains(t.value);
+                GradientDrawable bg = new GradientDrawable();
+                bg.setColor(selected ? Color.rgb(232, 238, 231)
+                        : (noted ? Color.rgb(245, 248, 244) : Color.rgb(255, 255, 253)));
+                bg.setCornerRadius(dpActivity(6));
+                bg.setStroke(dpActivity(selected || noted ? 2 : 1),
+                        selected || noted ? Color.rgb(62, 100, 72) : Color.rgb(74, 76, 73));
+                tile.setBackground(bg);
+                tile.setContentDescription(UiText.tr(
+                        "Candidate " + t.value,
+                        "Кандидат " + t.value,
+                        "Kandidát " + t.value));
+                final int tileId = t.id;
+                tile.setOnClickListener(v -> onScratchpadCandidateTapped(tileId));
+
+                LinearLayout.LayoutParams tileParams = new LinearLayout.LayoutParams(tileW, tileH);
+                if (i > start) tileParams.leftMargin = gap;
+                row.addView(tile, tileParams);
+            }
+        }
+    }
+
+    void onScratchpadCandidateTapped(int tileId) {
+        if (gameView == null || gameView.puzzle == null || gameView.solved) return;
+        Tile t = gameView.tileById(tileId);
+        if (t == null || t.used) return;
+
+        if (gameView.candidateMode) {
+            if (gameView.selectedCell != null) {
+                gameView.toggleCandidate(gameView.selectedCell, t.value);
+                gameView.selectedTileId = -1;
+            } else {
+                gameView.selectedTileId = gameView.selectedTileId == tileId ? -1 : tileId;
+                gameView.tracker.event(gameView.selectedTileId == -1 ? "deselect_tile" : "select_tile",
+                        -1, -1, t.value, "candidate");
+            }
+        } else if (gameView.selectedCell != null) {
+            gameView.saveUndoState();
+            Pos target = gameView.selectedCell;
+            gameView.placeTileInCell(tileId, target);
+            gameView.resetHintDepth();
+            gameView.candidateNotes.remove(target);
+            gameView.selectedCell = null;
+            gameView.selectedTileId = -1;
+            gameView.checkSolved();
+        } else {
+            gameView.selectedTileId = gameView.selectedTileId == tileId ? -1 : tileId;
+            gameView.tracker.event(gameView.selectedTileId == -1 ? "deselect_tile" : "select_tile",
+                    -1, -1, t.value, null);
+        }
+
+        refreshScratchpadWorkbenchState();
+        gameView.invalidate();
+        if (gameView.solved) hideScratchpad(false);
     }
 
     TextView scratchpadAction(String label) {
@@ -206,10 +410,14 @@ public class MainActivity extends Activity {
         if (gameView == null || gameView.puzzle == null || gameView.solved) return;
         int h = Math.max(rootView.getHeight(), gameView.getHeight());
         if (h <= 0) return;
-        if (scratchpadPanelHeightPx <= 0) scratchpadPanelHeightPx = Math.round(h * 0.25f) + gameView.bottomInset;
+        if (scratchpadPanelHeightPx <= 0) {
+            // Candidates + writing surface share one compact workbench.
+            scratchpadPanelHeightPx = Math.round(h * 0.30f) + gameView.bottomInset;
+        }
         scratchpadPanel.setVisibility(View.VISIBLE);
         setScratchpadPanelHeight(scratchpadPanelHeightPx, false);
         gameView.focusMode = false;
+        refreshScratchpadWorkbenchState();
         gameView.tracker.event("scratchpad_open", -1, -1, 1, null);
         scratchpadEditor.clearFocus();
     }
@@ -221,7 +429,12 @@ public class MainActivity extends Activity {
             if (track && gameView != null) gameView.tracker.event("scratchpad_open", -1, -1, 0, null);
         }
         scratchpadPanel.setVisibility(View.GONE);
-        if (gameView != null) gameView.setScratchpadOverlay(false, 0);
+        if (gameView != null) {
+            gameView.setScratchpadOverlay(false, 0);
+            gameView.candidateDrawerHeight = dpActivity(28) + gameView.bottomInset;
+            gameView.lastExpandedDrawerHeight = gameView.candidateDrawerHeight;
+            gameView.invalidate();
+        }
         if (scratchpadEditor != null) scratchpadEditor.clearFocus();
         InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
         if (imm != null && scratchpadEditor != null) imm.hideSoftInputFromWindow(scratchpadEditor.getWindowToken(), 0);
@@ -263,6 +476,7 @@ public class MainActivity extends Activity {
         scratchpadEditor.requestFocus();
         scratchpadEditor.setSelection(scratchpadEditor.length());
         gameView.tracker.event("scratchpad_insert_cell", gameView.selectedCell.x, gameView.selectedCell.y, 1, null);
+        refreshScratchpadWorkbenchState();
         InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
         if (imm != null) imm.showSoftInput(scratchpadEditor, InputMethodManager.SHOW_IMPLICIT);
     }
@@ -504,6 +718,7 @@ public class MainActivity extends Activity {
             startTrackerForCurrentPuzzle();
             resumablePuzzle = false;
             invalidate();
+            post(() -> ((MainActivity) getContext()).showScratchpad());
         }
 
         void loadPathLevel(int newLevel) {
@@ -560,6 +775,7 @@ public class MainActivity extends Activity {
             ((MainActivity) getContext()).prepareScratchpadForPuzzle(puzzle.seed, true);
             startTrackerForCurrentPuzzle();
             invalidate();
+            post(() -> ((MainActivity) getContext()).showScratchpad());
             prefetchPathLevel(level + 1);
         }
 
@@ -638,6 +854,7 @@ public class MainActivity extends Activity {
                     ((MainActivity) getContext()).prepareScratchpadForPuzzle(puzzle.seed, true);
                     startTrackerForCurrentPuzzle();
                     invalidate();
+                    post(() -> ((MainActivity) getContext()).showScratchpad());
                 });
             }, "mathcrossword-generator").start();
         }
@@ -656,6 +873,7 @@ public class MainActivity extends Activity {
             resetBoardViewport();
             ((MainActivity) getContext()).prepareScratchpadForPuzzle(puzzle.seed, true);
             invalidate();
+            post(() -> ((MainActivity) getContext()).showScratchpad());
         }
 
         @Override protected void onDraw(Canvas canvas) {
@@ -1323,7 +1541,7 @@ public class MainActivity extends Activity {
             if (puzzle == null) return;
             float w = getWidth(), h = getHeight();
 
-            // The candidate bank is a bottom drawer. It can be resized continuously or
+            // The solution workbench is a bottom drawer. It can be resized continuously or
             // collapsed to a thin handle so the board can occupy almost the whole screen.
             float drawerMin = dp(28) + bottomInset;
             float drawerCompact = Math.min(h * 0.34f, dp(250) + bottomInset);
@@ -1338,7 +1556,7 @@ public class MainActivity extends Activity {
             float solvedDrawerHeight = dp(178) + bottomInset;
             float scratchpadHeight = Math.max(drawerMin, scratchpadReservedHeight);
             float effectiveDrawerHeight = solved ? solvedDrawerHeight
-                    : (scratchpadOverlayOpen ? scratchpadHeight : (focusMode ? drawerMin : candidateDrawerHeight));
+                    : (scratchpadOverlayOpen ? scratchpadHeight : drawerMin);
 
             float headerH = focusMode ? 0f : dp(46);
             float topH = topInset + headerH;
@@ -1433,24 +1651,26 @@ public class MainActivity extends Activity {
         }
 
         void drawCandidateDrawer(Canvas c, float top, float height, float w, float h, float minH, float maxH) {
-            drawerHandleRect.set(0, Math.max(0, top - dp(8)), w, Math.min(h - bottomInset, top + dp(44)));
+            // A small centered hit target keeps resize discoverable without stealing taps
+            // from Candidates/Scratchpad directly underneath it.
+            drawerHandleRect.set(w / 2f - dp(36), Math.max(0, top),
+                    w / 2f + dp(36), Math.min(h - bottomInset, top + dp(22)));
             paint.setStyle(Paint.Style.FILL);
             paint.setColor(Color.argb(250, Color.red(soft), Color.green(soft), Color.blue(soft)));
-            c.drawRect(0, top, w, h, paint);
-            paint.setColor(Color.argb(28, 0, 0, 0));
-            c.drawRect(0, top, w, top + dp(1), paint);
+            RectF surface = new RectF(0, top, w, h + dp(24));
+            c.drawRoundRect(surface, dp(18), dp(18), paint);
 
-            paint.setColor(Color.rgb(137, 138, 134));
-            RectF grip = new RectF(w / 2f - dp(24), top + dp(8), w / 2f + dp(24), top + dp(12));
-            c.drawRoundRect(grip, dp(3), dp(3), paint);
+            paint.setColor(Color.rgb(158, 159, 155));
+            RectF grip = new RectF(w / 2f - dp(18), top + dp(8), w / 2f + dp(18), top + dp(10));
+            c.drawRoundRect(grip, dp(2), dp(2), paint);
 
             bankHits.clear();
             undoRect.setEmpty(); candidateRect.setEmpty(); scratchpadRect.setEmpty(); hintRect.setEmpty();
             if (height <= minH + dp(6) || focusMode) return;
 
-            float contentTop = top + dp(25);
+            float contentTop = top + dp(24);
             drawGameTools(c, contentTop, w);
-            float bankTop = contentTop + dp(52);
+            float bankTop = contentTop + dp(44);
             float expansion = Math.max(0f, Math.min(1f, (height - minH) / Math.max(dp(1), maxH - minH)));
             drawBank(c, bankTop, w, h - bottomInset, expansion);
         }
@@ -1464,27 +1684,18 @@ public class MainActivity extends Activity {
                     puzzle.displayLogicLevel, puzzle.logicScore, puzzle.displayCalcLevel, puzzle.calcScore,
                     puzzle.solutionStrategy.label, puzzle.hidden.size(), installedVersionName(), installedVersionCode());
             String focusLabel = focusMode ? UiText.tr("Show panels", "Показать панели", "Zobrazit panely") : UiText.tr("Focus mode", "Режим фокуса", "Režim soustředění");
-            boolean drawerHidden = candidateDrawerHeight <= dp(40) + bottomInset;
-            String drawerLabel = drawerHidden ? UiText.tr("Show candidates", "Показать кандидаты", "Zobrazit kandidáty") : UiText.tr("Hide candidates", "Скрыть кандидаты", "Skrýt kandidáty");
+            String drawerLabel = UiText.tr("Show workbench", "Показать рабочую панель", "Zobrazit pracovní panel");
             new AlertDialog.Builder(getContext())
                     .setTitle(mode == GameMode.PATH ? UiText.tr("Level ", "Уровень ", "Úroveň ") + level : UiText.tr("Puzzle", "Головоломка", "Hlavolam"))
                     .setMessage(info)
                     .setItems(new String[]{focusLabel, drawerLabel, UiText.tr("Restart", "Перезапустить", "Restartovat"), UiText.tr("Close", "Закрыть", "Zavřít")}, (dialog, which) -> {
                         if (which == 0) {
-                            if (!focusMode && candidateDrawerHeight > dp(40) + bottomInset) lastExpandedDrawerHeight = candidateDrawerHeight;
                             focusMode = !focusMode;
-                            if (!focusMode && candidateDrawerHeight <= dp(40) + bottomInset) {
-                                candidateDrawerHeight = lastExpandedDrawerHeight > dp(40) + bottomInset
-                                        ? lastExpandedDrawerHeight : dp(220) + bottomInset;
-                            }
                             tracker.event("focus_mode", -1, -1, focusMode ? 1 : -1, null);
                             invalidate();
                         } else if (which == 1) {
-                            if (!drawerHidden) lastExpandedDrawerHeight = candidateDrawerHeight;
-                            candidateDrawerHeight = drawerHidden
-                                    ? (lastExpandedDrawerHeight > dp(40) + bottomInset ? lastExpandedDrawerHeight : dp(220) + bottomInset)
-                                    : dp(28) + bottomInset;
-                            tracker.event("candidate_drawer", -1, -1, drawerHidden ? 1 : 0, "menu");
+                            tracker.event("workbench_open", -1, -1, 1, "menu");
+                            ((MainActivity) getContext()).showScratchpad();
                             invalidate();
                         } else if (which == 2) {
                             restartCurrentGame();
@@ -1541,19 +1752,22 @@ public class MainActivity extends Activity {
         }
 
         void drawGameTools(Canvas c, float y, float w) {
-            float side = dp(12);
-            float gap = dp(6);
-            float h = dp(44);
-            float totalW = w - side * 2 - gap * 3;
-            float each = totalW / 4f;
-            undoRect.set(side, y, side + each, y + h);
+            float gap = dp(7);
+            float h = dp(36);
+            float each = dp(42);
+            float total = each * 4 + gap * 3;
+            float x = (w - total) / 2f;
+
+            undoRect.set(x, y, x + each, y + h);
             candidateRect.set(undoRect.right + gap, y, undoRect.right + gap + each, y + h);
             scratchpadRect.set(candidateRect.right + gap, y, candidateRect.right + gap + each, y + h);
-            hintRect.set(scratchpadRect.right + gap, y, w - side, y + h);
-            drawToolButton(c, undoRect, UiText.tr("↶ Undo", "↶ Отмена", "↶ Zpět"), !undoStack.isEmpty(), false);
-            drawToolButton(c, candidateRect, UiText.tr("✎ Cand.", "✎ Канд.", "✎ Kand."), true, candidateMode);
-            drawToolButton(c, scratchpadRect, UiText.tr("▤ Draft", "▤ Черн.", "▤ Pozn."), true, false);
-            drawToolButton(c, hintRect, UiText.tr("? Hint", "? Намёк", "? Nápověda"), true, false);
+            hintRect.set(scratchpadRect.right + gap, y, scratchpadRect.right + gap + each, y + h);
+
+            // Compact command strip; the bank remains the visual focus.
+            drawToolButton(c, undoRect, "↶", !undoStack.isEmpty(), false);
+            drawToolButton(c, candidateRect, "✎", true, candidateMode);
+            drawToolButton(c, scratchpadRect, "▤", true, false);
+            drawToolButton(c, hintRect, "?", true, false);
         }
 
         void drawToolButton(Canvas c, RectF r, String label, boolean enabled, boolean active) {
@@ -1567,7 +1781,7 @@ public class MainActivity extends Activity {
             paint.setColor(enabled ? ink : Color.rgb(160, 168, 160));
             paint.setTextAlign(Paint.Align.CENTER);
             paint.setTypeface(active ? android.graphics.Typeface.DEFAULT_BOLD : android.graphics.Typeface.DEFAULT);
-            paint.setTextSize(dp(14));
+            paint.setTextSize(dp(label.length() <= 2 ? 18f : 13.2f));
             Paint.FontMetrics fm = paint.getFontMetrics();
             c.drawText(label, r.centerX(), r.centerY() - (fm.ascent + fm.descent) / 2f, paint);
         }
@@ -1727,13 +1941,22 @@ public class MainActivity extends Activity {
             invalidate();
         }
 
+        String scratchpadLabelForIndex(int index) {
+            if (index < 26) return Character.toString((char) ('A' + index));
+            return Character.toString((char) ('A' + (index % 26))) + (index / 26 + 1);
+        }
+
+        String previewSelectedScratchpadCellLabel() {
+            if (puzzle == null || selectedCell == null || !puzzle.hidden.contains(selectedCell)) return null;
+            String existing = scratchpadCellLabels.get(selectedCell);
+            return existing != null ? existing : scratchpadLabelForIndex(scratchpadNextLabel);
+        }
+
         String ensureSelectedScratchpadCellLabel() {
             if (puzzle == null || selectedCell == null || !puzzle.hidden.contains(selectedCell)) return null;
             String label = scratchpadCellLabels.get(selectedCell);
             if (label == null) {
-                int index = scratchpadNextLabel++;
-                if (index < 26) label = Character.toString((char) ('A' + index));
-                else label = Character.toString((char) ('A' + (index % 26))) + (index / 26 + 1);
+                label = scratchpadLabelForIndex(scratchpadNextLabel++);
                 scratchpadCellLabels.put(selectedCell, label);
             }
             invalidate();
@@ -1953,12 +2176,12 @@ public class MainActivity extends Activity {
         @Override public boolean onTouchEvent(MotionEvent event) {
             float x = event.getX(), y = event.getY();
             if (screen == Screen.GAME) {
-                // Drawer gesture has priority over board gestures.
-                if (!solved && event.getAction() == MotionEvent.ACTION_DOWN && drawerHandleRect.contains(x, y)) {
+                // The legacy drawer is now only a reopen handle for the unified workbench.
+                if (!solved && !scratchpadOverlayOpen
+                        && event.getAction() == MotionEvent.ACTION_DOWN
+                        && drawerHandleRect.contains(x, y)) {
                     cancelBoardLongPress();
-                    draggingCandidateDrawer = true;
-                    drawerDragStartY = y;
-                    drawerDragStartHeight = candidateDrawerHeight;
+                    ((MainActivity) getContext()).showScratchpad();
                     return true;
                 }
                 if (event.getAction() == MotionEvent.ACTION_MOVE && draggingCandidateDrawer) {
@@ -2260,6 +2483,10 @@ public class MainActivity extends Activity {
                     tracker.event("select_cell", hitPos.x, hitPos.y, 0, null);
                 }
                 invalidate();
+                MainActivity host = (MainActivity) getContext();
+                if (host.scratchpadPanel != null && host.scratchpadPanel.getVisibility() == View.VISIBLE) {
+                    host.refreshScratchpadWorkbenchState();
+                }
             }
             return true;
         }
