@@ -21,8 +21,8 @@ android {
         applicationId 'com.offline.mathcrossword'
         minSdk 23
         targetSdk 36
-        // Prototype-only bump so this preview can install over current v1.51 builds.
-        versionCode 52
-        versionName '1.52-preview'
+        // Prototype-only version bump for the second solution-workbench device test.
+        versionCode 53
+        versionName '1.53-preview'
     }
 }

@@ -83,6 +83,8 @@ public class MainActivity extends Activity {
         panelBg.setColor(Color.rgb(250, 249, 246));
         panelBg.setCornerRadii(new float[]{dpActivity(18), dpActivity(18), dpActivity(18), dpActivity(18), 0, 0, 0, 0});
         panel.setBackground(panelBg);
+        // Keep the idle scratchpad visually light so candidates remain faintly visible underneath.
+        panel.getBackground().setAlpha(236);
 
         // The grip is intentionally visible but owns only a small centered touch target.
         // It must never steal taps from the workbench controls below it.
@@ -157,23 +159,21 @@ public class MainActivity extends Activity {
         contextRow.setGravity(Gravity.CENTER_VERTICAL);
         contextRow.setPadding(dpActivity(6), 0, dpActivity(2), dpActivity(2));
         panel.addView(contextRow, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dpActivity(34)));
+                LinearLayout.LayoutParams.MATCH_PARENT, dpActivity(32)));
 
-        TextView context = new TextView(this);
-        context.setText(UiText.tr(
-                "branches · options · contradictions",
-                "ветки · варианты · противоречия",
-                "větve · možnosti · rozpory"));
-        context.setTextColor(Color.rgb(118, 121, 116));
-        context.setTextSize(11.5f);
-        context.setSingleLine(true);
-        context.setGravity(Gravity.CENTER_VERTICAL);
-        contextRow.addView(context, new LinearLayout.LayoutParams(
+        // Keep the writing surface quiet: only the two actions remain visible.
+        View contextSpacer = new View(this);
+        contextRow.addView(contextSpacer, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
 
-        TextView insert = scratchpadAction(UiText.tr("+ cell", "+ клетка", "+ buňka"));
-        contextRow.addView(insert, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, dpActivity(30)));
+        TextView insert = scratchpadAction("⊞");
+        LinearLayout.LayoutParams insertParams = new LinearLayout.LayoutParams(dpActivity(38), dpActivity(30));
+        contextRow.addView(insert, insertParams);
+        insert.setTextSize(19f);
+        insert.setContentDescription(UiText.tr(
+                "Insert selected cell",
+                "Вставить выбранную клетку",
+                "Vložit vybranou buňku"));
         insert.setOnClickListener(v -> insertSelectedCellIntoScratchpad());
 
         TextView close = scratchpadAction("⌄");
@@ -181,19 +181,26 @@ public class MainActivity extends Activity {
         closeParams.leftMargin = dpActivity(6);
         contextRow.addView(close, closeParams);
         close.setTextSize(18f);
+        close.setContentDescription(UiText.tr(
+                "Close scratchpad",
+                "Закрыть черновик",
+                "Zavřít poznámky"));
         close.setOnClickListener(v -> hideScratchpad(true));
 
         scratchpadEditor = new EditText(this);
         scratchpadEditor.setGravity(Gravity.TOP | Gravity.START);
         scratchpadEditor.setTextSize(16f);
         scratchpadEditor.setTextColor(Color.rgb(39, 42, 40));
-        scratchpadEditor.setHintTextColor(Color.rgb(145, 147, 142));
-        scratchpadEditor.setHint(UiText.tr(
-                "Write freely…",
-                "Пиши свободно…",
-                "Piš volně…"));
-        scratchpadEditor.setPadding(dpActivity(10), dpActivity(6), dpActivity(10), dpActivity(12));
+        scratchpadEditor.setHintTextColor(Color.rgb(178, 180, 175));
+        scratchpadEditor.setHint("…");
+        scratchpadEditor.setPadding(dpActivity(10), dpActivity(4), dpActivity(10), dpActivity(12));
         scratchpadEditor.setBackgroundColor(Color.TRANSPARENT);
+        scratchpadEditor.setOnFocusChangeListener((v, hasFocus) -> {
+            if (scratchpadPanel != null && scratchpadPanel.getBackground() != null) {
+                // Densify only while writing; return to a lighter overlay when observing the puzzle.
+                scratchpadPanel.getBackground().setAlpha(hasFocus ? 255 : 236);
+            }
+        });
         scratchpadEditor.setSingleLine(false);
         scratchpadEditor.setHorizontallyScrolling(false);
         scratchpadEditor.addTextChangedListener(new TextWatcher() {
