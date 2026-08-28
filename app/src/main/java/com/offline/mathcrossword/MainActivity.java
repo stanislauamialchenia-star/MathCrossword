@@ -1112,8 +1112,10 @@ public class MainActivity extends Activity {
                 drawLibraryIntroFirstMove(c, scene);
             } else if (entry.introType == SolutionLibrary.Entry.INTRO_UNCERTAINTY) {
                 drawLibraryIntroUncertainty(c, scene);
-            } else {
+            } else if (entry.introType == SolutionLibrary.Entry.INTRO_FIELD) {
                 drawLibraryIntroField(c, scene);
+            } else {
+                drawLibraryStrategyDirect(c, scene);
             }
 
             paint.setTextAlign(Paint.Align.CENTER);
@@ -1214,6 +1216,57 @@ public class MainActivity extends Activity {
             paint.setColor(Color.rgb(118, 121, 116));
             c.drawText(UiText.tr("reference the cell in your notes", "ссылка на клетку в черновике", "odkaz na políčko v poznámkách"),
                     cx, refY + dp(25), paint);
+        }
+
+        void drawLibraryStrategyDirect(Canvas c, RectF scene) {
+            float cx = scene.centerX();
+            float firstY = scene.top + dp(76);
+
+            RectF unknown = new RectF(cx - dp(112), firstY - dp(31), cx - dp(68), firstY + dp(13));
+            drawLibraryMiniCell(c, unknown, "", true, false);
+
+            paint.setTextAlign(Paint.Align.LEFT);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(21));
+            paint.setColor(ink);
+            c.drawText("+ 7 = 19", cx - dp(55), firstY, paint);
+
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(17));
+            paint.setColor(Color.rgb(112, 116, 111));
+            c.drawText("↓", cx, firstY + dp(52), paint);
+
+            float calcY = firstY + dp(92);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(20));
+            paint.setColor(ink);
+            c.drawText("19 − 7 = 12", cx, calcY, paint);
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(17));
+            paint.setColor(Color.rgb(112, 116, 111));
+            c.drawText("↓", cx, calcY + dp(50), paint);
+
+            float resultY = calcY + dp(91);
+            RectF solved = new RectF(cx - dp(112), resultY - dp(31), cx - dp(68), resultY + dp(13));
+            drawLibraryMiniCell(c, solved, "12", true, false);
+
+            paint.setTextAlign(Paint.Align.LEFT);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(21));
+            paint.setColor(ink);
+            c.drawText("+ 7 = 19", cx - dp(55), resultY, paint);
+
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(12));
+            paint.setColor(Color.rgb(118, 121, 116));
+            c.drawText(UiText.tr(
+                    "one unknown → one forced value",
+                    "одно неизвестное → одно обязательное значение",
+                    "jedna neznámá → jedna nutná hodnota"),
+                    cx, scene.bottom - dp(28), paint);
         }
 
         void drawLibraryIntroField(Canvas c, RectF scene) {
