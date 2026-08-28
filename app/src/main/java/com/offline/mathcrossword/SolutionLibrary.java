@@ -9,6 +9,7 @@ final class SolutionLibrary {
         static final int INTRO_FIRST_MOVE = 1;
         static final int INTRO_UNCERTAINTY = 2;
         static final int INTRO_FIELD = 3;
+        static final int STRATEGY_DIRECT = 4;
 
         final int introType;
         final String title;
@@ -64,16 +65,17 @@ final class SolutionLibrary {
                     "",
                     ""),
             new Entry(
+                    Entry.STRATEGY_DIRECT,
                     UiText.tr("1. Direct deduction", "1. Прямой вывод", "1. Přímý závěr"),
                     UiText.tr(
-                            "One equation already contains two known numbers. This is the basic move, but on harder levels it often only opens the next layer.",
-                            "Одно уравнение уже содержит два известных числа. Это базовый ход, но на сложных уровнях он часто только открывает следующий слой.",
-                            "Jedna rovnice už obsahuje dvě známá čísla. Je to základní tah, ale na těžších úrovních často jen otevře další vrstvu."),
-                    "? + 7 = 19",
+                            "Two numbers are known. Find the third.",
+                            "Два числа известны. Найди третье.",
+                            "Dvě čísla znáš. Najdi třetí."),
                     UiText.tr(
-                            "19 − 7 = 12 → the cell is 12. Then check every equation that crosses this cell.",
-                            "19 − 7 = 12 → в клетке 12. После этого проверь все уравнения, которые пересекают эту клетку.",
-                            "19 − 7 = 12 → v políčku je 12. Potom zkontroluj všechny rovnice, které se v tomto políčku kříží.")),
+                            "After the move, check the crossings.",
+                            "После хода проверь пересечения.",
+                            "Po tahu zkontroluj křížení."),
+                    ""),
             new Entry(
                     UiText.tr("2. Intersecting constraints", "2. Пересечение ограничений", "2. Průnik omezení"),
                     UiText.tr(
