@@ -5,12 +5,23 @@ import java.util.List;
 
 final class SolutionLibrary {
     static final class Entry {
+        static final int STANDARD = 0;
+        static final int INTRO_FIRST_MOVE = 1;
+        static final int INTRO_UNCERTAINTY = 2;
+        static final int INTRO_FIELD = 3;
+
+        final int introType;
         final String title;
         final String idea;
         final String example;
         final String steps;
 
         Entry(String title, String idea, String example, String steps) {
+            this(STANDARD, title, idea, example, steps);
+        }
+
+        Entry(int introType, String title, String idea, String example, String steps) {
+            this.introType = introType;
             this.title = title;
             this.idea = idea;
             this.example = example;
@@ -22,6 +33,36 @@ final class SolutionLibrary {
 
     private static List<Entry> buildEntries() {
         return Arrays.asList(
+            new Entry(
+                    Entry.INTRO_FIRST_MOVE,
+                    UiText.tr("0.1 First move", "0.1 Первый ход", "0.1 První tah"),
+                    UiText.tr("Cell → number", "Клетка → число", "Políčko → číslo"),
+                    UiText.tr(
+                            "You can also start with the number.",
+                            "Можно и наоборот: число → клетка.",
+                            "Můžeš začít i číslem."),
+                    ""),
+            new Entry(
+                    Entry.INTRO_UNCERTAINTY,
+                    UiText.tr("0.2 If you are not sure", "0.2 Если не уверен", "0.2 Když si nejsi jistý"),
+                    UiText.tr(
+                            "Mark possible values — this is not an answer yet.",
+                            "Отметь возможные значения — это ещё не ответ.",
+                            "Označ možné hodnoty — ještě to není odpověď."),
+                    UiText.tr(
+                            "Move the reasoning out of your head.",
+                            "Вынеси рассуждение из головы.",
+                            "Přenes uvažování z hlavy ven."),
+                    ""),
+            new Entry(
+                    Entry.INTRO_FIELD,
+                    UiText.tr("0.3 Explore the field", "0.3 Исследуй поле", "0.3 Prozkoumej pole"),
+                    UiText.tr(
+                            "Zoom in. Focus. Return to the whole.",
+                            "Приблизь. Сфокусируйся. Верни общий вид.",
+                            "Přibliž. Zaměř se. Vrať se k celku."),
+                    "",
+                    ""),
             new Entry(
                     UiText.tr("1. Direct deduction", "1. Прямой вывод", "1. Přímý závěr"),
                     UiText.tr(

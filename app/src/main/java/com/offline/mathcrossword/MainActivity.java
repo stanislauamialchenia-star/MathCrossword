@@ -1058,28 +1058,32 @@ public class MainActivity extends Activity {
             paint.setColor(ink);
             y = drawWrappedText(c, entry.title, side, y, w - side * 2, dp(26));
 
-            paint.setTypeface(android.graphics.Typeface.DEFAULT);
-            paint.setTextSize(dp(15));
-            paint.setColor(Color.rgb(65, 78, 68));
-            y = drawWrappedText(c, entry.idea, side, y + dp(12), w - side * 2, dp(21));
+            if (entry.introType == SolutionLibrary.Entry.STANDARD) {
+                paint.setTypeface(android.graphics.Typeface.DEFAULT);
+                paint.setTextSize(dp(15));
+                paint.setColor(Color.rgb(65, 78, 68));
+                y = drawWrappedText(c, entry.idea, side, y + dp(12), w - side * 2, dp(21));
 
-            paint.setColor(ink);
-            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-            paint.setTextSize(dp(16));
-            c.drawText(UiText.tr("Example", "Пример", "Příklad"), side, y + dp(22), paint);
-            paint.setTypeface(android.graphics.Typeface.MONOSPACE);
-            paint.setTextSize(dp(14));
-            paint.setColor(Color.rgb(35, 48, 38));
-            y = drawWrappedText(c, entry.example, side, y + dp(47), w - side * 2, dp(20));
+                paint.setColor(ink);
+                paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+                paint.setTextSize(dp(16));
+                c.drawText(UiText.tr("Example", "Пример", "Příklad"), side, y + dp(22), paint);
+                paint.setTypeface(android.graphics.Typeface.MONOSPACE);
+                paint.setTextSize(dp(14));
+                paint.setColor(Color.rgb(35, 48, 38));
+                y = drawWrappedText(c, entry.example, side, y + dp(47), w - side * 2, dp(20));
 
-            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-            paint.setTextSize(dp(15.5f));
-            paint.setColor(ink);
-            c.drawText(UiText.tr("How to proceed", "Как действовать", "Jak postupovat"), side, y + dp(23), paint);
-            paint.setTypeface(android.graphics.Typeface.DEFAULT);
-            paint.setTextSize(dp(14));
-            paint.setColor(Color.rgb(75, 84, 76));
-            y = drawWrappedText(c, entry.steps, side, y + dp(47), w - side * 2, dp(19));
+                paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+                paint.setTextSize(dp(15.5f));
+                paint.setColor(ink);
+                c.drawText(UiText.tr("How to proceed", "Как действовать", "Jak postupovat"), side, y + dp(23), paint);
+                paint.setTypeface(android.graphics.Typeface.DEFAULT);
+                paint.setTextSize(dp(14));
+                paint.setColor(Color.rgb(75, 84, 76));
+                y = drawWrappedText(c, entry.steps, side, y + dp(47), w - side * 2, dp(19));
+            } else {
+                y = drawLibraryIntroCard(c, entry, side, y + dp(10), w - side * 2);
+            }
 
             float navTop = Math.min(getHeight() - bottomInset - dp(70), Math.max(y + dp(22), top + dp(610)));
             libraryPrevRect.set(side, navTop, w / 2f - dp(6), navTop + dp(50));
@@ -1092,6 +1096,206 @@ public class MainActivity extends Activity {
             paint.setColor(Color.rgb(105, 115, 106));
             c.drawText((libraryEntryIndex + 1) + " / " + SolutionLibrary.ENTRIES.size(),
                     w / 2f, navTop - dp(10), paint);
+        }
+
+        float drawLibraryIntroCard(Canvas c, SolutionLibrary.Entry entry, float left, float top, float width) {
+            RectF scene = new RectF(left, top, left + width, top + dp(360));
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.rgb(250, 249, 246));
+            c.drawRoundRect(scene, dp(16), dp(16), paint);
+            stroke.setStyle(Paint.Style.STROKE);
+            stroke.setStrokeWidth(dp(1));
+            stroke.setColor(Color.rgb(214, 216, 210));
+            c.drawRoundRect(scene, dp(16), dp(16), stroke);
+
+            if (entry.introType == SolutionLibrary.Entry.INTRO_FIRST_MOVE) {
+                drawLibraryIntroFirstMove(c, scene);
+            } else if (entry.introType == SolutionLibrary.Entry.INTRO_UNCERTAINTY) {
+                drawLibraryIntroUncertainty(c, scene);
+            } else {
+                drawLibraryIntroField(c, scene);
+            }
+
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(15.5f));
+            paint.setColor(ink);
+            // Center-aligned intro copy must use the scene center as its text anchor.
+            // Using the left content inset here would center half the line off-screen.
+            float y = drawWrappedText(c, entry.idea, scene.centerX(), scene.bottom + dp(27),
+                    width - dp(28), dp(21));
+
+            if (!entry.example.isEmpty()) {
+                paint.setTypeface(android.graphics.Typeface.DEFAULT);
+                paint.setTextSize(dp(12.5f));
+                paint.setColor(Color.rgb(118, 121, 116));
+                y = drawWrappedText(c, entry.example, scene.centerX(), y + dp(13),
+                        width - dp(28), dp(18));
+            }
+            paint.setTextAlign(Paint.Align.LEFT);
+            return y;
+        }
+
+        void drawLibraryIntroFirstMove(Canvas c, RectF scene) {
+            float cx = scene.centerX();
+            float eqY = scene.top + dp(78);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(22));
+            paint.setTextAlign(Paint.Align.RIGHT);
+            paint.setColor(ink);
+            c.drawText("8 +", cx - dp(31), eqY, paint);
+
+            RectF cell = new RectF(cx - dp(22), eqY - dp(31), cx + dp(22), eqY + dp(13));
+            drawLibraryMiniCell(c, cell, "", true, false);
+
+            paint.setTextAlign(Paint.Align.LEFT);
+            c.drawText("= 13", cx + dp(31), eqY, paint);
+
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(18));
+            paint.setColor(Color.rgb(112, 116, 111));
+            c.drawText("↓", cx, eqY + dp(54), paint);
+
+            float tileY = eqY + dp(72);
+            drawLibraryMiniTile(c, cx - dp(72), tileY, "5", true);
+            drawLibraryMiniTile(c, cx, tileY, "7", false);
+            drawLibraryMiniTile(c, cx + dp(72), tileY, "9", false);
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(12.5f));
+            paint.setColor(Color.rgb(117, 121, 116));
+            c.drawText(UiText.tr("choose", "выбери", "vyber"), cx, tileY + dp(57), paint);
+
+            float resultY = scene.bottom - dp(52);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(20));
+            paint.setColor(ink);
+            c.drawText("8 + 5 = 13", cx, resultY, paint);
+        }
+
+        void drawLibraryIntroUncertainty(Canvas c, RectF scene) {
+            float cx = scene.centerX();
+            float top = scene.top + dp(26);
+
+            RectF cell = new RectF(cx - dp(23), top, cx + dp(23), top + dp(46));
+            drawLibraryMiniCell(c, cell, "3  5", true, true);
+
+            float toolbarY = top + dp(72);
+            float buttonW = dp(43);
+            float gap = dp(9);
+            float total = buttonW * 4 + gap * 3;
+            float x = cx - total / 2f;
+            drawLibraryMiniButton(c, x, toolbarY, "↶", false, buttonW); x += buttonW + gap;
+            drawLibraryMiniButton(c, x, toolbarY, "✎", true, buttonW); x += buttonW + gap;
+            drawLibraryMiniButton(c, x, toolbarY, "+A", false, buttonW); x += buttonW + gap;
+            drawLibraryMiniButton(c, x, toolbarY, "?", false, buttonW);
+
+            float tileY = toolbarY + dp(60);
+            drawLibraryMiniTile(c, cx - dp(84), tileY, "3", true);
+            drawLibraryMiniTile(c, cx - dp(28), tileY, "5", true);
+            drawLibraryMiniTile(c, cx + dp(28), tileY, "7", false);
+            drawLibraryMiniTile(c, cx + dp(84), tileY, "9", false);
+
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(12));
+            paint.setColor(Color.rgb(118, 121, 116));
+            c.drawText(UiText.tr("possible values", "возможные значения", "možné hodnoty"),
+                    cx, tileY + dp(56), paint);
+
+            float refY = scene.bottom - dp(55);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(18));
+            paint.setColor(ink);
+            c.drawText("+A   →   A:", cx, refY, paint);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(12));
+            paint.setColor(Color.rgb(118, 121, 116));
+            c.drawText(UiText.tr("reference the cell in your notes", "ссылка на клетку в черновике", "odkaz na políčko v poznámkách"),
+                    cx, refY + dp(25), paint);
+        }
+
+        void drawLibraryIntroField(Canvas c, RectF scene) {
+            float cx = scene.centerX();
+            float gridSize = dp(34);
+            float gap = dp(3);
+            float startX = cx - (gridSize * 4 + gap * 3) / 2f;
+            float startY = scene.top + dp(28);
+            for (int row = 0; row < 4; row++) {
+                for (int col = 0; col < 4; col++) {
+                    RectF r = new RectF(startX + col * (gridSize + gap),
+                            startY + row * (gridSize + gap),
+                            startX + col * (gridSize + gap) + gridSize,
+                            startY + row * (gridSize + gap) + gridSize);
+                    boolean focus = row == 1 && col == 2;
+                    drawLibraryMiniCell(c, r, focus ? "A" : "", focus, false);
+                }
+            }
+
+            float chipTop = startY + dp(165);
+            float chipW = (scene.width() - dp(54)) / 2f;
+            float left = scene.left + dp(18);
+            drawLibraryGestureChip(c, left, chipTop, chipW,
+                    UiText.tr("Pinch", "Щипок", "Přiblížení"),
+                    UiText.tr("zoom in", "приблизить", "přiblížit"));
+            drawLibraryGestureChip(c, left + chipW + dp(18), chipTop, chipW,
+                    UiText.tr("Drag", "Перетянуть", "Posun"),
+                    UiText.tr("move the field", "двигать поле", "posunout pole"));
+            drawLibraryGestureChip(c, left, chipTop + dp(72), chipW,
+                    UiText.tr("Long press", "Долгое нажатие", "Dlouhý stisk"),
+                    UiText.tr("local focus", "локальный фокус", "místní fokus"));
+            drawLibraryGestureChip(c, left + chipW + dp(18), chipTop + dp(72), chipW,
+                    UiText.tr("Double tap", "Двойной тап", "Dvojité klepnutí"),
+                    UiText.tr("whole view", "общий вид", "celý pohled"));
+        }
+
+        void drawLibraryMiniCell(Canvas c, RectF r, String text, boolean active, boolean smallText) {
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(active ? selected : board);
+            c.drawRoundRect(r, dp(7), dp(7), paint);
+            stroke.setStyle(Paint.Style.STROKE);
+            stroke.setStrokeWidth(active ? dp(2) : dp(1));
+            stroke.setColor(active ? accent : Color.rgb(188, 191, 185));
+            c.drawRoundRect(r, dp(7), dp(7), stroke);
+            if (!text.isEmpty()) {
+                paint.setTextAlign(Paint.Align.CENTER);
+                paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+                paint.setTextSize(dp(smallText ? 11f : 15f));
+                paint.setColor(ink);
+                Paint.FontMetrics fm = paint.getFontMetrics();
+                c.drawText(text, r.centerX(), r.centerY() - (fm.ascent + fm.descent) / 2f, paint);
+            }
+        }
+
+        void drawLibraryMiniTile(Canvas c, float cx, float top, String text, boolean active) {
+            RectF r = new RectF(cx - dp(22), top, cx + dp(22), top + dp(39));
+            drawLibraryMiniCell(c, r, text, active, false);
+        }
+
+        void drawLibraryMiniButton(Canvas c, float left, float top, String text, boolean active, float width) {
+            RectF r = new RectF(left, top, left + width, top + dp(36));
+            drawLibraryMiniCell(c, r, text, active, false);
+        }
+
+        void drawLibraryGestureChip(Canvas c, float left, float top, float width, String title, String subtitle) {
+            RectF r = new RectF(left, top, left + width, top + dp(58));
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(board);
+            c.drawRoundRect(r, dp(10), dp(10), paint);
+            stroke.setStyle(Paint.Style.STROKE);
+            stroke.setStrokeWidth(dp(1));
+            stroke.setColor(Color.rgb(205, 207, 202));
+            c.drawRoundRect(r, dp(10), dp(10), stroke);
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setColor(ink);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(11.5f));
+            c.drawText(title, r.centerX(), r.top + dp(22), paint);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(10.5f));
+            paint.setColor(Color.rgb(105, 110, 105));
+            c.drawText(subtitle, r.centerX(), r.top + dp(42), paint);
         }
 
         void drawAnalysis(Canvas c) {
