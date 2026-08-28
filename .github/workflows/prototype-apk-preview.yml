@@ -11,11 +11,11 @@ permissions:
 
 jobs:
   apk:
-    if: startsWith(github.head_ref, 'prototype/')
+    if: startsWith(github.head_ref, 'prototype/') || startsWith(github.head_ref, 'ux/')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - name: Check out prototype branch
+      - name: Check out preview branch
         uses: actions/checkout@v5
         with:
           ref: ${{ github.head_ref }}
@@ -79,10 +79,10 @@ jobs:
             "$RUNNER_TEMP/preview-aligned.apk"
           "$apksigner" verify "$RUNNER_TEMP/MathCrossword-prototype.apk"
 
-      - name: Upload installable prototype APK
+      - name: Upload installable preview APK
         uses: actions/upload-artifact@v4
         with:
-          name: MathCrossword-prototype-pr-${{ github.event.pull_request.number }}
+          name: MathCrossword-preview-pr-${{ github.event.pull_request.number }}
           path: ${{ runner.temp }}/MathCrossword-prototype.apk
           if-no-files-found: error
           retention-days: 14

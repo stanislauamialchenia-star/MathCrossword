@@ -21,8 +21,8 @@ android {
         applicationId 'com.offline.mathcrossword'
         minSdk 23
         targetSdk 36
-        // v1.50 adds the optional resizable in-game scratchpad and persistent A/B/C cell labels.
-        versionCode 50
-        versionName '1.50'
+        // v1.51 makes clearing a selected filled cell explicit while keeping repeat-tap as a shortcut.
+        versionCode 51
+        versionName '1.51'
     }
 }
