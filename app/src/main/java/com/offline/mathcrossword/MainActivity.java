@@ -1120,14 +1120,16 @@ public class MainActivity extends Activity {
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             paint.setTextSize(dp(15.5f));
             paint.setColor(ink);
-            float y = drawWrappedText(c, entry.idea, left + dp(14), scene.bottom + dp(27),
+            // Center-aligned intro copy must use the scene center as its text anchor.
+            // Using the left content inset here would center half the line off-screen.
+            float y = drawWrappedText(c, entry.idea, scene.centerX(), scene.bottom + dp(27),
                     width - dp(28), dp(21));
 
             if (!entry.example.isEmpty()) {
                 paint.setTypeface(android.graphics.Typeface.DEFAULT);
                 paint.setTextSize(dp(12.5f));
                 paint.setColor(Color.rgb(118, 121, 116));
-                y = drawWrappedText(c, entry.example, left + dp(14), y + dp(13),
+                y = drawWrappedText(c, entry.example, scene.centerX(), y + dp(13),
                         width - dp(28), dp(18));
             }
             paint.setTextAlign(Paint.Align.LEFT);

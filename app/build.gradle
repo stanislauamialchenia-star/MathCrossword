@@ -21,8 +21,8 @@ android {
         applicationId 'com.offline.mathcrossword'
         minSdk 23
         targetSdk 36
-        // Prototype-only bump for the first visual onboarding cards in Solution Library.
-        versionCode 57
-        versionName '1.57-preview'
+        // Prototype-only bump for the intro-card text alignment fix.
+        versionCode 58
+        versionName '1.58-preview'
     }
 }
