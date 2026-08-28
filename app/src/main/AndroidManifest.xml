@@ -7,7 +7,7 @@
         android:label="MathCrossword"
         android:theme="@style/AppTheme">
         <activity
-            android:name=".MainActivity"
+            android:name=".ClearableMainActivity"
             android:screenOrientation="portrait"
             android:exported="true">
             <intent-filter>
