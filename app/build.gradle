@@ -21,8 +21,8 @@ android {
         applicationId 'com.offline.mathcrossword'
         minSdk 23
         targetSdk 36
-        // Prototype-only bump for the intro-card text alignment fix.
-        versionCode 58
-        versionName '1.58-preview'
+        // v1.50 adds the optional resizable in-game scratchpad and persistent A/B/C cell labels.
+        versionCode 50
+        versionName '1.50'
     }
 }
