@@ -10,6 +10,7 @@ final class SolutionLibrary {
         static final int INTRO_UNCERTAINTY = 2;
         static final int INTRO_FIELD = 3;
         static final int STRATEGY_DIRECT = 4;
+        static final int STRATEGY_INTERSECTION = 5;
 
         final int introType;
         final String title;
@@ -77,16 +78,17 @@ final class SolutionLibrary {
                             "Po tahu zkontroluj křížení."),
                     ""),
             new Entry(
+                    Entry.STRATEGY_INTERSECTION,
                     UiText.tr("2. Intersecting constraints", "2. Пересечение ограничений", "2. Průnik omezení"),
                     UiText.tr(
-                            "One row allows several options, but a neighboring row narrows them to one.",
-                            "Одна строка допускает несколько вариантов, но соседняя строка сужает их до одного.",
-                            "Jeden řádek připouští několik možností, ale sousední řádek je zúží na jedinou."),
-                    "A + B = 24\nB × 3 = 21",
+                            "One connection can determine another.",
+                            "Одна связь может определить другую.",
+                            "Jedna vazba může určit druhou."),
                     UiText.tr(
-                            "From the second row B = 7. Then A = 17. Look for cells that participate in several equations at once.",
-                            "Из второй строки B = 7. Тогда A = 17. Главное — искать клетки, которые участвуют сразу в нескольких уравнениях.",
-                            "Z druhého řádku vyplývá B = 7. Potom A = 17. Hledej hlavně políčka, která současně patří do více rovnic.")),
+                            "Look for cells that belong to several equations.",
+                            "Ищи клетки, которые участвуют сразу в нескольких уравнениях.",
+                            "Hledej políčka, která patří do více rovnic."),
+                    ""),
             new Entry(
                     UiText.tr("3. Candidates", "3. Кандидаты", "3. Kandidáti"),
                     UiText.tr(
