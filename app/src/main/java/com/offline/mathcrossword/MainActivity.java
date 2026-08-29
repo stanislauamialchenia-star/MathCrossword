@@ -1120,8 +1120,10 @@ public class MainActivity extends Activity {
                 drawLibraryStrategyIntersection(c, scene);
             } else if (entry.introType == SolutionLibrary.Entry.STRATEGY_CANDIDATES) {
                 drawLibraryStrategyCandidates(c, scene);
-            } else {
+            } else if (entry.introType == SolutionLibrary.Entry.STRATEGY_CHAIN) {
                 drawLibraryStrategyChain(c, scene);
+            } else {
+                drawLibraryStrategyHypothesis(c, scene);
             }
 
             paint.setTextAlign(Paint.Align.CENTER);
@@ -1465,6 +1467,81 @@ public class MainActivity extends Activity {
                     "результат → следующая точка входа",
                     "výsledek → další vstupní bod"),
                     cx, scene.bottom - dp(18), paint);
+        }
+
+        void drawLibraryStrategyHypothesis(Canvas c, RectF scene) {
+            float cx = scene.centerX();
+            float top = scene.top + dp(28);
+
+            // Two plausible candidates: neither is yet the answer.
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(15));
+            paint.setColor(ink);
+            c.drawText("A", cx - dp(68), top + dp(27), paint);
+            drawLibraryMiniTile(c, cx - dp(12), top + dp(2), "6", true);
+            drawLibraryMiniTile(c, cx + dp(44), top + dp(2), "9", true);
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(11.5f));
+            paint.setColor(Color.rgb(118, 121, 116));
+            c.drawText(UiText.tr("two live options", "два живых варианта", "dvě možné varianty"),
+                    cx, top + dp(68), paint);
+
+            // Open one temporary branch.
+            float assumeY = top + dp(105);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(16));
+            paint.setColor(accent);
+            c.drawText(UiText.tr("assume A = 6", "допустим A = 6", "předpokládej A = 6"),
+                    cx, assumeY, paint);
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(15));
+            paint.setColor(Color.rgb(112, 116, 111));
+            c.drawText("↓", cx, assumeY + dp(28), paint);
+
+            float step1 = assumeY + dp(63);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(17));
+            paint.setColor(ink);
+            c.drawText("A + B = 14   →   B = 8", cx, step1, paint);
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(15));
+            paint.setColor(Color.rgb(112, 116, 111));
+            c.drawText("↓", cx, step1 + dp(29), paint);
+
+            // The branch eventually asks for a value outside the integer puzzle domain.
+            float step2 = step1 + dp(66);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(17));
+            paint.setColor(ink);
+            c.drawText("8 × C = 20   →   C = 2.5", cx, step2, paint);
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(17));
+            paint.setColor(Color.rgb(145, 105, 101));
+            c.drawText("✕", scene.right - dp(34), step2, paint);
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(11.5f));
+            paint.setColor(Color.rgb(135, 120, 116));
+            c.drawText(UiText.tr("not an integer", "нецелое значение", "není celé číslo"),
+                    cx, step2 + dp(24), paint);
+
+            paint.setTextSize(dp(15));
+            paint.setColor(Color.rgb(112, 116, 111));
+            c.drawText("↓", cx, step2 + dp(52), paint);
+
+            // Reject only the tested branch; the surviving candidate becomes forced.
+            float resultY = scene.bottom - dp(39);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(17));
+            paint.setColor(Color.rgb(145, 105, 101));
+            c.drawText("A = 6  ✕", cx - dp(58), resultY, paint);
+            paint.setColor(accent);
+            c.drawText("A = 9  ✓", cx + dp(58), resultY, paint);
         }
 
         void drawLibraryIntroField(Canvas c, RectF scene) {

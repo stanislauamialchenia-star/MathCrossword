@@ -13,6 +13,7 @@ final class SolutionLibrary {
         static final int STRATEGY_INTERSECTION = 5;
         static final int STRATEGY_CANDIDATES = 6;
         static final int STRATEGY_CHAIN = 7;
+        static final int STRATEGY_HYPOTHESIS = 8;
 
         final int introType;
         final String title;
@@ -116,16 +117,17 @@ final class SolutionLibrary {
                             "Nepočítej znovu celé pole — pokračuj po nově otevřené vazbě."),
                     ""),
             new Entry(
+                    Entry.STRATEGY_HYPOTHESIS,
                     UiText.tr("5. Hypothesis and contradiction", "5. Гипотеза и противоречие", "5. Hypotéza a rozpor"),
                     UiText.tr(
-                            "When two options remain equally plausible, test one temporarily. This is not blind guessing: the branch must produce consequences you can verify.",
-                            "Когда два варианта остаются равноправными, временно допустимо проверить один из них. Это не слепое угадывание: ветка должна приводить к проверяемым последствиям.",
-                            "Když zůstanou dvě stejně pravděpodobné možnosti, jednu dočasně otestuj. Není to slepé hádání: větev musí vést k ověřitelným důsledkům."),
-                    UiText.tr("A ∈ {6, 9}. Assume A = 6…", "A ∈ {6, 9}. Допустим A = 6…", "A ∈ {6, 9}. Předpokládej A = 6…"),
+                            "Test one option until a concrete contradiction appears.",
+                            "Проверь один вариант до конкретного противоречия.",
+                            "Otestuj jednu možnost až ke konkrétnímu rozporu."),
                     UiText.tr(
-                            "Follow several forced consequences. If you get a non-integer division, an impossible negative result or a missing tile, the branch is impossible, so A = 9.",
-                            "Проведи несколько обязательных следствий. Если получаешь деление с остатком, отрицательный результат или отсутствие плитки — ветка невозможна, значит A = 9.",
-                            "Proveď několik nutných důsledků. Pokud dostaneš dělení se zbytkem, nemožný záporný výsledek nebo chybějící dílek, větev je nemožná, takže A = 9.")),
+                            "A hypothesis is a temporary move, not an answer.",
+                            "Гипотеза — временный ход, а не ответ.",
+                            "Hypotéza je dočasný tah, ne odpověď."),
+                    ""),
             new Entry(
                     UiText.tr("6. Network and cycle", "6. Сеть и цикл", "6. Síť a cyklus"),
                     UiText.tr(
