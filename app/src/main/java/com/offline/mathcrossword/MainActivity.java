@@ -1114,8 +1114,10 @@ public class MainActivity extends Activity {
                 drawLibraryIntroUncertainty(c, scene);
             } else if (entry.introType == SolutionLibrary.Entry.INTRO_FIELD) {
                 drawLibraryIntroField(c, scene);
-            } else {
+            } else if (entry.introType == SolutionLibrary.Entry.STRATEGY_DIRECT) {
                 drawLibraryStrategyDirect(c, scene);
+            } else {
+                drawLibraryStrategyIntersection(c, scene);
             }
 
             paint.setTextAlign(Paint.Align.CENTER);
@@ -1267,6 +1269,54 @@ public class MainActivity extends Activity {
                     "одно неизвестное → одно обязательное значение",
                     "jedna neznámá → jedna nutná hodnota"),
                     cx, scene.bottom - dp(28), paint);
+        }
+
+        void drawLibraryStrategyIntersection(Canvas c, RectF scene) {
+            float cx = scene.centerX();
+            float sharedY = scene.top + dp(72);
+            float sharedX = cx + dp(6);
+
+            // Horizontal constraint: A + B = 24
+            paint.setTextAlign(Paint.Align.RIGHT);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(19));
+            paint.setColor(ink);
+            c.drawText("A +", sharedX - dp(31), sharedY, paint);
+
+            RectF shared = new RectF(sharedX - dp(22), sharedY - dp(31),
+                    sharedX + dp(22), sharedY + dp(13));
+            drawLibraryMiniCell(c, shared, "B", true, false);
+
+            paint.setTextAlign(Paint.Align.LEFT);
+            c.drawText("= 24", sharedX + dp(31), sharedY, paint);
+
+            // Vertical constraint shares the same B cell.
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(17));
+            paint.setColor(ink);
+            c.drawText("×", sharedX, shared.bottom + dp(31), paint);
+            c.drawText("3", sharedX, shared.bottom + dp(60), paint);
+            c.drawText("=", sharedX, shared.bottom + dp(89), paint);
+            c.drawText("21", sharedX, shared.bottom + dp(118), paint);
+
+            // The vertical relation resolves the shared value first.
+            float resolveY = scene.top + dp(244);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(18));
+            paint.setColor(accent);
+            c.drawText("B = 7", cx, resolveY, paint);
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(16));
+            paint.setColor(Color.rgb(112, 116, 111));
+            c.drawText("↓", cx, resolveY + dp(33), paint);
+
+            // Feed the resolved shared value back into the first equation.
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(18));
+            paint.setColor(ink);
+            c.drawText("A + 7 = 24   →   A = 17", cx, scene.bottom - dp(40), paint);
         }
 
         void drawLibraryIntroField(Canvas c, RectF scene) {
