@@ -11,6 +11,7 @@ final class SolutionLibrary {
         static final int INTRO_FIELD = 3;
         static final int STRATEGY_DIRECT = 4;
         static final int STRATEGY_INTERSECTION = 5;
+        static final int STRATEGY_CANDIDATES = 6;
 
         final int introType;
         final String title;
@@ -90,16 +91,17 @@ final class SolutionLibrary {
                             "Hledej políčka, která patří do více rovnic."),
                     ""),
             new Entry(
+                    Entry.STRATEGY_CANDIDATES,
                     UiText.tr("3. Candidates", "3. Кандидаты", "3. Kandidáti"),
                     UiText.tr(
-                            "If a cell cannot be determined yet, do not guess. Write down all valid values and shrink the list as new information appears.",
-                            "Если клетка пока не определяется, не угадывай. Запиши все допустимые значения и сокращай список по мере появления информации.",
-                            "Pokud zatím nelze políčko určit, nehádej. Zapiš všechny možné hodnoty a seznam zkracuj s přibývajícími informacemi."),
-                    UiText.tr("A can be {6, 9, 12}", "Для A подходят {6, 9, 12}", "Pro A připadají v úvahu {6, 9, 12}"),
+                            "Do not guess. Narrow the possibilities.",
+                            "Не угадывай. Сужай возможности.",
+                            "Nehádej. Zužuj možnosti."),
                     UiText.tr(
-                            "Compare each value with every equation touching the cell. If 12 makes one equation impossible, remove 12 without placing it as a final answer.",
-                            "Сравни каждое значение со всеми уравнениями клетки. Если 12 делает одно из них невозможным — вычеркни 12, не подставляя его как окончательный ответ.",
-                            "Porovnej každou hodnotu se všemi rovnicemi daného políčka. Pokud 12 udělá některou rovnici nemožnou, vyřaď 12 bez toho, abys ji vložil jako konečnou odpověď.")),
+                            "A smaller set is already progress.",
+                            "Меньшее множество — уже прогресс.",
+                            "Menší množina už je pokrok."),
+                    ""),
             new Entry(
                     UiText.tr("4. Chain", "4. Цепочка", "4. Řetězec"),
                     UiText.tr(
