@@ -1116,8 +1116,10 @@ public class MainActivity extends Activity {
                 drawLibraryIntroField(c, scene);
             } else if (entry.introType == SolutionLibrary.Entry.STRATEGY_DIRECT) {
                 drawLibraryStrategyDirect(c, scene);
-            } else {
+            } else if (entry.introType == SolutionLibrary.Entry.STRATEGY_INTERSECTION) {
                 drawLibraryStrategyIntersection(c, scene);
+            } else {
+                drawLibraryStrategyCandidates(c, scene);
             }
 
             paint.setTextAlign(Paint.Align.CENTER);
@@ -1317,6 +1319,71 @@ public class MainActivity extends Activity {
             paint.setTextSize(dp(18));
             paint.setColor(ink);
             c.drawText("A + 7 = 24   →   A = 17", cx, scene.bottom - dp(40), paint);
+        }
+
+        void drawLibraryStrategyCandidates(Canvas c, RectF scene) {
+            float cx = scene.centerX();
+
+            // Start with a real state of uncertainty: several candidates are still valid for A.
+            float top = scene.top + dp(34);
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(16));
+            paint.setColor(ink);
+            c.drawText("A", cx - dp(106), top + dp(29), paint);
+
+            float candidateY = top + dp(4);
+            drawLibraryMiniTile(c, cx - dp(48), candidateY, "6", true);
+            drawLibraryMiniTile(c, cx + dp(8), candidateY, "9", true);
+            drawLibraryMiniTile(c, cx + dp(64), candidateY, "12", true);
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(15));
+            paint.setColor(Color.rgb(112, 116, 111));
+            c.drawText("↓", cx, top + dp(78), paint);
+
+            // A neighboring constraint plus the available B tiles rules out one branch.
+            float equationY = top + dp(115);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(19));
+            paint.setColor(ink);
+            c.drawText("A + B = 14", cx, equationY, paint);
+
+            float bankY = equationY + dp(22);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(11.5f));
+            paint.setColor(Color.rgb(118, 121, 116));
+            c.drawText(UiText.tr("B can use", "для B доступны", "pro B jsou"), cx - dp(64), bankY + dp(25), paint);
+            drawLibraryMiniTile(c, cx + dp(18), bankY, "5", false);
+            drawLibraryMiniTile(c, cx + dp(70), bankY, "8", false);
+
+            float rejectY = bankY + dp(75);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(16));
+            paint.setColor(ink);
+            c.drawText("A = 12  →  B = 2", cx, rejectY, paint);
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(11.5f));
+            paint.setColor(Color.rgb(135, 120, 116));
+            c.drawText(UiText.tr("no tile 2", "плитки 2 нет", "dílek 2 chybí"), cx, rejectY + dp(22), paint);
+
+            paint.setTextSize(dp(15));
+            paint.setColor(Color.rgb(112, 116, 111));
+            c.drawText("↓", cx, rejectY + dp(50), paint);
+
+            // We do not need the final answer yet. Removing one impossible option is useful progress.
+            float resultY = scene.bottom - dp(55);
+            drawLibraryMiniTile(c, cx - dp(30), resultY, "6", true);
+            drawLibraryMiniTile(c, cx + dp(30), resultY, "9", true);
+
+            RectF removed = new RectF(cx + dp(70), resultY, cx + dp(114), resultY + dp(39));
+            drawLibraryMiniCell(c, removed, "12", false, false);
+            stroke.setStyle(Paint.Style.STROKE);
+            stroke.setStrokeWidth(dp(1.7f));
+            stroke.setColor(Color.rgb(145, 128, 123));
+            c.drawLine(removed.left + dp(8), removed.centerY(),
+                    removed.right - dp(8), removed.centerY(), stroke);
         }
 
         void drawLibraryIntroField(Canvas c, RectF scene) {
