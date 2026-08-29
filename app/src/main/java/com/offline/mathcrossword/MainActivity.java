@@ -1120,8 +1120,18 @@ public class MainActivity extends Activity {
                 drawLibraryStrategyIntersection(c, scene);
             } else if (entry.introType == SolutionLibrary.Entry.STRATEGY_CANDIDATES) {
                 drawLibraryStrategyCandidates(c, scene);
-            } else {
+            } else if (entry.introType == SolutionLibrary.Entry.STRATEGY_CHAIN) {
                 drawLibraryStrategyChain(c, scene);
+            } else if (entry.introType == SolutionLibrary.Entry.STRATEGY_HYPOTHESIS) {
+                drawLibraryStrategyHypothesis(c, scene);
+            } else if (entry.introType == SolutionLibrary.Entry.STRATEGY_NETWORK) {
+                drawLibraryStrategyNetwork(c, scene);
+            } else if (entry.introType == SolutionLibrary.Entry.STRATEGY_DIAGONAL) {
+                drawLibraryStrategyDiagonal(c, scene);
+            } else if (entry.introType == SolutionLibrary.Entry.STRATEGY_REVERSE) {
+                drawLibraryStrategyReverse(c, scene);
+            } else {
+                drawLibraryStrategyStuck(c, scene);
             }
 
             paint.setTextAlign(Paint.Align.CENTER);
@@ -1465,6 +1475,256 @@ public class MainActivity extends Activity {
                     "результат → следующая точка входа",
                     "výsledek → další vstupní bod"),
                     cx, scene.bottom - dp(18), paint);
+        }
+
+        void drawLibraryStrategyHypothesis(Canvas c, RectF scene) {
+            float cx = scene.centerX();
+            float top = scene.top + dp(28);
+
+            // Two plausible candidates: neither is yet the answer.
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(15));
+            paint.setColor(ink);
+            c.drawText("A", cx - dp(68), top + dp(27), paint);
+            drawLibraryMiniTile(c, cx - dp(12), top + dp(2), "6", true);
+            drawLibraryMiniTile(c, cx + dp(44), top + dp(2), "9", true);
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(11.5f));
+            paint.setColor(Color.rgb(118, 121, 116));
+            c.drawText(UiText.tr("two live options", "два живых варианта", "dvě možné varianty"),
+                    cx, top + dp(68), paint);
+
+            // Open one temporary branch.
+            float assumeY = top + dp(105);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(16));
+            paint.setColor(accent);
+            c.drawText(UiText.tr("assume A = 6", "допустим A = 6", "předpokládej A = 6"),
+                    cx, assumeY, paint);
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(15));
+            paint.setColor(Color.rgb(112, 116, 111));
+            c.drawText("↓", cx, assumeY + dp(28), paint);
+
+            float step1 = assumeY + dp(63);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(17));
+            paint.setColor(ink);
+            c.drawText("A + B = 14   →   B = 8", cx, step1, paint);
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(15));
+            paint.setColor(Color.rgb(112, 116, 111));
+            c.drawText("↓", cx, step1 + dp(29), paint);
+
+            // The branch eventually asks for a value outside the integer puzzle domain.
+            float step2 = step1 + dp(66);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(17));
+            paint.setColor(ink);
+            c.drawText("8 × C = 20   →   C = 2.5", cx, step2, paint);
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(17));
+            paint.setColor(Color.rgb(145, 105, 101));
+            c.drawText("✕", scene.right - dp(34), step2, paint);
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(11.5f));
+            paint.setColor(Color.rgb(135, 120, 116));
+            c.drawText(UiText.tr("not an integer", "нецелое значение", "není celé číslo"),
+                    cx, step2 + dp(24), paint);
+
+            paint.setTextSize(dp(15));
+            paint.setColor(Color.rgb(112, 116, 111));
+            c.drawText("↓", cx, step2 + dp(52), paint);
+
+            // Reject only the tested branch; the surviving candidate becomes forced.
+            float resultY = scene.bottom - dp(39);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(17));
+            paint.setColor(Color.rgb(145, 105, 101));
+            c.drawText("A = 6  ✕", cx - dp(58), resultY, paint);
+            paint.setColor(accent);
+            c.drawText("A = 9  ✓", cx + dp(58), resultY, paint);
+        }
+
+        void drawLibraryStrategyNetwork(Canvas c, RectF scene) {
+            float cx = scene.centerX();
+            float topY = scene.top + dp(48);
+            float midY = scene.top + dp(132);
+            float bottomY = scene.top + dp(216);
+            float leftX = cx - dp(78);
+            float rightX = cx + dp(78);
+
+            // Two independent routes leave A and meet again at E.
+            stroke.setStyle(Paint.Style.STROKE);
+            stroke.setStrokeWidth(dp(2));
+            stroke.setColor(Color.rgb(177, 183, 176));
+            c.drawLine(cx, topY + dp(20), leftX, midY, stroke);
+            c.drawLine(leftX, midY + dp(20), cx, bottomY, stroke);
+            c.drawLine(cx, topY + dp(20), rightX, midY, stroke);
+            c.drawLine(rightX, midY + dp(20), cx, bottomY, stroke);
+
+            RectF a = new RectF(cx - dp(21), topY - dp(20), cx + dp(21), topY + dp(22));
+            RectF b = new RectF(leftX - dp(21), midY - dp(20), leftX + dp(21), midY + dp(22));
+            RectF cNode = new RectF(rightX - dp(21), midY - dp(20), rightX + dp(21), midY + dp(22));
+            RectF e = new RectF(cx - dp(21), bottomY - dp(20), cx + dp(21), bottomY + dp(22));
+            drawLibraryMiniCell(c, a, "A", false, false);
+            drawLibraryMiniCell(c, b, "B", false, false);
+            drawLibraryMiniCell(c, cNode, "C", false, false);
+            drawLibraryMiniCell(c, e, "E", true, false);
+
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(11));
+            paint.setColor(Color.rgb(118, 121, 116));
+            c.drawText(UiText.tr("path 1", "путь 1", "cesta 1"), leftX - dp(22), midY - dp(34), paint);
+            c.drawText(UiText.tr("path 2", "путь 2", "cesta 2"), rightX + dp(22), midY - dp(34), paint);
+
+            float setY = scene.bottom - dp(68);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(14.5f));
+            paint.setColor(ink);
+            c.drawText("{5, 7}   ∩   {7, 9}", cx, setY, paint);
+            paint.setTextSize(dp(18));
+            paint.setColor(accent);
+            c.drawText("E = 7", cx, setY + dp(34), paint);
+        }
+
+        void drawLibraryStrategyDiagonal(Canvas c, RectF scene) {
+            float cx = scene.centerX();
+            float cell = dp(34);
+            float gap = dp(3);
+            float total = cell * 5 + gap * 4;
+            float startX = cx - total / 2f;
+            float startY = scene.top + dp(28);
+            String[] diagonal = {"8", "+", "?", "=", "13"};
+
+            for (int row = 0; row < 5; row++) {
+                for (int col = 0; col < 5; col++) {
+                    RectF r = new RectF(
+                            startX + col * (cell + gap),
+                            startY + row * (cell + gap),
+                            startX + col * (cell + gap) + cell,
+                            startY + row * (cell + gap) + cell);
+                    boolean onDiagonal = row == col;
+                    drawLibraryMiniCell(c, r, onDiagonal ? diagonal[row] : "", onDiagonal, false);
+                }
+            }
+
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(15));
+            paint.setColor(Color.rgb(112, 116, 111));
+            c.drawText("↓", cx, startY + total + dp(30), paint);
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(18));
+            paint.setColor(ink);
+            c.drawText("13 − 8 = 5", cx, startY + total + dp(67), paint);
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(11.5f));
+            paint.setColor(Color.rgb(118, 121, 116));
+            c.drawText(UiText.tr(
+                    "same equation, different direction",
+                    "то же уравнение, другое направление",
+                    "stejná rovnice, jiný směr"),
+                    cx, scene.bottom - dp(22), paint);
+        }
+
+        void drawLibraryStrategyReverse(Canvas c, RectF scene) {
+            float cx = scene.centerX();
+            float top = scene.top + dp(76);
+
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(24));
+            paint.setColor(ink);
+            c.drawText("?³ = 125", cx, top, paint);
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(12));
+            paint.setColor(Color.rgb(118, 121, 116));
+            c.drawText(UiText.tr("start from the result", "начни с результата", "začni od výsledku"),
+                    cx, top + dp(34), paint);
+
+            paint.setTextSize(dp(17));
+            paint.setColor(Color.rgb(112, 116, 111));
+            c.drawText("↓", cx, top + dp(66), paint);
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(22));
+            paint.setColor(accent);
+            c.drawText("∛125 = 5", cx, top + dp(111), paint);
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(17));
+            paint.setColor(Color.rgb(112, 116, 111));
+            c.drawText("↓", cx, top + dp(151), paint);
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(21));
+            paint.setColor(ink);
+            c.drawText("5³ = 125", cx, top + dp(197), paint);
+
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(11.5f));
+            paint.setColor(Color.rgb(118, 121, 116));
+            c.drawText(UiText.tr(
+                    "forward operation ↔ inverse operation",
+                    "прямая операция ↔ обратная операция",
+                    "přímá operace ↔ opačná operace"),
+                    cx, scene.bottom - dp(22), paint);
+        }
+
+        void drawLibraryStrategyStuck(Canvas c, RectF scene) {
+            float cx = scene.centerX();
+            float top = scene.top + dp(24);
+
+            RectF stuck = new RectF(cx - dp(23), top, cx + dp(23), top + dp(46));
+            drawLibraryMiniCell(c, stuck, "?", true, false);
+
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(11.5f));
+            paint.setColor(Color.rgb(118, 121, 116));
+            c.drawText(UiText.tr("the field is not moving", "поле не двигается", "pole se nehýbe"),
+                    cx, top + dp(68), paint);
+
+            paint.setTextSize(dp(16));
+            paint.setColor(Color.rgb(112, 116, 111));
+            c.drawText("↓", cx, top + dp(96), paint);
+
+            float chipTop = top + dp(118);
+            float chipW = (scene.width() - dp(54)) / 2f;
+            float left = scene.left + dp(18);
+            drawLibraryGestureChip(c, left, chipTop, chipW,
+                    UiText.tr("Candidates", "Кандидаты", "Kandidáti"),
+                    "{3, 5}");
+            drawLibraryGestureChip(c, left + chipW + dp(18), chipTop, chipW,
+                    UiText.tr("Crossings", "Пересечения", "Průniky"),
+                    "A ↔ B");
+            drawLibraryGestureChip(c, left, chipTop + dp(72), chipW,
+                    UiText.tr("Chain", "Цепочка", "Řetězec"),
+                    "A → B → C");
+            drawLibraryGestureChip(c, left + chipW + dp(18), chipTop + dp(72), chipW,
+                    UiText.tr("Hypothesis", "Гипотеза", "Hypotéza"),
+                    "A = 6 ?");
+
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(11.5f));
+            paint.setColor(Color.rgb(118, 121, 116));
+            c.drawText(UiText.tr(
+                    "change the way you inspect the same field",
+                    "измени способ смотреть на то же поле",
+                    "změň způsob, jak se díváš na stejné pole"),
+                    cx, scene.bottom - dp(22), paint);
         }
 
         void drawLibraryIntroField(Canvas c, RectF scene) {
