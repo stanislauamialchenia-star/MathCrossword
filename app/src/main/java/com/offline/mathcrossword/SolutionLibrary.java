@@ -12,6 +12,7 @@ final class SolutionLibrary {
         static final int STRATEGY_DIRECT = 4;
         static final int STRATEGY_INTERSECTION = 5;
         static final int STRATEGY_CANDIDATES = 6;
+        static final int STRATEGY_CHAIN = 7;
 
         final int introType;
         final String title;
@@ -103,16 +104,17 @@ final class SolutionLibrary {
                             "Menší množina už je pokrok."),
                     ""),
             new Entry(
+                    Entry.STRATEGY_CHAIN,
                     UiText.tr("4. Chain", "4. Цепочка", "4. Řetězec"),
                     UiText.tr(
-                            "Sometimes the important part is not the hardest calculation but the right entry point. One deduction opens the next, then another.",
-                            "Иногда важен не самый трудный расчёт, а правильная точка входа. Один вывод открывает следующий, тот — ещё один.",
-                            "Někdy není nejdůležitější nejtěžší výpočet, ale správný vstupní bod. Jeden závěr otevře další a ten zase další."),
-                    "A → B → C → D",
+                            "One deduction opens the next.",
+                            "Один вывод открывает следующий.",
+                            "Jeden závěr otevře další."),
                     UiText.tr(
-                            "Find the cell with the fewest candidates. Resolve it, then immediately revisit connected cells. Do not recalculate the whole board from scratch.",
-                            "Найди клетку с наименьшим числом кандидатов. Реши её, затем сразу пересмотри связанные клетки. Не пересчитывай всё поле с нуля.",
-                            "Najdi políčko s nejmenším počtem kandidátů. Vyřeš ho a hned znovu projdi propojená políčka. Nepočítej celé pole znovu od začátku.")),
+                            "Do not recalculate the whole field — follow the newly opened connection.",
+                            "Не пересчитывай всё поле — иди по открывшейся связи.",
+                            "Nepočítej znovu celé pole — pokračuj po nově otevřené vazbě."),
+                    ""),
             new Entry(
                     UiText.tr("5. Hypothesis and contradiction", "5. Гипотеза и противоречие", "5. Hypotéza a rozpor"),
                     UiText.tr(

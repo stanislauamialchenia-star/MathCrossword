@@ -1118,8 +1118,10 @@ public class MainActivity extends Activity {
                 drawLibraryStrategyDirect(c, scene);
             } else if (entry.introType == SolutionLibrary.Entry.STRATEGY_INTERSECTION) {
                 drawLibraryStrategyIntersection(c, scene);
-            } else {
+            } else if (entry.introType == SolutionLibrary.Entry.STRATEGY_CANDIDATES) {
                 drawLibraryStrategyCandidates(c, scene);
+            } else {
+                drawLibraryStrategyChain(c, scene);
             }
 
             paint.setTextAlign(Paint.Align.CENTER);
@@ -1384,6 +1386,85 @@ public class MainActivity extends Activity {
             stroke.setColor(Color.rgb(145, 128, 123));
             c.drawLine(removed.left + dp(8), removed.centerY(),
                     removed.right - dp(8), removed.centerY(), stroke);
+        }
+
+        void drawLibraryStrategyChain(Canvas c, RectF scene) {
+            float cx = scene.centerX();
+            float row1 = scene.top + dp(70);
+            float row2 = scene.top + dp(168);
+            float row3 = scene.top + dp(266);
+
+            // Step 1: the first forced value becomes the input for the next row.
+            RectF a = new RectF(cx - dp(112), row1 - dp(29), cx - dp(70), row1 + dp(13));
+            drawLibraryMiniCell(c, a, "?", true, false);
+            paint.setTextAlign(Paint.Align.LEFT);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(19));
+            paint.setColor(ink);
+            c.drawText("+ 3 = 7", cx - dp(58), row1, paint);
+
+            paint.setTextAlign(Paint.Align.RIGHT);
+            paint.setTextSize(dp(15));
+            paint.setColor(accent);
+            c.drawText("→ 4", scene.right - dp(24), row1, paint);
+
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(17));
+            paint.setColor(Color.rgb(112, 116, 111));
+            c.drawText("↓", cx, row1 + dp(48), paint);
+
+            // Step 2: reuse 4 immediately instead of searching the whole board again.
+            RectF known4 = new RectF(cx - dp(112), row2 - dp(29), cx - dp(70), row2 + dp(13));
+            drawLibraryMiniCell(c, known4, "4", true, false);
+            paint.setTextAlign(Paint.Align.LEFT);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(19));
+            paint.setColor(ink);
+            c.drawText("+", cx - dp(58), row2, paint);
+            RectF b = new RectF(cx - dp(32), row2 - dp(29), cx + dp(10), row2 + dp(13));
+            drawLibraryMiniCell(c, b, "?", true, false);
+            paint.setTextAlign(Paint.Align.LEFT);
+            c.drawText("= 10", cx + dp(22), row2, paint);
+
+            paint.setTextAlign(Paint.Align.RIGHT);
+            paint.setTextSize(dp(15));
+            paint.setColor(accent);
+            c.drawText("→ 6", scene.right - dp(24), row2, paint);
+
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(17));
+            paint.setColor(Color.rgb(112, 116, 111));
+            c.drawText("↓", cx, row2 + dp(48), paint);
+
+            // Step 3: the second result opens a third forced move.
+            RectF known6 = new RectF(cx - dp(112), row3 - dp(29), cx - dp(70), row3 + dp(13));
+            drawLibraryMiniCell(c, known6, "6", true, false);
+            paint.setTextAlign(Paint.Align.LEFT);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(19));
+            paint.setColor(ink);
+            c.drawText("×", cx - dp(58), row3, paint);
+            RectF cCell = new RectF(cx - dp(32), row3 - dp(29), cx + dp(10), row3 + dp(13));
+            drawLibraryMiniCell(c, cCell, "?", true, false);
+            paint.setTextAlign(Paint.Align.LEFT);
+            c.drawText("= 18", cx + dp(22), row3, paint);
+
+            paint.setTextAlign(Paint.Align.RIGHT);
+            paint.setTextSize(dp(15));
+            paint.setColor(accent);
+            c.drawText("→ 3", scene.right - dp(24), row3, paint);
+
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(11.5f));
+            paint.setColor(Color.rgb(118, 121, 116));
+            c.drawText(UiText.tr(
+                    "result → next entry point",
+                    "результат → следующая точка входа",
+                    "výsledek → další vstupní bod"),
+                    cx, scene.bottom - dp(18), paint);
         }
 
         void drawLibraryIntroField(Canvas c, RectF scene) {
