@@ -21,8 +21,8 @@ android {
         applicationId 'com.offline.mathcrossword'
         minSdk 23
         targetSdk 36
-        // Prototype-only bump for the visual Hypothesis strategy card.
-        versionCode 65
-        versionName '1.65-preview'
+        // Prototype-only build for the complete visual Solution Library.
+        versionCode 66
+        versionName '1.66-preview'
     }
 }
