@@ -21,8 +21,8 @@ android {
         applicationId 'com.offline.mathcrossword'
         minSdk 23
         targetSdk 36
-        // Prototype-only bump for the visual Chain strategy card.
-        versionCode 64
-        versionName '1.64-preview'
+        // v1.60 promotes the unified solution workbench and visual Solution Library onboarding to stable.
+        versionCode 60
+        versionName '1.60'
     }
 }
