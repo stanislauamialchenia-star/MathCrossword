@@ -1888,6 +1888,51 @@ public class MainActivity extends Activity {
             paint.setColor(ink);
             paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             paint.setTextSize(dp(15.5f));
+            c.drawText(UiText.tr("Solver-invariant checkpoint", "Эксперимент: инвариант решателя", "Experiment: invariant řešiče"), side, y, paint);
+            y += dp(23);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            paint.setTextSize(dp(12.8f));
+            paint.setColor(Color.rgb(68, 80, 70));
+            String coverageLine = "D " + a.invariantGraphVisitsByStrategy.getOrDefault("DEDUCTION", 0)
+                    + " · C " + a.invariantGraphVisitsByStrategy.getOrDefault("CHAIN", 0)
+                    + " · H " + a.invariantGraphVisitsByStrategy.getOrDefault("HYPOTHESIS", 0)
+                    + " · N " + a.invariantGraphVisitsByStrategy.getOrDefault("NETWORK", 0)
+                    + " · M " + a.invariantGraphVisitsByStrategy.getOrDefault("MIXED", 0);
+            c.drawText(UiText.tr("Graph evidence: ", "Граф-свидетельства: ", "Grafové důkazy: ")
+                    + a.invariantGraphVisits + " · " + coverageLine, side, y, paint);
+            y += dp(20);
+            String invariantStatus;
+            if (a.invariantReadyForReview) {
+                invariantStatus = UiText.tr(
+                        "Checkpoint ready for first cross-strategy review",
+                        "Чекпоинт готов к первому сравнению стратегий",
+                        "Checkpoint je připraven k prvnímu porovnání strategií");
+            } else {
+                StringBuilder missing = new StringBuilder();
+                String[] requested = {"DEDUCTION", "CHAIN", "HYPOTHESIS", "NETWORK", "MIXED"};
+                for (String strategy : requested) {
+                    if (a.invariantGraphVisitsByStrategy.getOrDefault(strategy, 0) > 0) continue;
+                    if (missing.length() > 0) missing.append(", ");
+                    missing.append(strategyLabel(strategy));
+                }
+                invariantStatus = missing.length() > 0
+                        ? UiText.tr("Need graph evidence for: ", "Нужны граф-сессии для: ", "Chybí grafová data pro: ") + missing
+                        : UiText.tr("Need at least 10 graph-evidence visits", "Нужно минимум 10 посещений с граф-свидетельствами", "Je potřeba alespoň 10 návštěv s grafovými daty");
+            }
+            y = drawWrappedText(c, invariantStatus, side, y, w - side * 2, dp(18));
+            if (a.invariantStrongEvidenceVisits > 0 || a.invariantManualReviewVisits > 0) {
+                y += dp(1);
+                c.drawText(UiText.tr("Strong evidence ", "Сильных свидетельств ", "Silných důkazů ")
+                        + a.invariantStrongEvidenceVisits
+                        + UiText.tr(" · manual review ", " · ручная проверка ", " · ruční kontrola ")
+                        + a.invariantManualReviewVisits, side, y, paint);
+                y += dp(20);
+            }
+            y += dp(5);
+
+            paint.setColor(ink);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(15.5f));
             c.drawText(UiText.tr("Difficulty calibration", "Калибровка сложности", "Kalibrace obtížnosti"), side, y, paint); y += dp(23);
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
             paint.setTextSize(dp(13.2f));
