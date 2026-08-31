@@ -246,21 +246,28 @@ public class MainActivity extends Activity {
         if (gameView == null) return;
         styleScratchpadWorkbenchAction(scratchpadUndoAction, false, !gameView.undoStack.isEmpty());
         styleScratchpadWorkbenchAction(scratchpadCandidateModeAction, gameView.candidateMode, true);
+        String existingLabel = gameView.selectedScratchpadCellLabel();
         String insertLabel = gameView.previewSelectedScratchpadCellLabel();
         boolean canInsert = insertLabel != null;
+        boolean removesExisting = existingLabel != null;
         if (scratchpadInsertAction != null) {
-            scratchpadInsertAction.setText(canInsert ? "+" + insertLabel : "⊞");
+            scratchpadInsertAction.setText(canInsert ? (removesExisting ? "−" : "+") + insertLabel : "⊞");
             scratchpadInsertAction.setContentDescription(canInsert
-                    ? UiText.tr(
-                            "Insert cell " + insertLabel,
-                            "Вставить клетку " + insertLabel,
-                            "Vložit buňku " + insertLabel)
+                    ? (removesExisting
+                            ? UiText.tr(
+                                    "Remove cell reference " + insertLabel,
+                                    "Убрать ссылку " + insertLabel + " с клетки",
+                                    "Odebrat odkaz " + insertLabel + " z políčka")
+                            : UiText.tr(
+                                    "Insert cell " + insertLabel,
+                                    "Вставить клетку " + insertLabel,
+                                    "Vložit buňku " + insertLabel))
                     : UiText.tr(
                             "Select a hidden cell to reference it",
                             "Выбери скрытую клетку, чтобы сослаться на неё",
                             "Vyber skrytou buňku pro vytvoření odkazu"));
         }
-        styleScratchpadWorkbenchAction(scratchpadInsertAction, false, canInsert);
+        styleScratchpadWorkbenchAction(scratchpadInsertAction, removesExisting, canInsert);
         refreshScratchpadCandidateShelf();
     }
 
@@ -462,6 +469,18 @@ public class MainActivity extends Activity {
 
     void insertSelectedCellIntoScratchpad() {
         if (gameView == null) return;
+
+        String existingRef = gameView.selectedScratchpadCellLabel();
+        if (existingRef != null) {
+            Pos selected = gameView.selectedCell;
+            gameView.removeSelectedScratchpadCellLabel();
+            if (selected != null) {
+                gameView.tracker.event("scratchpad_remove_cell", selected.x, selected.y, 1, existingRef);
+            }
+            refreshScratchpadWorkbenchState();
+            return;
+        }
+
         String ref = gameView.ensureSelectedScratchpadCellLabel();
         if (ref == null) {
             Toast.makeText(this, UiText.tr(
@@ -2556,7 +2575,21 @@ public class MainActivity extends Activity {
                 float left = originX + pos.x * cellSize;
                 float top = originY + pos.y * cellSize;
                 RectF r = new RectF(left, top, left + cellSize, top + cellSize);
-                drawCandidateNotes(c, r, notes, selectedCell != null && selectedCell.equals(pos));
+
+                // A cell reference and candidate notes are two independent layers.
+                // Reserve a slim top lane for the reference badge instead of drawing both
+                // into the same candidate slot.
+                RectF notesRect = r;
+                if (scratchpadCellLabels.containsKey(pos)) {
+                    float inset = Math.max(dp(1.2f), cellSize * 0.035f);
+                    float badgeSize = scratchpadOverlayOpen
+                            ? Math.min(dp(17f), Math.max(dp(11f), cellSize * 0.28f))
+                            : Math.min(dp(15f), Math.max(dp(10f), cellSize * 0.24f));
+                    float reservedTop = Math.min(r.bottom - dp(6f),
+                            r.top + inset + badgeSize + Math.max(dp(1f), cellSize * 0.025f));
+                    notesRect = new RectF(r.left, reservedTop, r.right, r.bottom);
+                }
+                drawCandidateNotes(c, notesRect, notes, selectedCell != null && selectedCell.equals(pos));
             }
         }
 
@@ -2661,10 +2694,25 @@ public class MainActivity extends Activity {
             return Character.toString((char) ('A' + (index % 26))) + (index / 26 + 1);
         }
 
+        String selectedScratchpadCellLabel() {
+            if (puzzle == null || selectedCell == null || !puzzle.hidden.contains(selectedCell)) return null;
+            return scratchpadCellLabels.get(selectedCell);
+        }
+
         String previewSelectedScratchpadCellLabel() {
             if (puzzle == null || selectedCell == null || !puzzle.hidden.contains(selectedCell)) return null;
-            String existing = scratchpadCellLabels.get(selectedCell);
+            String existing = selectedScratchpadCellLabel();
             return existing != null ? existing : scratchpadLabelForIndex(scratchpadNextLabel);
+        }
+
+        boolean removeSelectedScratchpadCellLabel() {
+            String existing = selectedScratchpadCellLabel();
+            if (existing == null) return false;
+            scratchpadCellLabels.remove(selectedCell);
+            // Deliberately do not decrement scratchpadNextLabel: A/B/C identities stay
+            // stable for the whole puzzle, so deleting B makes the next new label D.
+            invalidate();
+            return true;
         }
 
         String ensureSelectedScratchpadCellLabel() {
