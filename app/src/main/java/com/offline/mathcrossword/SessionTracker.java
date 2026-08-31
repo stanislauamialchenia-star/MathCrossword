@@ -256,6 +256,22 @@ final class SessionTracker {
             if (RunLifecycle.isExplicitDifficultyOutcome(runOutcome)) calibrationSamples.add(calibration);
         }
 
+        JSONObject invariant = SolverInvariantEvidence.aggregate(rows);
+        out.invariantGraphVisits = invariant.optInt("visitsWithRealizedGraphTrace", 0);
+        out.invariantStrongEvidenceVisits = invariant.optInt("strongEvidenceVisits", 0);
+        out.invariantManualReviewVisits = invariant.optInt("manualReviewSuggestedVisits", 0);
+        out.invariantAllStrategiesCovered = invariant.optBoolean("allRequestedStrategiesHaveGraphEvidence", false);
+        out.invariantReadyForReview = invariant.optBoolean("readyForFirstCrossStrategyReview", false);
+        JSONObject invariantByStrategy = invariant.optJSONObject("byStrategy");
+        if (invariantByStrategy != null) {
+            String[] requested = {"DEDUCTION", "CHAIN", "HYPOTHESIS", "NETWORK", "MIXED"};
+            for (String strategy : requested) {
+                JSONObject coverage = invariantByStrategy.optJSONObject(strategy);
+                out.invariantGraphVisitsByStrategy.put(strategy,
+                        coverage == null ? 0 : coverage.optInt("graphVisits", 0));
+            }
+        }
+
         DifficultyCalibrator.Result calibrationResult = DifficultyCalibrator.calibrate(calibrationSamples);
         out.calibrationReady = calibrationResult.ready;
         out.calibrationSessions = calibrationResult.usableSessions;
@@ -600,6 +616,12 @@ final class SessionTracker {
         int lastObservedBand;
         double recentObservedCostChangePct;
         int calibrationGeneratorVersion;
+        int invariantGraphVisits;
+        int invariantStrongEvidenceVisits;
+        int invariantManualReviewVisits;
+        boolean invariantAllStrategiesCovered;
+        boolean invariantReadyForReview;
+        final Map<String, Integer> invariantGraphVisitsByStrategy = new LinkedHashMap<>();
         final List<StrategyStats> byStrategy = new ArrayList<>();
         final List<SessionSummary> recent = new ArrayList<>();
     }
